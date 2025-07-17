@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Cathedral memory store management CLI."""
+"""Cathedral memory store management CLI!"""
 
 import argparse
 import json
