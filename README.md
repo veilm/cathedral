@@ -29,6 +29,9 @@ will be overly polluted after a few hundred memory nodes are stored
 	- have a tree-like section at the top (in the same general realm as Wikipedia's Table of Contents --> Categories --> broad topic article --> precise subtopic article) for better initial discoverability
 		- should include some core meta context about the user and the model and the memory system
 	- most nodes are semantic but you also have a separate episodic section, that can also link back and forth to semantic
+- retrieval is intelligent and dynamic
+	- => LLM tool-use agent (e.g. hinata) thinks -> retrieves -> thinks ->
+	retrieves -> thinks -> produces final response to human
 
 ## license
 MIT
