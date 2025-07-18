@@ -40,5 +40,37 @@ inconsistencies between memories that need to be fixed,which isn't fatal given
 that humans experience similar issues periodically.
 [more](./research/1752794048-dr-wiki-reflection.md)
 
+## implementation - structure
+memory store: static human mind's worth of knowledge. you can have multiple
+when you deliberately wish for some knowledge to not be available.  this is for
+cases where the N sides of knowledge are contradictory - not for performance
+reasons!
+
+ver 2
+```
+my-memory-store/
+├── index.md # abstraction of entirety of semantic/ and episodic/
+├── sucralose.md # ~semantic of primary human. see note below
+├── raw/
+│   ├── 20210512-meeting-00-0000-human.md # raw human message, within meeting
+│   │                                       (0/99 => 1/100 for 20210512)
+│   ├── 20210512-meeting-00-0001-model.md # raw model response
+│   └── ...
+├── episodic/
+│   ├── 2021-05-12-meeting-00.md # abstraction of one specific discussion
+│   ├── 2021-04.md # abstraction of entire set of experiences of Apr 2021,
+│   └── ...
+└── semantic/
+    ├── sleep.md
+    ├── polymarket.md
+    └── ...
+```
+
+- maybe we can move aether to semantic/ and avoid making it special. then the
+only special thing we'll have is... making index.md have like 3000 token limit
+instead of 1000. that seems cleaner
+
+[see precise iterations](./example)
+
 ## license
 MIT
