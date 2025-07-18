@@ -56,6 +56,13 @@ class CathedralConfig:
         config["stores"][name] = path
         self._save_config(config)
 
+    def remove_store(self, name: str):
+        """Remove a memory store from the configuration."""
+        config = self._load_config()
+        if "stores" in config and name in config["stores"]:
+            del config["stores"][name]
+            self._save_config(config)
+
     def list_stores(self) -> Dict[str, str]:
         """List all known memory stores."""
         config = self._load_config()
@@ -104,11 +111,11 @@ class CathedralCLI:
             # Add to configuration
             self.config.add_store(name, str(store_path))
 
-            # If this is the first store, make it active
-            if not self.config.get_active_store():
-                self.config.set_active_store(str(store_path))
+            # Make the new store active
+            self.config.set_active_store(str(store_path))
 
             print(f"Created memory store '{name}' at {store_path}")
+            print(f"Switched to new store '{name}'.")
             return True
 
         except Exception as e:
@@ -142,6 +149,35 @@ class CathedralCLI:
 
         self.config.set_active_store(store_path)
         print(f"Switched to store '{name}' at {store_path}")
+        return True
+
+    def unlink_store(self, name: str) -> bool:
+        """Unlink a memory store from the configuration, without deleting files."""
+        stores = self.config.list_stores()
+        if name not in stores:
+            print(f"Error: Store '{name}' not found.")
+            return False
+
+        store_path_to_unlink = stores[name]
+        active_store_path = self.config.get_active_store()
+        was_active = store_path_to_unlink == active_store_path
+
+        self.config.remove_store(name)
+        print(
+            f"Unlinked store '{name}'. The directory at {store_path_to_unlink} was not removed."
+        )
+
+        if was_active:
+            remaining_stores = self.config.list_stores()
+            if remaining_stores:
+                # Sort by name and pick the first
+                first_store_name = sorted(remaining_stores.keys())[0]
+                new_active_path = remaining_stores[first_store_name]
+                self.config.set_active_store(new_active_path)
+                print(f"Active store was unlinked. Switched to '{first_store_name}'.")
+            else:
+                self.config.set_active_store(None)
+                print("Active store was unlinked. No other stores available.")
         return True
 
     def show_active(self):
@@ -271,6 +307,7 @@ Examples:
   cathedral create work ~/work/mem           # Create a store at specific path
   cathedral list                             # List all memory stores
   cathedral switch work                      # Switch to the 'work' store
+  cathedral unlink work                      # Remove 'work' from config, but keep files
   cathedral active                           # Show the currently active store
   cathedral init-episodic-session            # Create session for today
   cathedral init-episodic-session --date 2021-05-12  # Create session for specific date
@@ -295,6 +332,13 @@ Examples:
         "switch", help="Switch to a different memory store"
     )
     switch_parser.add_argument("name", help="Name of the store to switch to")
+
+    # Unlink command
+    unlink_parser = subparsers.add_parser(
+        "unlink",
+        help="Unlink a memory store from config (does not delete files)",
+    )
+    unlink_parser.add_argument("name", help="Name of the store to unlink")
 
     # Active command
     active_parser = subparsers.add_parser(
@@ -331,6 +375,10 @@ Examples:
 
     elif args.command == "switch":
         success = cli.switch_store(args.name)
+        return 0 if success else 1
+
+    elif args.command == "unlink":
+        success = cli.unlink_store(args.name)
         return 0 if success else 1
 
     elif args.command == "active":
