@@ -5,6 +5,7 @@ import argparse
 import json
 import os
 import sys
+from datetime import datetime
 from pathlib import Path
 from typing import Optional, Dict, List
 
@@ -90,6 +91,11 @@ class CathedralCLI:
         try:
             store_path.mkdir(parents=True, exist_ok=True)
 
+            # Create the required subdirectories
+            (store_path / "episodic").mkdir(exist_ok=True)
+            (store_path / "episodic-raw").mkdir(exist_ok=True)
+            (store_path / "semantic").mkdir(exist_ok=True)
+
             # Create index.md file by copying the blank index from the grimoire
             blank_index_path = self.config.config_dir / "grimoire" / "index-blank.md"
             meta_file = store_path / "index.md"
@@ -157,6 +163,102 @@ class CathedralCLI:
         else:
             print("No active memory store. Create one with 'cathedral create <name>'")
 
+    def _parse_date_input(self, date_input: str) -> str:
+        """Parse date input and return YYYYMMDD format."""
+        # Check if it's already in YYYYMMDD format
+        if len(date_input) == 8 and date_input.isdigit():
+            return date_input
+
+        # Check if it's in YYYY-MM-DD format
+        if len(date_input) == 10 and date_input[4] == "-" and date_input[7] == "-":
+            return date_input.replace("-", "")
+
+        # Otherwise, assume it's a unix timestamp
+        try:
+            timestamp = int(date_input)
+            # Check if it's in nanoseconds (19 digits), milliseconds (13 digits), or seconds (10 digits)
+            if len(str(timestamp)) >= 19:
+                timestamp = timestamp // 1_000_000_000  # Convert nanoseconds to seconds
+            elif len(str(timestamp)) >= 13:
+                timestamp = timestamp // 1000  # Convert milliseconds to seconds
+
+            # Convert to local datetime
+            dt = datetime.fromtimestamp(timestamp)
+            return dt.strftime("%Y%m%d")
+        except ValueError:
+            raise ValueError(f"Invalid date format: {date_input}")
+
+    def _get_next_session_name(self, date_dir: Path) -> str:
+        """Get the next available session name in the pattern A, B, ..., Z, AA, AB, ..."""
+        existing_sessions = set()
+        if date_dir.exists():
+            for item in date_dir.iterdir():
+                if item.is_dir() and item.name.isalpha() and item.name.isupper():
+                    existing_sessions.add(item.name)
+
+        # Generate session names in order
+        import string
+
+        # Single letters first
+        for letter in string.ascii_uppercase:
+            if letter not in existing_sessions:
+                return letter
+
+        # Then two letters
+        for first in string.ascii_uppercase:
+            for second in string.ascii_uppercase:
+                name = first + second
+                if name not in existing_sessions:
+                    return name
+
+        # Then three letters
+        for first in string.ascii_uppercase:
+            for second in string.ascii_uppercase:
+                for third in string.ascii_uppercase:
+                    name = first + second + third
+                    if name not in existing_sessions:
+                        return name
+
+        raise ValueError("No available session names (exhausted AAA)")
+
+    def init_episodic_session(self, date_input: Optional[str] = None) -> bool:
+        """Initialize a new episodic session."""
+        active_store = self.config.get_active_store()
+        if not active_store:
+            print(
+                "Error: No active memory store. Create one with 'cathedral create <name>'"
+            )
+            return False
+
+        # If no date provided, use today
+        if date_input is None:
+            date_str = datetime.now().strftime("%Y%m%d")
+        else:
+            try:
+                date_str = self._parse_date_input(date_input)
+            except ValueError as e:
+                print(f"Error: {e}")
+                return False
+
+        # Create the date directory in episodic-raw
+        store_path = Path(active_store)
+        episodic_raw_dir = store_path / "episodic-raw"
+        date_dir = episodic_raw_dir / date_str
+
+        # Create the date directory if it doesn't exist
+        date_dir.mkdir(parents=True, exist_ok=True)
+
+        # Get the next available session name
+        session_name = self._get_next_session_name(date_dir)
+
+        # Create the session directory
+        session_dir = date_dir / session_name
+        session_dir.mkdir(exist_ok=True)
+
+        # Output the relative path from episodic-raw
+        print(f"{date_str}/{session_name}")
+        return True
+
 
 def main():
     """Main CLI entry point."""
@@ -165,11 +267,14 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  cathedral create mystore          # Create a new store in ./mystore
-  cathedral create work ~/work/mem  # Create a store at specific path
-  cathedral list                    # List all memory stores
-  cathedral switch work             # Switch to the 'work' store
-  cathedral active                  # Show the currently active store
+  cathedral create mystore                   # Create a new store in ./mystore
+  cathedral create work ~/work/mem           # Create a store at specific path
+  cathedral list                             # List all memory stores
+  cathedral switch work                      # Switch to the 'work' store
+  cathedral active                           # Show the currently active store
+  cathedral init-episodic-session            # Create session for today
+  cathedral init-episodic-session --date 2021-05-12  # Create session for specific date
+  cathedral init-episodic-session --time 1620777600  # Create session from unix timestamp
         """,
     )
 
@@ -196,6 +301,17 @@ Examples:
         "active", help="Show the currently active store"
     )
 
+    # Init episodic session command
+    init_episodic_parser = subparsers.add_parser(
+        "init-episodic-session", help="Initialize a new episodic session"
+    )
+    init_episodic_parser.add_argument(
+        "--time",
+        "--date",
+        dest="date",
+        help="Date/time for the session (YYYY-MM-DD, YYYYMMDD, or unix timestamp)",
+    )
+
     args = parser.parse_args()
 
     # If no command specified, show help
@@ -220,6 +336,10 @@ Examples:
     elif args.command == "active":
         cli.show_active()
         return 0
+
+    elif args.command == "init-episodic-session":
+        success = cli.init_episodic_session(args.date)
+        return 0 if success else 1
 
     return 0
 
