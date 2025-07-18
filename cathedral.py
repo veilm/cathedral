@@ -90,9 +90,10 @@ class CathedralCLI:
         try:
             store_path.mkdir(parents=True, exist_ok=True)
 
-            # Create _meta.md file
-            meta_file = store_path / "_meta.md"
-            meta_file.write_text("# cathedral memory\n")
+            # Create index.md file by copying the blank index from the grimoire
+            blank_index_path = self.config.config_dir / "grimoire" / "index-blank.md"
+            meta_file = store_path / "index.md"
+            meta_file.write_text(blank_index_path.read_text())
 
             # Add to configuration
             self.config.add_store(name, str(store_path))
