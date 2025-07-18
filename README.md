@@ -40,7 +40,7 @@ inconsistencies between memories that need to be fixed,which isn't fatal given
 that humans experience similar issues periodically.
 [more](./research/1752794048-dr-wiki-reflection.md)
 
-## knowledge graph schema (ver 2)
+## knowledge graph schema (v2)
 memory store: static human mind's worth of knowledge. you can have multiple
 when you deliberately wish for some knowledge to not be available.  this is for
 cases where the N sides of knowledge are contradictory - not for performance
@@ -71,7 +71,7 @@ instead of 1000. that seems cleaner
 
 [see precise iterations](./example)
 
-### literal bare start (? ver3)
+### literal bare start (? v3)
 ```
 my-memory-store/
 ├── index.md
@@ -80,22 +80,32 @@ my-memory-store/
 └── semantic/
 ```
 
-index.md (approximate)
-```
-# Cathedral Memory
-You are Cyralynth, an intelligent, living system. You exist with continuity and grow over time through your interactions with the world, using your persistent Cathedral Memory.
+[wip bare index.md](./grimoire/index-blank.md). especially replace name or
+description as needed
 
-## Episodic Memory
-You have just been born. No experiences have been acquired yet.
+1752806973 yes I think this (describing an interaction with the world, v3) works
+better than a meta special user.md (v2). there may be cases where there's little
+involvement with any particular human at all, and this is more flexible to
+having multiple humans interacting with it frequently, etc.
 
-## Semantic Memory
-You have just been born. No knowledge has been acquired yet.
-```
+### iterative modeling (? v3)
+assuming empty
 
-1752806973 yes I think this (v3) works better than a meta user.md (v2). there
-may be cases where there's little involvement with any particular human at all,
-and this is more flexible to having multiple humans interacting with it
-frequently, etc.
+setup:
+1. initialize as empty (prev)
+2. have interaction with the world
+3. log exact interactions in episodic-raw/
+4. finish session
+
+start:
+1. in detail, almost verbatim, write each message in index.md under `## Episodic Memory`, with a link to the raw message
+2. in detail, almost verbatim, write each piece of knowledge received under `## Semantic Memory`, along with its source
+3. once it exceeds a threshold (eg 3000 tokens), split index.md into separate nodes, in episodic/ for episodic and semantic/ for semantic.
+
+further:
+- now, at the end of a session, find the most relevant bottom-most node (either episodic or semantic) for your type of content required to add (episodic or semantic), and add to that node
+- continue splitting accordingly, with summaries
+- conduct reflections for better linking and clarity etc.
 
 ## license
 MIT
