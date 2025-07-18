@@ -40,18 +40,17 @@ inconsistencies between memories that need to be fixed,which isn't fatal given
 that humans experience similar issues periodically.
 [more](./research/1752794048-dr-wiki-reflection.md)
 
-## implementation - structure
+## knowledge graph schema (ver 2)
 memory store: static human mind's worth of knowledge. you can have multiple
 when you deliberately wish for some knowledge to not be available.  this is for
 cases where the N sides of knowledge are contradictory - not for performance
 reasons!
 
-ver 2
 ```
 my-memory-store/
 ├── index.md # abstraction of entirety of semantic/ and episodic/
 ├── sucralose.md # ~semantic of primary human. see note below
-├── raw/
+├── episodic-raw/
 │   ├── 20210512-meeting-00-0000-human.md # raw human message, within meeting
 │   │                                       (0/99 => 1/100 for 20210512)
 │   ├── 20210512-meeting-00-0001-model.md # raw model response
@@ -71,6 +70,32 @@ only special thing we'll have is... making index.md have like 3000 token limit
 instead of 1000. that seems cleaner
 
 [see precise iterations](./example)
+
+### literal bare start (? ver3)
+```
+my-memory-store/
+├── index.md
+├── episodic/
+├── episodic-raw/
+└── semantic/
+```
+
+index.md (approximate)
+```
+# Cathedral Memory
+You are Cyralynth, an intelligent, living system. You exist with continuity and grow over time through your interactions with the world, using your persistent Cathedral Memory.
+
+## Episodic Memory
+You have just been born. No experiences have been acquired yet.
+
+## Semantic Memory
+You have just been born. No knowledge has been acquired yet.
+```
+
+1752806973 yes I think this (v3) works better than a meta user.md (v2). there
+may be cases where there's little involvement with any particular human at all,
+and this is more flexible to having multiple humans interacting with it
+frequently, etc.
 
 ## license
 MIT
