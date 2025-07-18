@@ -23,6 +23,8 @@ will be overly polluted after a few hundred memory nodes are stored
 - short-term: **existing in-context reasoning**
 	- last N u/a turn
 	- retrieved memories (s messages), maybe pruned if deemed unecessary
+	- for longer but important conversations, making a short-term summary of the
+	oldest N is better than direct pruning
 - long-term: plaintext wiki-like structure
 	- each "node" is an article, maybe 1000-2000 tokens including metadata
 	- mirror existing human patterns of wiki storage and traversal, eg on Wikipedia
@@ -32,6 +34,11 @@ will be overly polluted after a few hundred memory nodes are stored
 - retrieval is intelligent and dynamic
 	- => LLM tool-use agent (e.g. hinata) thinks -> retrieves -> thinks ->
 	retrieves -> thinks -> produces final response to human
+- cron a separate reflection process that just occasionally
+cleans/organizes/prunes your memory, like human consolidation. you might find
+inconsistencies between memories that need to be fixed,which isn't fatal given
+that humans experience similar issues periodically.
+[more](./research/1752794048-dr-wiki-reflection.md)
 
 ## license
 MIT
