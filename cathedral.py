@@ -295,6 +295,127 @@ class CathedralCLI:
         print(f"{date_str}/{session_name}")
         return True
 
+    def import_hinata_messages(
+        self, file_paths: list[str], session: Optional[str] = None
+    ) -> bool:
+        """Import messages from Hinata format into Cathedral."""
+        active_store = self.config.get_active_store()
+        if not active_store:
+            print(
+                "Error: No active memory store. Create one with 'cathedral create <name>'"
+            )
+            return False
+
+        store_path = Path(active_store)
+        episodic_raw_dir = store_path / "episodic-raw"
+
+        if session:
+            # Use existing session
+            parts = session.split("/")
+            if len(parts) != 2:
+                print(
+                    f"Error: Invalid session format '{session}'. Expected format: YYYYMMDD/SESSION_ID"
+                )
+                return False
+
+            date_str, session_name = parts
+            session_dir = episodic_raw_dir / date_str / session_name
+
+            if not session_dir.exists():
+                print(f"Error: Session '{session}' does not exist")
+                return False
+
+            # Find the highest message number to continue from
+            existing_files = list(session_dir.glob("*-*.md"))
+            if existing_files:
+                max_num = max(int(f.name.split("-")[0]) for f in existing_files)
+                message_count = max_num + 1
+            else:
+                message_count = 0
+        else:
+            # Create new session with today's date
+            date_str = datetime.now().strftime("%Y%m%d")
+            date_dir = episodic_raw_dir / date_str
+            date_dir.mkdir(parents=True, exist_ok=True)
+
+            # Get the next available session name
+            session_name = self._get_next_session_name(date_dir)
+
+            # Create the session directory
+            session_dir = date_dir / session_name
+            session_dir.mkdir(exist_ok=True)
+            message_count = 0
+
+        # Sort file paths alphabetically
+        sorted_paths = sorted(file_paths)
+
+        # Import messages
+        imported_count = 0
+        skipped_count = 0
+
+        for file_path in sorted_paths:
+            path = Path(file_path)
+            if not path.exists():
+                print(f"Warning: File not found: {file_path}")
+                skipped_count += 1
+                continue
+
+            # Parse filename to determine message type
+            filename = path.name
+
+            # Check for files to skip first
+            if "-archived-" in filename:
+                # Skip archived files
+                skipped_count += 1
+                continue
+            elif filename.endswith("-assistant-reasoning.md"):
+                # Skip reasoning files
+                skipped_count += 1
+                continue
+            elif filename in ["model.txt", "title.txt", "pinned.txt"]:
+                # Skip metadata files
+                skipped_count += 1
+                continue
+
+            # Then check for valid message types
+            elif filename.endswith("-user.md") or filename.endswith("-system.md"):
+                role = "world"
+            elif filename.endswith("-assistant.md"):
+                role = "self"
+            else:
+                print(f"Warning: Unknown file type: {filename}")
+                skipped_count += 1
+                continue
+
+            # Read content
+            try:
+                content = path.read_text()
+            except Exception as e:
+                print(f"Error reading {file_path}: {e}")
+                skipped_count += 1
+                continue
+
+            # Write to Cathedral format
+            output_filename = f"{message_count}-{role}.md"
+            output_path = session_dir / output_filename
+            output_path.write_text(content)
+
+            message_count += 1
+            imported_count += 1
+
+        if session:
+            print(f"Appended {imported_count} messages to session: {session}")
+        else:
+            print(f"Created new session: {date_str}/{session_name}")
+            print(f"Imported {imported_count} messages")
+        if skipped_count > 0:
+            print(
+                f"Skipped {skipped_count} files (reasoning, metadata, or unrecognized)"
+            )
+        print(f"Session directory: {session_dir}")
+
+        return True
+
 
 def main():
     """Main CLI entry point."""
@@ -356,6 +477,18 @@ Examples:
         help="Date/time for the session (YYYY-MM-DD, YYYYMMDD, or unix timestamp)",
     )
 
+    # Import Hinata messages command
+    import_hinata_parser = subparsers.add_parser(
+        "import-hinata-messages", help="Import messages from Hinata format"
+    )
+    import_hinata_parser.add_argument(
+        "files", nargs="+", help="File paths to import (will be sorted alphabetically)"
+    )
+    import_hinata_parser.add_argument(
+        "--session",
+        help="Existing session to append to (format: YYYYMMDD/SESSION_ID)",
+    )
+
     args = parser.parse_args()
 
     # If no command specified, show help
@@ -387,6 +520,10 @@ Examples:
 
     elif args.command == "init-episodic-session":
         success = cli.init_episodic_session(args.date)
+        return 0 if success else 1
+
+    elif args.command == "import-hinata-messages":
+        success = cli.import_hinata_messages(args.files, args.session)
         return 0 if success else 1
 
     return 0
