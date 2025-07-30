@@ -1,0 +1,1 @@
+Gemini, I have an idea for a personal project, a sort of custom dashboard for my life. But every time I think about it, the scope just balloons and I feel overwhelmed. I don't even know where to begin.
