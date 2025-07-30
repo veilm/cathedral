@@ -1,0 +1,1 @@
+Success! I found the 'Personal Access Tokens' page and generated a key. The documentation says the URL for tasks is 'https://api.some-todo.com/v1/tasks' and the header should be 'Authorization: Bearer <token>'. I have my token ready.

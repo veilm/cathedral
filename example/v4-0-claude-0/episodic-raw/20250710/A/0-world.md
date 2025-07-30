@@ -1,0 +1,3 @@
+I've been working on this fantasy world for months now, but I'm stuck. The magic system feels generic, the cultures are basically Earth analogues, and I can't figure out how to make the different species interact in ways that feel authentic. I keep writing myself into corners where the logic doesn't hold up.
+
+I've tried using standard worldbuilding guides but they all feel so... mechanical? Like I'm filling out a form rather than discovering something alive.

@@ -1,0 +1,1 @@
+That's a good way to frame it. I guess the most important thing would be to see my upcoming tasks from my to-do list app. But the API for that app seems really complicated. I've looked at the documentation and it's full of terms I don't understand, like OAuth and pagination. I feel like I'd spend a month just trying to figure out authentication.
