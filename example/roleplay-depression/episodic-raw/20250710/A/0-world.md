@@ -1,0 +1,1 @@
+Gemini, my psychology is desperately aiming to destroy itself... at this rate I may cripple into a black hole
