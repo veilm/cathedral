@@ -39,8 +39,8 @@ def read_conversation_messages(session_dir: Path) -> tuple[str, str]:
 def generate_prompt(index_path: Path, template_path: Path, session_dir: Path) -> str:
     """Generate the final prompt by filling in the template."""
 
-    # Read current index.md
-    current_index = index_path.read_text()
+    # Read current index.md and strip trailing whitespace
+    current_index = index_path.read_text().rstrip()
 
     # Read template
     template = template_path.read_text()
