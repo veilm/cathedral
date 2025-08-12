@@ -47,11 +47,37 @@ def generate_prompt(index_path: Path, template_path: Path, session_dir: Path) ->
 
     # Read conversation
     transcript, session_path = read_conversation_messages(session_dir)
+    
+    # Calculate length metrics for compression targets
+    orig_chars = len(transcript)
+    orig_words = orig_chars // 6  # Heuristic: ~6 chars per word
+    
+    # Round to nearest 100
+    orig_chars = round(orig_chars / 100) * 100
+    orig_words = round(orig_words / 100) * 100
+    
+    # Calculate targets based on compression ratio in template
+    if "4x compression" in template:
+        # 4x compression = 25% retention
+        target_chars = round(orig_chars / 4 / 50) * 50
+        target_words = round(orig_words / 4 / 50) * 50
+    elif "2x compression" in template:
+        # 2x compression = 50% retention  
+        target_chars = round(orig_chars / 2 / 50) * 50
+        target_words = round(orig_words / 2 / 50) * 50
+    else:
+        # Default to no compression if not specified
+        target_chars = orig_chars
+        target_words = orig_words
 
     # Replace variables
     prompt = template.replace("__CURRENT_INDEX__", current_index)
     prompt = prompt.replace("__SESSION_PATH__", session_path)
     prompt = prompt.replace("__CONVERSATION_TRANSCRIPT__", transcript)
+    prompt = prompt.replace("__ORIG_CHARS__", str(orig_chars))
+    prompt = prompt.replace("__ORIG_WORDS__", str(orig_words))
+    prompt = prompt.replace("__TARGET_CHARS__", str(target_chars))
+    prompt = prompt.replace("__TARGET_WORDS__", str(target_words))
 
     return prompt
 
