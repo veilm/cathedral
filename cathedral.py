@@ -109,7 +109,9 @@ class CathedralCLI:
 
         return transcript, session_path
 
-    def _generate_memory_prompt(self, index_path: Path, template_path: Path, session_dir: Path) -> str:
+    def _generate_memory_prompt(
+        self, index_path: Path, template_path: Path, session_dir: Path
+    ) -> str:
         """Generate the final prompt by filling in the template."""
 
         # Read current index.md and strip trailing whitespace
@@ -120,22 +122,22 @@ class CathedralCLI:
 
         # Read conversation
         transcript, session_path = self._read_conversation_messages(session_dir)
-        
+
         # Calculate length metrics for compression targets
         orig_chars = len(transcript)
         orig_words = orig_chars // 6  # Heuristic: ~6 chars per word
-        
+
         # Round to nearest 100
         orig_chars = round(orig_chars / 100) * 100
         orig_words = round(orig_words / 100) * 100
-        
+
         # Calculate targets based on compression ratio in template
         if "4x compression" in template:
             # 4x compression = 25% retention
             target_chars = round(orig_chars / 4 / 50) * 50
             target_words = round(orig_words / 4 / 50) * 50
         elif "2x compression" in template:
-            # 2x compression = 50% retention  
+            # 2x compression = 50% retention
             target_chars = round(orig_chars / 2 / 50) * 50
             target_words = round(orig_words / 2 / 50) * 50
         else:
@@ -491,27 +493,37 @@ class CathedralCLI:
         return True
 
     def write_memory(
-        self,
-        session: str,
-        template: Optional[str] = None,
-        index: Optional[str] = None
+        self, session: str, template: Optional[str] = None, index: Optional[str] = None
     ) -> bool:
         """Generate a memory writing prompt for a conversation session."""
         active_store = self.config.get_active_store()
-        if not active_store:
-            print(
-                "Error: No active memory store. Create one with 'cathedral create <name>'"
-            )
-            return False
-
-        store_path = Path(active_store)
 
         # Resolve session path
-        if "/" in session:
-            # Session specified as date/session_id
-            session_dir = store_path / "episodic-raw" / session
+        if session.startswith("/"):
+            # Absolute path
+            session_dir = Path(session)
+        elif session.startswith("./"):
+            # Explicit relative path from current directory
+            session_dir = Path(session).resolve()
+        elif "/" in session:
+            # Could be a session ID (date/session_name) or a relative path
+            # First try as session ID in active store
+            if active_store:
+                store_path = Path(active_store)
+                session_dir = store_path / "episodic-raw" / session
+
+                # If not found in active store, try as relative path
+                if not session_dir.exists():
+                    alt_session_dir = Path(session).resolve()
+                    if alt_session_dir.exists():
+                        session_dir = alt_session_dir
+            else:
+                # No active store, treat as relative path
+                session_dir = Path(session).resolve()
         else:
-            print(f"Error: Invalid session format '{session}'. Expected format: YYYYMMDD/SESSION_ID")
+            print(
+                f"Error: Invalid session format '{session}'. Expected format: YYYYMMDD/SESSION_ID or a path"
+            )
             return False
 
         if not session_dir.exists():
@@ -526,9 +538,18 @@ class CathedralCLI:
                 return False
         else:
             # Use index.md from active store
-            index_path = store_path / "index.md"
-            if not index_path.exists():
-                print(f"Error: Index file not found in active store: {index_path}")
+            if active_store:
+                store_path = Path(active_store)
+                index_path = store_path / "index.md"
+                if not index_path.exists():
+                    print(f"Error: Index file not found in active store: {index_path}")
+                    print("Please provide an index file with --index")
+                    return False
+            else:
+                print("Error: No active store and no --index specified")
+                print(
+                    "Please provide an index file with --index or set an active store"
+                )
                 return False
 
         # Resolve template path
@@ -547,7 +568,9 @@ class CathedralCLI:
 
         # Generate and output prompt
         try:
-            prompt = self._generate_memory_prompt(index_path, template_path, session_dir)
+            prompt = self._generate_memory_prompt(
+                index_path, template_path, session_dir
+            )
             print(prompt)
             return True
         except Exception as e:
@@ -635,7 +658,7 @@ Examples:
     write_memory_parser.add_argument(
         "--session",
         required=True,
-        help="Session to process (format: YYYYMMDD/SESSION_ID)",
+        help="Session to process (YYYYMMDD/SESSION_ID in active store, or path to session dir)",
     )
     write_memory_parser.add_argument(
         "--template",
