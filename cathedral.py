@@ -80,6 +80,80 @@ class CathedralCLI:
     def __init__(self):
         self.config = CathedralConfig()
 
+    def _read_conversation_messages(self, session_dir: Path) -> tuple[str, str]:
+        """Read all messages from a session directory and format them."""
+        messages = []
+
+        # Get all message files sorted by number
+        message_files = sorted(session_dir.glob("*-*.md"))
+
+        for msg_file in message_files:
+            # Parse filename to get number and role
+            name_parts = msg_file.stem.split("-")
+            msg_num = name_parts[0]
+            role = name_parts[1]
+
+            # Read content
+            content = msg_file.read_text()
+
+            # Format as XML
+            messages.append(f"<{msg_file.name}>\n{content}\n</{msg_file.name}>")
+
+        # Join all messages with blank line between
+        transcript = "\n\n".join(messages)
+
+        # Extract session path (last two parts of path)
+        # e.g., /path/to/episodic-raw/20250710/A -> 20250710/A
+        parts = session_dir.parts
+        session_path = f"{parts[-2]}/{parts[-1]}"
+
+        return transcript, session_path
+
+    def _generate_memory_prompt(self, index_path: Path, template_path: Path, session_dir: Path) -> str:
+        """Generate the final prompt by filling in the template."""
+
+        # Read current index.md and strip trailing whitespace
+        current_index = index_path.read_text().rstrip()
+
+        # Read template
+        template = template_path.read_text()
+
+        # Read conversation
+        transcript, session_path = self._read_conversation_messages(session_dir)
+        
+        # Calculate length metrics for compression targets
+        orig_chars = len(transcript)
+        orig_words = orig_chars // 6  # Heuristic: ~6 chars per word
+        
+        # Round to nearest 100
+        orig_chars = round(orig_chars / 100) * 100
+        orig_words = round(orig_words / 100) * 100
+        
+        # Calculate targets based on compression ratio in template
+        if "4x compression" in template:
+            # 4x compression = 25% retention
+            target_chars = round(orig_chars / 4 / 50) * 50
+            target_words = round(orig_words / 4 / 50) * 50
+        elif "2x compression" in template:
+            # 2x compression = 50% retention  
+            target_chars = round(orig_chars / 2 / 50) * 50
+            target_words = round(orig_words / 2 / 50) * 50
+        else:
+            # Default to no compression if not specified
+            target_chars = orig_chars
+            target_words = orig_words
+
+        # Replace variables
+        prompt = template.replace("__CURRENT_INDEX__", current_index)
+        prompt = prompt.replace("__SESSION_PATH__", session_path)
+        prompt = prompt.replace("__CONVERSATION_TRANSCRIPT__", transcript)
+        prompt = prompt.replace("__ORIG_CHARS__", str(orig_chars))
+        prompt = prompt.replace("__ORIG_WORDS__", str(orig_words))
+        prompt = prompt.replace("__TARGET_CHARS__", str(target_chars))
+        prompt = prompt.replace("__TARGET_WORDS__", str(target_words))
+
+        return prompt
+
     def create_store(self, name: str, path: Optional[str] = None) -> bool:
         """Create a new memory store."""
         if path is None:
@@ -416,6 +490,70 @@ class CathedralCLI:
 
         return True
 
+    def write_memory(
+        self,
+        session: str,
+        template: Optional[str] = None,
+        index: Optional[str] = None
+    ) -> bool:
+        """Generate a memory writing prompt for a conversation session."""
+        active_store = self.config.get_active_store()
+        if not active_store:
+            print(
+                "Error: No active memory store. Create one with 'cathedral create <name>'"
+            )
+            return False
+
+        store_path = Path(active_store)
+
+        # Resolve session path
+        if "/" in session:
+            # Session specified as date/session_id
+            session_dir = store_path / "episodic-raw" / session
+        else:
+            print(f"Error: Invalid session format '{session}'. Expected format: YYYYMMDD/SESSION_ID")
+            return False
+
+        if not session_dir.exists():
+            print(f"Error: Session directory not found: {session_dir}")
+            return False
+
+        # Resolve index.md path
+        if index:
+            index_path = Path(index)
+            if not index_path.exists():
+                print(f"Error: Index file not found: {index_path}")
+                return False
+        else:
+            # Use index.md from active store
+            index_path = store_path / "index.md"
+            if not index_path.exists():
+                print(f"Error: Index file not found in active store: {index_path}")
+                return False
+
+        # Resolve template path
+        if template:
+            template_path = Path(template)
+            if not template_path.exists():
+                print(f"Error: Template file not found: {template_path}")
+                return False
+        else:
+            # Use default write-memory.md from grimoire
+            template_path = self.config.config_dir / "grimoire" / "write-memory.md"
+            if not template_path.exists():
+                print(f"Error: Default template not found: {template_path}")
+                print("Please provide a template file with --template")
+                return False
+
+        # Generate and output prompt
+        try:
+            prompt = self._generate_memory_prompt(index_path, template_path, session_dir)
+            print(prompt)
+            return True
+        except Exception as e:
+            print(f"Error generating prompt: {e}")
+            return False
+
 
 def main():
     """Main CLI entry point."""
@@ -433,6 +571,7 @@ Examples:
   cathedral init-episodic-session            # Create session for today
   cathedral init-episodic-session --date 2021-05-12  # Create session for specific date
   cathedral init-episodic-session --time 1620777600  # Create session from unix timestamp
+  cathedral write-memory --session 20250710/A  # Generate memory prompt for session
         """,
     )
 
@@ -489,6 +628,24 @@ Examples:
         help="Existing session to append to (format: YYYYMMDD/SESSION_ID)",
     )
 
+    # Write memory command
+    write_memory_parser = subparsers.add_parser(
+        "write-memory", help="Generate memory writing prompt for a session"
+    )
+    write_memory_parser.add_argument(
+        "--session",
+        required=True,
+        help="Session to process (format: YYYYMMDD/SESSION_ID)",
+    )
+    write_memory_parser.add_argument(
+        "--template",
+        help="Template file to use (default: ~/.config/cathedral/grimoire/write-memory.md)",
+    )
+    write_memory_parser.add_argument(
+        "--index",
+        help="Index file to use (default: index.md in active store)",
+    )
+
     args = parser.parse_args()
 
     # If no command specified, show help
@@ -524,6 +681,10 @@ Examples:
 
     elif args.command == "import-hinata-messages":
         success = cli.import_hinata_messages(args.files, args.session)
+        return 0 if success else 1
+
+    elif args.command == "write-memory":
+        success = cli.write_memory(args.session, args.template, args.index)
         return 0 if success else 1
 
     return 0
