@@ -227,6 +227,36 @@ class CathedralCLI:
         print(f"Switched to store '{name}' at {store_path}")
         return True
 
+    def link_store(self, name: str, path: str) -> bool:
+        """Link an existing directory as a memory store without modifying it."""
+        store_path = Path(path).resolve()
+        
+        # Check if path exists
+        if not store_path.exists():
+            print(f"Error: Directory does not exist: {store_path}")
+            return False
+        
+        # Check if it's a directory
+        if not store_path.is_dir():
+            print(f"Error: Path is not a directory: {store_path}")
+            return False
+        
+        # Check if store name already exists
+        existing_stores = self.config.list_stores()
+        if name in existing_stores:
+            print(f"Error: Store '{name}' already exists at {existing_stores[name]}")
+            return False
+        
+        # Add to configuration
+        self.config.add_store(name, str(store_path))
+        
+        # Make the linked store active
+        self.config.set_active_store(str(store_path))
+        
+        print(f"Linked existing directory as store '{name}': {store_path}")
+        print(f"Switched to linked store '{name}'.")
+        return True
+
     def unlink_store(self, name: str) -> bool:
         """Unlink a memory store from the configuration, without deleting files."""
         stores = self.config.list_stores()
@@ -587,6 +617,7 @@ def main():
 Examples:
   cathedral create mystore                   # Create a new store in ./mystore
   cathedral create work ~/work/mem           # Create a store at specific path
+  cathedral link existing ~/existing/store   # Link existing directory as a store
   cathedral list                             # List all memory stores
   cathedral switch work                      # Switch to the 'work' store
   cathedral unlink work                      # Remove 'work' from config, but keep files
@@ -606,6 +637,13 @@ Examples:
     create_parser.add_argument(
         "path", nargs="?", help="Path where to create the store (default: ./<name>)"
     )
+
+    # Link command
+    link_parser = subparsers.add_parser(
+        "link", help="Link an existing directory as a memory store"
+    )
+    link_parser.add_argument("name", help="Name for the memory store")
+    link_parser.add_argument("path", help="Path to the existing directory")
 
     # List command
     list_parser = subparsers.add_parser("list", help="List all memory stores")
@@ -680,6 +718,10 @@ Examples:
 
     if args.command == "create":
         success = cli.create_store(args.name, args.path)
+        return 0 if success else 1
+
+    elif args.command == "link":
+        success = cli.link_store(args.name, args.path)
         return 0 if success else 1
 
     elif args.command == "list":
