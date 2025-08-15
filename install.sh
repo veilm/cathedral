@@ -1,5 +1,16 @@
 #!/bin/sh
 
+if ! which hnt-chat > /dev/null 2>&1
+then
+	echo "Hinata is a dependency of Cathedral, but you don't have it installed."
+	echo "Hinata's only dependency is Go. More info: https://hnt-agent.org"
+	echo "Would you like me to automatically install Hinata for you? (y/n)"
+	read -r option
+
+	[ "$option" = y ] || [ "$option" = Y ] || exit 1
+	curl "https://hnt-agent.org/install" | sh
+fi
+
 set -e
 
 # 1. cds to the directory the script is in
