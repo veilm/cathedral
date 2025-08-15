@@ -4,6 +4,8 @@
 import argparse
 import json
 import os
+import re
+import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -559,7 +561,8 @@ class CathedralCLI:
         return None
 
     def write_memory(
-        self, session: Optional[str] = None, template: Optional[str] = None, index: Optional[str] = None
+        self, session: Optional[str] = None, template: Optional[str] = None, 
+        index: Optional[str] = None, get_prompt: bool = False
     ) -> bool:
         """Generate a memory writing prompt for a conversation session."""
         active_store = self.config.get_active_store()
@@ -653,15 +656,79 @@ class CathedralCLI:
                 print("Please provide a template file with --template")
                 return False
 
-        # Generate and output prompt
+        # Generate prompt
         try:
             prompt = self._generate_memory_prompt(
                 index_path, template_path, session_dir
             )
-            print(prompt)
-            return True
         except Exception as e:
             print(f"Error generating prompt: {e}")
+            return False
+
+        # If get_prompt flag is set, just output the prompt and exit
+        if get_prompt:
+            print(prompt)
+            return True
+        
+        # Otherwise, submit to LLM and process response
+        try:
+            # Create new chat directory
+            result = subprocess.run(
+                ["hnt-chat", "new"],
+                capture_output=True,
+                text=True,
+                check=True
+            )
+            chat_dir = result.stdout.strip()
+            
+            # Add prompt as user message
+            subprocess.run(
+                ["hnt-chat", "add", "user", "-c", chat_dir],
+                input=prompt,
+                text=True,
+                check=True
+            )
+            
+            # Generate LLM response
+            result = subprocess.run(
+                ["hnt-chat", "gen", "--model", "openrouter/google/gemini-2.5-pro", 
+                 "--include-reasoning", "--write", "--output-filename", "-c", chat_dir],
+                capture_output=True,
+                text=True,
+                check=True
+            )
+            response_file = result.stdout.strip()
+            
+            # Read the response
+            response_path = Path(chat_dir) / response_file
+            response = response_path.read_text()
+            
+            # Parse response to extract updated index content
+            # Look for content between <updated_index.md> and </updated_index.md>
+            pattern = r'<updated_index\.md>\s*(.*?)\s*</updated_index\.md>'
+            match = re.search(pattern, response, re.DOTALL)
+            
+            if not match:
+                print("Error: Could not find <updated_index.md> section in LLM response")
+                print(f"Response saved in: {chat_dir}")
+                return False
+            
+            updated_index_content = match.group(1).strip()
+            
+            # Write the updated content to index.md
+            index_path.write_text(updated_index_content + "\n")
+            
+            print(f"Successfully updated index.md: {index_path}")
+            print(f"Chat session saved in: {chat_dir}")
+            return True
+            
+        except subprocess.CalledProcessError as e:
+            print(f"Error calling hnt-chat: {e}")
+            if e.stderr:
+                print(f"stderr: {e.stderr}")
+            return False
+        except Exception as e:
+            print(f"Error processing LLM response: {e}")
             return False
 
 
@@ -766,6 +833,11 @@ Examples:
         "--index",
         help="Index file to use (default: index.md in active store)",
     )
+    write_memory_parser.add_argument(
+        "--get-prompt",
+        action="store_true",
+        help="Only output the prompt without submitting to LLM (default: submit and update index)",
+    )
 
     args = parser.parse_args()
 
@@ -809,7 +881,7 @@ Examples:
         return 0 if success else 1
 
     elif args.command == "write-memory":
-        success = cli.write_memory(args.session, args.template, args.index)
+        success = cli.write_memory(args.session, args.template, args.index, args.get_prompt)
         return 0 if success else 1
 
     return 0
