@@ -560,6 +560,50 @@ class CathedralCLI:
         
         return None
 
+    def start_session(self, template: Optional[str] = None) -> bool:
+        """Generate conversation start injection with memory index."""
+        active_store = self.config.get_active_store()
+        if not active_store:
+            print("Error: No active memory store. Create one with 'cathedral create <name>'")
+            return False
+        
+        # Get index.md from active store
+        store_path = Path(active_store)
+        index_path = store_path / "index.md"
+        if not index_path.exists():
+            print(f"Error: Index file not found in active store: {index_path}")
+            return False
+        
+        # Resolve template path
+        if template:
+            template_path = Path(template)
+            if not template_path.exists():
+                print(f"Error: Template file not found: {template_path}")
+                return False
+        else:
+            # Try local grimoire first
+            template_path = Path("grimoire/conv-start-injection.md")
+            if not template_path.exists():
+                # Try config directory grimoire
+                template_path = self.config.config_dir / "grimoire" / "conv-start-injection.md"
+                if not template_path.exists():
+                    print(f"Error: Default template not found at {template_path}")
+                    print("Please provide a template file with --template")
+                    return False
+        
+        # Read index content
+        index_content = index_path.read_text().rstrip()
+        
+        # Read template
+        template_content = template_path.read_text()
+        
+        # Replace placeholder
+        output = template_content.replace("__MEMORY_INDEX__", index_content)
+        
+        # Output the result
+        print(output)
+        return True
+
     def write_memory(
         self, session: Optional[str] = None, template: Optional[str] = None, 
         index: Optional[str] = None, get_prompt: bool = False
@@ -752,6 +796,7 @@ Examples:
   cathedral init-episodic-session --time 1620777600  # Create session from unix timestamp
   cathedral write-memory                     # Generate memory prompt for latest session
   cathedral write-memory --session 20250710/A  # Generate memory prompt for specific session
+  cathedral start-session                    # Generate conversation start with memory index
         """,
     )
 
@@ -839,6 +884,15 @@ Examples:
         help="Only output the prompt without submitting to LLM (default: submit and update index)",
     )
 
+    # Start session command
+    start_session_parser = subparsers.add_parser(
+        "start-session", help="Generate conversation start injection with memory index"
+    )
+    start_session_parser.add_argument(
+        "--template",
+        help="Template file to use (default: grimoire/conv-start-injection.md)",
+    )
+
     args = parser.parse_args()
 
     # If no command specified, show help
@@ -882,6 +936,10 @@ Examples:
 
     elif args.command == "write-memory":
         success = cli.write_memory(args.session, args.template, args.index, args.get_prompt)
+        return 0 if success else 1
+
+    elif args.command == "start-session":
+        success = cli.start_session(args.template)
         return 0 if success else 1
 
     return 0
