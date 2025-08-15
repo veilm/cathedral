@@ -227,7 +227,7 @@ class CathedralCLI:
         print(f"Switched to store '{name}' at {store_path}")
         return True
 
-    def link_store(self, name: str, path: str) -> bool:
+    def link_store(self, path: str, name: Optional[str] = None) -> bool:
         """Link an existing directory as a memory store without modifying it."""
         store_path = Path(path).resolve()
         
@@ -240,6 +240,10 @@ class CathedralCLI:
         if not store_path.is_dir():
             print(f"Error: Path is not a directory: {store_path}")
             return False
+        
+        # Use basename if name not provided
+        if name is None:
+            name = store_path.name
         
         # Check if store name already exists
         existing_stores = self.config.list_stores()
@@ -522,43 +526,96 @@ class CathedralCLI:
 
         return True
 
+    def _find_latest_session(self, episodic_raw_dir: Path) -> Optional[Path]:
+        """Find the latest session in the episodic-raw directory."""
+        if not episodic_raw_dir.exists():
+            return None
+        
+        # Get all date directories (YYYYMMDD format)
+        date_dirs = []
+        for item in episodic_raw_dir.iterdir():
+            if item.is_dir() and len(item.name) == 8 and item.name.isdigit():
+                date_dirs.append(item)
+        
+        if not date_dirs:
+            return None
+        
+        # Sort date directories by name (which works for YYYYMMDD format)
+        date_dirs.sort(key=lambda x: x.name, reverse=True)
+        
+        # Find the latest session across all dates
+        for date_dir in date_dirs:
+            # Get all session directories in this date
+            session_dirs = []
+            for item in date_dir.iterdir():
+                if item.is_dir() and item.name.isalpha() and item.name.isupper():
+                    session_dirs.append(item)
+            
+            if session_dirs:
+                # Sort sessions alphabetically (reversed to get latest)
+                session_dirs.sort(key=lambda x: x.name, reverse=True)
+                return session_dirs[0]
+        
+        return None
+
     def write_memory(
-        self, session: str, template: Optional[str] = None, index: Optional[str] = None
+        self, session: Optional[str] = None, template: Optional[str] = None, index: Optional[str] = None
     ) -> bool:
         """Generate a memory writing prompt for a conversation session."""
         active_store = self.config.get_active_store()
 
         # Resolve session path
-        if session.startswith("/"):
-            # Absolute path
-            session_dir = Path(session)
-        elif session.startswith("./"):
-            # Explicit relative path from current directory
-            session_dir = Path(session).resolve()
-        elif "/" in session:
-            # Could be a session ID (date/session_name) or a relative path
-            # First try as session ID in active store
-            if active_store:
-                store_path = Path(active_store)
-                session_dir = store_path / "episodic-raw" / session
-
-                # If not found in active store, try as relative path
-                if not session_dir.exists():
-                    alt_session_dir = Path(session).resolve()
-                    if alt_session_dir.exists():
-                        session_dir = alt_session_dir
-            else:
-                # No active store, treat as relative path
+        if session:
+            if session.startswith("/"):
+                # Absolute path
+                session_dir = Path(session)
+            elif session.startswith("./"):
+                # Explicit relative path from current directory
                 session_dir = Path(session).resolve()
-        else:
-            print(
-                f"Error: Invalid session format '{session}'. Expected format: YYYYMMDD/SESSION_ID or a path"
-            )
-            return False
+            elif "/" in session:
+                # Could be a session ID (date/session_name) or a relative path
+                # First try as session ID in active store
+                if active_store:
+                    store_path = Path(active_store)
+                    session_dir = store_path / "episodic-raw" / session
 
-        if not session_dir.exists():
-            print(f"Error: Session directory not found: {session_dir}")
-            return False
+                    # If not found in active store, try as relative path
+                    if not session_dir.exists():
+                        alt_session_dir = Path(session).resolve()
+                        if alt_session_dir.exists():
+                            session_dir = alt_session_dir
+                else:
+                    # No active store, treat as relative path
+                    session_dir = Path(session).resolve()
+            else:
+                print(
+                    f"Error: Invalid session format '{session}'. Expected format: YYYYMMDD/SESSION_ID or a path"
+                )
+                return False
+
+            if not session_dir.exists():
+                print(f"Error: Session directory not found: {session_dir}")
+                return False
+        else:
+            # No session specified, find the latest one in active store
+            if not active_store:
+                print("Error: No active memory store. Create one with 'cathedral create <name>'")
+                return False
+            
+            store_path = Path(active_store)
+            episodic_raw_dir = store_path / "episodic-raw"
+            
+            session_dir = self._find_latest_session(episodic_raw_dir)
+            if not session_dir:
+                print(f"Error: No sessions found in active store: {active_store}")
+                print("Initialize a session with 'cathedral init-episodic-session'")
+                return False
+            
+            # Extract session path for display
+            parts = session_dir.parts
+            session_id = f"{parts[-2]}/{parts[-1]}"
+            print(f"Using latest session: {session_id}")
+            print()
 
         # Resolve index.md path
         if index:
@@ -617,7 +674,8 @@ def main():
 Examples:
   cathedral create mystore                   # Create a new store in ./mystore
   cathedral create work ~/work/mem           # Create a store at specific path
-  cathedral link existing ~/existing/store   # Link existing directory as a store
+  cathedral link ~/existing/store            # Link directory as store 'store'
+  cathedral link ~/existing/store --name foo # Link directory as store 'foo'
   cathedral list                             # List all memory stores
   cathedral switch work                      # Switch to the 'work' store
   cathedral unlink work                      # Remove 'work' from config, but keep files
@@ -625,7 +683,8 @@ Examples:
   cathedral init-episodic-session            # Create session for today
   cathedral init-episodic-session --date 2021-05-12  # Create session for specific date
   cathedral init-episodic-session --time 1620777600  # Create session from unix timestamp
-  cathedral write-memory --session 20250710/A  # Generate memory prompt for session
+  cathedral write-memory                     # Generate memory prompt for latest session
+  cathedral write-memory --session 20250710/A  # Generate memory prompt for specific session
         """,
     )
 
@@ -642,8 +701,10 @@ Examples:
     link_parser = subparsers.add_parser(
         "link", help="Link an existing directory as a memory store"
     )
-    link_parser.add_argument("name", help="Name for the memory store")
     link_parser.add_argument("path", help="Path to the existing directory")
+    link_parser.add_argument(
+        "--name", help="Name for the memory store (default: directory basename)"
+    )
 
     # List command
     list_parser = subparsers.add_parser("list", help="List all memory stores")
@@ -695,8 +756,7 @@ Examples:
     )
     write_memory_parser.add_argument(
         "--session",
-        required=True,
-        help="Session to process (YYYYMMDD/SESSION_ID in active store, or path to session dir)",
+        help="Session to process (YYYYMMDD/SESSION_ID in active store, or path to session dir). If not specified, uses the latest session.",
     )
     write_memory_parser.add_argument(
         "--template",
@@ -721,7 +781,7 @@ Examples:
         return 0 if success else 1
 
     elif args.command == "link":
-        success = cli.link_store(args.name, args.path)
+        success = cli.link_store(args.path, args.name)
         return 0 if success else 1
 
     elif args.command == "list":
