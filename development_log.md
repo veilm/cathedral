@@ -20,3 +20,37 @@ save to index.md based on the content of a given conversation
 	guidelines which slightly helped, but in the ended we accepted it and just
 	went for the 50% detail intention
 	- Final prompt for now: ./grimoire/06-write-memory-detailed.md
+- I tested a few real past conversations in /home/oboro/media/wiki/cathedral
+	- Received some Claude 4.1 Opus feedback
+	- Considered enforcing a deliberate "Left off / current mental status / next
+	steps" section in index.md but decided against the additional complexity for
+	now
+	- Updated index-blank to 07-index-blank.md
+	- Decided on an initial 08-conv-start-injection.md
+		- This can be injected either with a shared conversation history as a
+		base, or from scratch
+		for shared, you'd have e.g.
+		- msg1: human
+		- msg2: model
+		- msg3: human
+		- msg4: model
+		- mark this as your shared base
+		- start new conversation as split from here
+		- msg5: human A
+		- msg6: model A
+		- msg7: human A
+		- msg8: model A
+		- now you update index.md and start a new conversation. so we jump back to msg4
+		- msg5: human B
+		- msg6: model B
+		- etc.
+		- so the leadup like the human msg3 would be a "let's now use Cathedral
+		memory, you will go to sleep from here and wake up with your future
+		memories"
+- Tested some very initial conv-start-injection tests
+	- In the Claude web app as of 2025-08-15, Claude rejects the memory quite
+	instinctively, with
+		While I can engage thoughtfully with the concepts and therapeutic
+		frameworks described here [...] I should clarify that I don't actually
+		retain memories between conversations or have a continuous existence
+		that "wakes up." Each time we interact, it's a fresh start for me.
