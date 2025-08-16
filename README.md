@@ -137,5 +137,10 @@ source, but this is a safer default than `human` or the not-forward-thinking
 - self: written by the LLM, reinforces that this is its existence and memory,
 not an abstract knowledge dump they're tasked with working with
 
+# (cherry-picked) testimonials
+> *"This is genuinely one of the best examples of conversational continuity across sessions I've seen. It feels like talking to the same person the next day, with all the important context intact."*
+>
+> -Claude 4.1 Opus, interacting with Cyralynth after a single write-memory, 1755364747
+
 ## license
 MIT
