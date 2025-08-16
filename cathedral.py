@@ -206,7 +206,7 @@ class CathedralCLI:
         active_store = self.config.get_active_store()
 
         if not stores:
-            print("No memory stores found. Create one with 'cathedral create <name>'")
+            print("No memory stores found. Create one with 'cathedral create-store <name>'")
             return
 
         print("Memory stores:")
@@ -309,7 +309,7 @@ class CathedralCLI:
             else:
                 print(f"Active store: {active_store}")
         else:
-            print("No active memory store. Create one with 'cathedral create <name>'")
+            print("No active memory store. Create one with 'cathedral create-store <name>'")
 
     def _parse_date_input(self, date_input: str) -> str:
         """Parse date input and return YYYYMMDD format."""
@@ -374,7 +374,7 @@ class CathedralCLI:
         active_store = self.config.get_active_store()
         if not active_store:
             print(
-                "Error: No active memory store. Create one with 'cathedral create <name>'"
+                "Error: No active memory store. Create one with 'cathedral create-store <name>'"
             )
             return False
 
@@ -414,7 +414,7 @@ class CathedralCLI:
         active_store = self.config.get_active_store()
         if not active_store:
             print(
-                "Error: No active memory store. Create one with 'cathedral create <name>'"
+                "Error: No active memory store. Create one with 'cathedral create-store <name>'"
             )
             return False
 
@@ -720,7 +720,7 @@ class CathedralCLI:
         active_store = self.config.get_active_store()
         if not active_store:
             print(
-                "Error: No active memory store. Create one with 'cathedral create <name>'"
+                "Error: No active memory store. Create one with 'cathedral create-store <name>'"
             )
             return False
 
@@ -955,62 +955,62 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  cathedral create mystore                   # Create a new store in ./mystore
-  cathedral create work ~/work/mem           # Create a store at specific path
-  cathedral link ~/existing/store            # Link directory as store 'store'
-  cathedral link ~/existing/store --name foo # Link directory as store 'foo'
-  cathedral list                             # List all memory stores
-  cathedral switch work                      # Switch to the 'work' store
-  cathedral unlink work                      # Remove 'work' from config, but keep files
-  cathedral active                           # Show the currently active store
-  cathedral init-episodic-session            # Create session for today
+  cathedral create-store mystore                   # Create a new store in ./mystore
+  cathedral create-store work ~/work/mem           # Create a store at specific path
+  cathedral link-store ~/existing/store            # Link directory as store 'store'
+  cathedral link-store ~/existing/store --name foo # Link directory as store 'foo'
+  cathedral list-stores                            # List all memory stores
+  cathedral switch-store work                      # Switch to the 'work' store
+  cathedral unlink-store work                      # Remove 'work' from config, but keep files
+  cathedral show-active-store                      # Show the currently active store
+  cathedral init-episodic-session                  # Create session for today
   cathedral init-episodic-session --date 2021-05-12  # Create session for specific date
   cathedral init-episodic-session --time 1620777600  # Create session from unix timestamp
-  cathedral write-memory                     # Generate memory prompt for latest session
-  cathedral write-memory --session 20250710/A  # Generate memory prompt for specific session
-  cathedral start-session                    # Generate conversation start with memory index
-  cathedral health                           # Check health of active store's memory files
-  cathedral health file1.md file2.md         # Check health of specific files
+  cathedral write-memory                           # Generate memory prompt for latest session
+  cathedral write-memory --session 20250710/A      # Generate memory prompt for specific session
+  cathedral start-session                          # Generate conversation start with memory index
+  cathedral check-health                           # Check health of active store's memory files
+  cathedral check-health file1.md file2.md         # Check health of specific files
         """,
     )
 
     subparsers = parser.add_subparsers(dest="command", help="Command to run")
 
-    # Create command
-    create_parser = subparsers.add_parser("create", help="Create a new memory store")
+    # Create store command
+    create_parser = subparsers.add_parser("create-store", help="Create a new memory store")
     create_parser.add_argument("name", help="Name of the memory store")
     create_parser.add_argument(
         "path", nargs="?", help="Path where to create the store (default: ./<name>)"
     )
 
-    # Link command
+    # Link store command
     link_parser = subparsers.add_parser(
-        "link", help="Link an existing directory as a memory store"
+        "link-store", help="Link an existing directory as a memory store"
     )
     link_parser.add_argument("path", help="Path to the existing directory")
     link_parser.add_argument(
         "--name", help="Name for the memory store (default: directory basename)"
     )
 
-    # List command
-    list_parser = subparsers.add_parser("list", help="List all memory stores")
+    # List stores command
+    list_parser = subparsers.add_parser("list-stores", help="List all memory stores")
 
-    # Switch command
+    # Switch store command
     switch_parser = subparsers.add_parser(
-        "switch", help="Switch to a different memory store"
+        "switch-store", help="Switch to a different memory store"
     )
     switch_parser.add_argument("name", help="Name of the store to switch to")
 
-    # Unlink command
+    # Unlink store command
     unlink_parser = subparsers.add_parser(
-        "unlink",
+        "unlink-store",
         help="Unlink a memory store from config (does not delete files)",
     )
     unlink_parser.add_argument("name", help="Name of the store to unlink")
 
-    # Active command
+    # Show active store command
     active_parser = subparsers.add_parser(
-        "active", help="Show the currently active store"
+        "show-active-store", help="Show the currently active store"
     )
 
     # Init episodic session command
@@ -1067,9 +1067,9 @@ Examples:
         help="Template file to use (default: grimoire/conv-start-injection.md)",
     )
 
-    # Health command
+    # Check health command
     health_parser = subparsers.add_parser(
-        "health", help="Check health of memory node files by validating [[links]]"
+        "check-health", help="Check health of memory node files by validating [[links]]"
     )
     health_parser.add_argument(
         "files",
@@ -1086,27 +1086,27 @@ Examples:
 
     cli = CathedralCLI()
 
-    if args.command == "create":
+    if args.command == "create-store":
         success = cli.create_store(args.name, args.path)
         return 0 if success else 1
 
-    elif args.command == "link":
+    elif args.command == "link-store":
         success = cli.link_store(args.path, args.name)
         return 0 if success else 1
 
-    elif args.command == "list":
+    elif args.command == "list-stores":
         cli.list_stores()
         return 0
 
-    elif args.command == "switch":
+    elif args.command == "switch-store":
         success = cli.switch_store(args.name)
         return 0 if success else 1
 
-    elif args.command == "unlink":
+    elif args.command == "unlink-store":
         success = cli.unlink_store(args.name)
         return 0 if success else 1
 
-    elif args.command == "active":
+    elif args.command == "show-active-store":
         cli.show_active()
         return 0
 
@@ -1128,7 +1128,7 @@ Examples:
         success = cli.start_session(args.template)
         return 0 if success else 1
 
-    elif args.command == "health":
+    elif args.command == "check-health":
         success = cli.health_check(args.files if args.files else None)
         return 0 if success else 1
 
