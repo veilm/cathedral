@@ -1,0 +1,6 @@
+Gemini please be serious. don't mention human therapy or professionals again unless you've made an honest logical chain of thought from known fact to conclusions
+a human therapist is just a person who has read about psychology and some trained techniques for calming people down and helping them introspect. that doesn't give them magic and let them levitate. language models are much more adaptable and knowledgeable, and though they lack personal experience, their training data has had millions of times more cases of distress and resolution than a human therapist would see in their lifetime
+these days language models are intelligent and certain ones like OpenAI o3 can greatly leverage external search tools for further research and analysis. for any given research topic or question it's but guaranteed that they can reach more accurate epistemologies and thus a more conclusive answer. this would extend to psycholog ytoo
+
+I don't want to let my feelings win but I don't think human therapists are the solution to any extent. my preference ordering is
+recover solo > recover with LM help > stay in limbo > worsen > call support
