@@ -82,16 +82,51 @@ class CathedralCLI:
     def __init__(self):
         self.config = CathedralConfig()
 
+    def _get_required_padding(self, message_count: int) -> int:
+        """Calculate the number of digits needed for padding message indices."""
+        if message_count == 0:
+            return 1
+        import math
+        return max(1, len(str(message_count - 1)))
+
+    def _repad_session_files(self, session_dir: Path, new_padding: int) -> None:
+        """Rename all message files in a session to use consistent padding."""
+        # Get all message files
+        message_files = []
+        for f in session_dir.glob("*-*.md"):
+            try:
+                # Parse the filename
+                parts = f.stem.split("-", 1)
+                if len(parts) == 2 and parts[0].isdigit():
+                    msg_num = int(parts[0])
+                    role = parts[1]
+                    message_files.append((msg_num, role, f))
+            except:
+                continue
+        
+        # Sort by message number
+        message_files.sort(key=lambda x: x[0])
+        
+        # Rename files with new padding
+        for msg_num, role, old_path in message_files:
+            new_name = f"{str(msg_num).zfill(new_padding)}-{role}.md"
+            new_path = session_dir / new_name
+            if old_path != new_path:
+                old_path.rename(new_path)
+
     def _read_conversation_messages(self, session_dir: Path) -> tuple[str, str]:
         """Read all messages from a session directory and format them."""
         messages = []
 
-        # Get all message files sorted by number
-        message_files = sorted(session_dir.glob("*-*.md"))
+        # Get all message files sorted by number (numeric sort)
+        message_files = sorted(
+            session_dir.glob("*-*.md"),
+            key=lambda f: int(f.stem.split("-")[0])
+        )
 
         for msg_file in message_files:
             # Parse filename to get number and role
-            name_parts = msg_file.stem.split("-")
+            name_parts = msg_file.stem.split("-", 1)
             msg_num = name_parts[0]
             role = name_parts[1]
 
@@ -444,6 +479,15 @@ class CathedralCLI:
                 message_count = max_num + 1
             else:
                 message_count = 0
+            
+            # Calculate total messages to determine padding
+            total_messages = message_count + len(file_paths)
+            required_padding = self._get_required_padding(total_messages)
+            
+            # Repad existing files if necessary
+            current_padding = len(existing_files[0].name.split("-")[0]) if existing_files else 1
+            if required_padding > current_padding:
+                self._repad_session_files(session_dir, required_padding)
         else:
             # Create new session with today's date
             date_str = datetime.now().strftime("%Y%m%d")
@@ -457,6 +501,9 @@ class CathedralCLI:
             session_dir = date_dir / session_name
             session_dir.mkdir(exist_ok=True)
             message_count = 0
+            
+            # Calculate required padding for new session
+            required_padding = self._get_required_padding(len(file_paths))
 
         # Sort file paths alphabetically
         sorted_paths = sorted(file_paths)
@@ -507,8 +554,14 @@ class CathedralCLI:
                 skipped_count += 1
                 continue
 
-            # Write to Cathedral format
-            output_filename = f"{message_count}-{role}.md"
+            # Write to Cathedral format with proper padding
+            # If we're appending to an existing session, we need to use required_padding from above
+            # For new sessions, required_padding was already calculated
+            if 'required_padding' not in locals():
+                # This shouldn't happen, but as a fallback
+                required_padding = self._get_required_padding(message_count + 1)
+            
+            output_filename = f"{str(message_count).zfill(required_padding)}-{role}.md"
             output_path = session_dir / output_filename
             output_path.write_text(content)
 
