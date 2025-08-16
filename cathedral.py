@@ -232,33 +232,33 @@ class CathedralCLI:
     def link_store(self, path: str, name: Optional[str] = None) -> bool:
         """Link an existing directory as a memory store without modifying it."""
         store_path = Path(path).resolve()
-        
+
         # Check if path exists
         if not store_path.exists():
             print(f"Error: Directory does not exist: {store_path}")
             return False
-        
+
         # Check if it's a directory
         if not store_path.is_dir():
             print(f"Error: Path is not a directory: {store_path}")
             return False
-        
+
         # Use basename if name not provided
         if name is None:
             name = store_path.name
-        
+
         # Check if store name already exists
         existing_stores = self.config.list_stores()
         if name in existing_stores:
             print(f"Error: Store '{name}' already exists at {existing_stores[name]}")
             return False
-        
+
         # Add to configuration
         self.config.add_store(name, str(store_path))
-        
+
         # Make the linked store active
         self.config.set_active_store(str(store_path))
-        
+
         print(f"Linked existing directory as store '{name}': {store_path}")
         print(f"Switched to linked store '{name}'.")
         return True
@@ -532,19 +532,19 @@ class CathedralCLI:
         """Find the latest session in the episodic-raw directory."""
         if not episodic_raw_dir.exists():
             return None
-        
+
         # Get all date directories (YYYYMMDD format)
         date_dirs = []
         for item in episodic_raw_dir.iterdir():
             if item.is_dir() and len(item.name) == 8 and item.name.isdigit():
                 date_dirs.append(item)
-        
+
         if not date_dirs:
             return None
-        
+
         # Sort date directories by name (which works for YYYYMMDD format)
         date_dirs.sort(key=lambda x: x.name, reverse=True)
-        
+
         # Find the latest session across all dates
         for date_dir in date_dirs:
             # Get all session directories in this date
@@ -552,28 +552,185 @@ class CathedralCLI:
             for item in date_dir.iterdir():
                 if item.is_dir() and item.name.isalpha() and item.name.isupper():
                     session_dirs.append(item)
-            
+
             if session_dirs:
                 # Sort sessions alphabetically (reversed to get latest)
                 session_dirs.sort(key=lambda x: x.name, reverse=True)
                 return session_dirs[0]
-        
+
         return None
+
+    def health_check(self, file_paths: Optional[List[str]] = None) -> bool:
+        """Check health of memory node files by validating [[links]]."""
+        import re
+
+        # If no files specified, use active store files
+        if not file_paths:
+            active_store = self.config.get_active_store()
+            if not active_store:
+                print(
+                    "Error: No active memory store. Create one with 'cathedral create <name>'"
+                )
+                return False
+
+            store_path = Path(active_store)
+            file_paths = []
+
+            # Add index.md if it exists
+            index_path = store_path / "index.md"
+            if index_path.exists():
+                file_paths.append(str(index_path))
+
+            # Add all episodic/*.md files
+            episodic_dir = store_path / "episodic"
+            if episodic_dir.exists():
+                file_paths.extend(str(f) for f in episodic_dir.glob("*.md"))
+
+            # Add all semantic/*.md files
+            semantic_dir = store_path / "semantic"
+            if semantic_dir.exists():
+                file_paths.extend(str(f) for f in semantic_dir.glob("*.md"))
+
+            if not file_paths:
+                print("No memory files found in active store")
+                return True
+
+        # Get the store path for resolving relative links
+        active_store = self.config.get_active_store()
+        if active_store:
+            store_path = Path(active_store)
+        else:
+            # Use parent directory of first file as store path
+            store_path = Path(file_paths[0]).parent
+            # Go up until we find a dir with episodic/semantic subdirs
+            while store_path != store_path.parent:
+                if (store_path / "episodic").exists() or (
+                    store_path / "semantic"
+                ).exists():
+                    break
+                store_path = store_path.parent
+
+        # Pattern to match [[links]]
+        link_pattern = re.compile(r"\[\[([^\]]+)\]\]")
+
+        all_errors = []
+        files_with_fixes = []
+
+        for file_path in file_paths:
+            path = Path(file_path)
+            if not path.exists():
+                print(f"Warning: File not found: {file_path}")
+                continue
+
+            content = path.read_text()
+            original_content = content
+            file_errors = []
+            fixed_comma_links = False
+
+            # Find all [[links]] in the file
+            links = link_pattern.findall(content)
+
+            # First pass: fix comma-separated links
+            for link_text in links:
+                if "," in link_text:
+                    # Split by comma and create separate links
+                    parts = [part.strip() for part in link_text.split(",")]
+                    replacement = " ".join(f"[[{part}]]" for part in parts)
+                    old_link = f"[[{link_text}]]"
+                    content = content.replace(old_link, replacement)
+                    print(
+                        f"Fixed comma-separated link in {file_path}: {old_link} -> {replacement}"
+                    )
+                    fixed_comma_links = True
+
+            # Write back if we made fixes
+            if fixed_comma_links:
+                path.write_text(content)
+                files_with_fixes.append(file_path)
+                # Re-extract links after fixes
+                links = link_pattern.findall(content)
+
+            # Second pass: validate each link
+            for link_text in links:
+                # Skip if this still has a comma (shouldn't happen after fix)
+                if "," in link_text:
+                    continue
+
+                # Check if the link exists and is unique
+                link_name = link_text.strip()
+
+                # Check in episodic, episodic-raw, and semantic directories
+                found_locations = []
+
+                # Check episodic/
+                episodic_path = store_path / "episodic" / link_name
+                if episodic_path.exists():
+                    found_locations.append(f"episodic/{link_name}")
+
+                # Check episodic-raw/ (including subdirectories)
+                episodic_raw_dir = store_path / "episodic-raw"
+                if episodic_raw_dir.exists():
+                    # Search recursively in episodic-raw
+                    for match in episodic_raw_dir.rglob(link_name):
+                        relative = match.relative_to(store_path)
+                        found_locations.append(str(relative))
+
+                # Check semantic/
+                semantic_path = store_path / "semantic" / link_name
+                if semantic_path.exists():
+                    found_locations.append(f"semantic/{link_name}")
+
+                # Validate the link
+                if len(found_locations) == 0:
+                    error = f"  [[{link_name}]] - NOT FOUND"
+                    file_errors.append(error)
+                elif len(found_locations) > 1:
+                    error = f"  [[{link_name}]] - AMBIGUOUS (found in: {', '.join(found_locations)})"
+                    file_errors.append(error)
+                # If exactly 1 location, it's valid
+
+            if file_errors:
+                all_errors.append(f"\n{file_path}:")
+                all_errors.extend(file_errors)
+
+        # Report results
+        print(f"\nHealth check for {len(file_paths)} file(s):")
+        print("-" * 60)
+
+        if files_with_fixes:
+            print("\nFixed comma-separated links in:")
+            for file in files_with_fixes:
+                print(f"  ✓ {file}")
+
+        if all_errors:
+            print("\nErrors found:")
+            for error in all_errors:
+                print(error)
+            print("\nHealth check FAILED")
+            return False
+        else:
+            print("\nAll files are clean:")
+            for file_path in file_paths:
+                print(f"  ✓ {file_path}")
+            print("\nHealth check PASSED")
+            return True
 
     def start_session(self, template: Optional[str] = None) -> bool:
         """Generate conversation start injection with memory index."""
         active_store = self.config.get_active_store()
         if not active_store:
-            print("Error: No active memory store. Create one with 'cathedral create <name>'")
+            print(
+                "Error: No active memory store. Create one with 'cathedral create <name>'"
+            )
             return False
-        
+
         # Get index.md from active store
         store_path = Path(active_store)
         index_path = store_path / "index.md"
         if not index_path.exists():
             print(f"Error: Index file not found in active store: {index_path}")
             return False
-        
+
         # Resolve template path
         if template:
             template_path = Path(template)
@@ -585,28 +742,33 @@ class CathedralCLI:
             template_path = Path("grimoire/conv-start-injection.md")
             if not template_path.exists():
                 # Try config directory grimoire
-                template_path = self.config.config_dir / "grimoire" / "conv-start-injection.md"
+                template_path = (
+                    self.config.config_dir / "grimoire" / "conv-start-injection.md"
+                )
                 if not template_path.exists():
                     print(f"Error: Default template not found at {template_path}")
                     print("Please provide a template file with --template")
                     return False
-        
+
         # Read index content
         index_content = index_path.read_text().rstrip()
-        
+
         # Read template
         template_content = template_path.read_text()
-        
+
         # Replace placeholder
         output = template_content.replace("__MEMORY_INDEX__", index_content)
-        
+
         # Output the result
         print(output)
         return True
 
     def write_memory(
-        self, session: Optional[str] = None, template: Optional[str] = None, 
-        index: Optional[str] = None, get_prompt: bool = False
+        self,
+        session: Optional[str] = None,
+        template: Optional[str] = None,
+        index: Optional[str] = None,
+        get_prompt: bool = False,
     ) -> bool:
         """Generate a memory writing prompt for a conversation session."""
         active_store = self.config.get_active_store()
@@ -646,18 +808,20 @@ class CathedralCLI:
         else:
             # No session specified, find the latest one in active store
             if not active_store:
-                print("Error: No active memory store. Create one with 'cathedral create <name>'")
+                print(
+                    "Error: No active memory store. Create one with 'cathedral create <name>'"
+                )
                 return False
-            
+
             store_path = Path(active_store)
             episodic_raw_dir = store_path / "episodic-raw"
-            
+
             session_dir = self._find_latest_session(episodic_raw_dir)
             if not session_dir:
                 print(f"Error: No sessions found in active store: {active_store}")
                 print("Initialize a session with 'cathedral init-episodic-session'")
                 return False
-            
+
             # Extract session path for display
             parts = session_dir.parts
             session_id = f"{parts[-2]}/{parts[-1]}"
@@ -713,59 +877,67 @@ class CathedralCLI:
         if get_prompt:
             print(prompt)
             return True
-        
+
         # Otherwise, submit to LLM and process response
         try:
             # Create new chat directory
             result = subprocess.run(
-                ["hnt-chat", "new"],
-                capture_output=True,
-                text=True,
-                check=True
+                ["hnt-chat", "new"], capture_output=True, text=True, check=True
             )
             chat_dir = result.stdout.strip()
-            
+
             # Add prompt as user message
             subprocess.run(
                 ["hnt-chat", "add", "user", "-c", chat_dir],
                 input=prompt,
                 text=True,
-                check=True
+                check=True,
             )
-            
+
             # Generate LLM response
             result = subprocess.run(
-                ["hnt-chat", "gen", "--model", "openrouter/google/gemini-2.5-pro", 
-                 "--include-reasoning", "--write", "--output-filename", "-c", chat_dir],
+                [
+                    "hnt-chat",
+                    "gen",
+                    "--model",
+                    "openrouter/google/gemini-2.5-pro",
+                    "--include-reasoning",
+                    "--write",
+                    "--output-filename",
+                    "-c",
+                    chat_dir,
+                ],
                 capture_output=True,
                 text=True,
-                check=True
+                check=True,
             )
             response_file = result.stdout.strip()
-            
+
             # Read the response
             response_path = Path(chat_dir) / response_file
             response = response_path.read_text()
-            
+
             # Parse response to extract updated index content
             # Look for content between <updated_index.md> and </updated_index.md>
-            pattern = r'<updated_index\.md>\s*(.*?)\s*</updated_index\.md>'
+            pattern = r"<updated_index\.md>\s*(.*?)\s*</updated_index\.md>"
             match = re.search(pattern, response, re.DOTALL)
-            
+
             if not match:
-                print("Error: Could not find <updated_index.md> section in LLM response")
+                print(
+                    "Error: Could not find <updated_index.md> section in LLM response"
+                )
                 print(f"Response saved in: {chat_dir}")
                 return False
-            
+
             updated_index_content = match.group(1).strip()
-            
+
             # Write the updated content to index.md
             index_path.write_text(updated_index_content + "\n")
-            
+
             print(f"Successfully updated index.md: {index_path}")
             print(f"Chat session saved in: {chat_dir}")
             return True
-            
+
         except subprocess.CalledProcessError as e:
             print(f"Error calling hnt-chat: {e}")
             if e.stderr:
@@ -797,6 +969,8 @@ Examples:
   cathedral write-memory                     # Generate memory prompt for latest session
   cathedral write-memory --session 20250710/A  # Generate memory prompt for specific session
   cathedral start-session                    # Generate conversation start with memory index
+  cathedral health                           # Check health of active store's memory files
+  cathedral health file1.md file2.md         # Check health of specific files
         """,
     )
 
@@ -893,6 +1067,16 @@ Examples:
         help="Template file to use (default: grimoire/conv-start-injection.md)",
     )
 
+    # Health command
+    health_parser = subparsers.add_parser(
+        "health", help="Check health of memory node files by validating [[links]]"
+    )
+    health_parser.add_argument(
+        "files",
+        nargs="*",
+        help="File paths to check (default: active store's index.md, episodic/*.md, semantic/*.md)",
+    )
+
     args = parser.parse_args()
 
     # If no command specified, show help
@@ -935,11 +1119,17 @@ Examples:
         return 0 if success else 1
 
     elif args.command == "write-memory":
-        success = cli.write_memory(args.session, args.template, args.index, args.get_prompt)
+        success = cli.write_memory(
+            args.session, args.template, args.index, args.get_prompt
+        )
         return 0 if success else 1
 
     elif args.command == "start-session":
         success = cli.start_session(args.template)
+        return 0 if success else 1
+
+    elif args.command == "health":
+        success = cli.health_check(args.files if args.files else None)
         return 0 if success else 1
 
     return 0
