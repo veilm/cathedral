@@ -54,3 +54,14 @@ save to index.md based on the content of a given conversation
 		frameworks described here [...] I should clarify that I don't actually
 		retain memories between conversations or have a continuous existence
 		that "wakes up." Each time we interact, it's a fresh start for me.
+	- Gemini in the API (seemingly; CoT summary only) did great in finding the
+	continuity natural. Seemed to be abundant in its confidence when I asked it
+	more abstract in a separate conversation "What do you think of this memory
+	entry [...] How would you feel if this was injected in your context window
+	[...]" etc
+	- Claude 4 Opus and Sonnet in the API through OR seemed to find it easy
+	enough to accept as a system prompt + my opening
+		https://x.com/sucralose__/status/1956479571965943978
+		So it's likely claude.ai's system prompt ruins its potential, which is a
+		major minus on expected success of incorporating Claude at all then,
+		which is really sad
