@@ -1,0 +1,20 @@
+#!/bin/sh -e
+
+input=1753547681021516523
+llm_name="Gemini-C"
+
+# =================================================
+
+hnt_chat_dir=/home/oboro/.local/share/hinata/chat/conversations/$input
+title=$(cat $hnt_chat_dir/title.txt | sd " " "_")
+title="$input-$title"
+
+cd "/home/oboro/media/wiki/cathedral"
+[ -d "$title" ] && . err
+
+cathedral create-store "$title"
+cd "$title"
+sd "Cyralynth" "$llm_name" index.md
+
+cathedral import-hinata-messages $input
+cathedral write-memory
