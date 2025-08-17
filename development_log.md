@@ -65,3 +65,7 @@ save to index.md based on the content of a given conversation
 		So it's likely claude.ai's system prompt ruins its potential, which is a
 		major minus on expected success of incorporating Claude at all then,
 		which is really sad
+- Identified memory design decision with pros and cons: whether at all semantic
+	memory should link back to semantic memory as sources
+
+	Added to "config" (possible variables): ./config.md
