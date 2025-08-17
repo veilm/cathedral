@@ -298,20 +298,56 @@ class CathedralCLI:
         print(f"Switched to linked store '{name}'.")
         return True
 
-    def unlink_store(self, name: str) -> bool:
-        """Unlink a memory store from the configuration, without deleting files."""
+    def unlink_store(self, name_or_path: str) -> bool:
+        """Unlink a memory store from the configuration, without deleting files.
+        
+        Can accept either:
+        - A store name from the configured stores
+        - A path to a directory that is a configured store
+        """
         stores = self.config.list_stores()
-        if name not in stores:
-            print(f"Error: Store '{name}' not found.")
-            return False
-
-        store_path_to_unlink = stores[name]
+        
+        # First check if it's a known store name
+        if name_or_path in stores:
+            store_name = name_or_path
+            store_path_to_unlink = stores[store_name]
+        else:
+            # Try to resolve as a path
+            path = Path(name_or_path).resolve()
+            
+            # Check if this path is a valid directory
+            if not path.exists():
+                print(f"Error: Store '{name_or_path}' not found in configuration.")
+                print(f"       Path does not exist: {path}")
+                return False
+            
+            if not path.is_dir():
+                print(f"Error: Path is not a directory: {path}")
+                return False
+            
+            # Find if this path matches any configured store
+            store_name = None
+            store_path_to_unlink = None
+            for name, store_path in stores.items():
+                if Path(store_path).resolve() == path:
+                    store_name = name
+                    store_path_to_unlink = store_path
+                    break
+            
+            if store_name is None:
+                print(f"Error: Directory {path} is not a configured store.")
+                print("Available stores:")
+                for name, store_path in stores.items():
+                    print(f"  {name}: {store_path}")
+                return False
+        
+        # Now unlink the store
         active_store_path = self.config.get_active_store()
         was_active = store_path_to_unlink == active_store_path
 
-        self.config.remove_store(name)
+        self.config.remove_store(store_name)
         print(
-            f"Unlinked store '{name}'. The directory at {store_path_to_unlink} was not removed."
+            f"Unlinked store '{store_name}'. The directory at {store_path_to_unlink} was not removed."
         )
 
         if was_active:
@@ -1098,6 +1134,7 @@ Examples:
   cathedral list-stores                            # List all memory stores
   cathedral switch-store work                      # Switch to the 'work' store
   cathedral unlink-store work                      # Remove 'work' from config, but keep files
+  cathedral unlink-store /path/to/store            # Unlink store by its directory path
   cathedral show-active-store                      # Show the currently active store
   cathedral init-episodic-session                  # Create session for today
   cathedral init-episodic-session --date 2021-05-12  # Create session for specific date
@@ -1146,7 +1183,10 @@ Examples:
         "unlink-store",
         help="Unlink a memory store from config (does not delete files)",
     )
-    unlink_parser.add_argument("name", help="Name of the store to unlink")
+    unlink_parser.add_argument(
+        "name_or_path", 
+        help="Store name or path to the store directory to unlink"
+    )
 
     # Show active store command
     active_parser = subparsers.add_parser(
@@ -1251,7 +1291,7 @@ Examples:
         return 0 if success else 1
 
     elif args.command == "unlink-store":
-        success = cli.unlink_store(args.name)
+        success = cli.unlink_store(args.name_or_path)
         return 0 if success else 1
 
     elif args.command == "show-active-store":
