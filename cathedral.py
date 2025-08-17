@@ -480,7 +480,7 @@ class CathedralCLI:
         
         return resolved_files
 
-    def import_hinata_messages(
+    def import_messages(
         self, file_paths: list[str], session: Optional[str] = None
     ) -> bool:
         """Import messages from Hinata format into Cathedral.
@@ -819,8 +819,12 @@ class CathedralCLI:
             print("\nHealth check PASSED")
             return True
 
-    def start_session(self, template: Optional[str] = None) -> bool:
-        """Generate conversation start injection with memory index."""
+    def init_session(self, template: Optional[str] = None, get_prompt: bool = False) -> bool:
+        """Initialize a new conversation session with memory index.
+        
+        If get_prompt is True, just print the prompt.
+        Otherwise, create a new hnt-chat session with the prompt as system message.
+        """
         active_store = self.config.get_active_store()
         if not active_store:
             print(
@@ -861,10 +865,38 @@ class CathedralCLI:
         template_content = template_path.read_text()
 
         # Replace placeholder
-        output = template_content.replace("__MEMORY_INDEX__", index_content)
+        prompt = template_content.replace("__MEMORY_INDEX__", index_content)
 
-        # Output the result
-        print(output)
+        if get_prompt:
+            # Just output the prompt
+            print(prompt)
+        else:
+            # Create new hnt-chat session and add system message
+            try:
+                # Create new chat directory
+                result = subprocess.run(
+                    ["hnt-chat", "new"], capture_output=True, text=True, check=True
+                )
+                chat_dir = result.stdout.strip()
+                print(f"New session hnt-chat dir: {chat_dir}")
+                
+                # Add system message
+                result = subprocess.run(
+                    ["hnt-chat", "add", "system", "-c", chat_dir],
+                    input=prompt,
+                    text=True,
+                    capture_output=True,
+                    check=True
+                )
+                message_file = result.stdout.strip()
+                print(f"System message written: {message_file}")
+                
+            except subprocess.CalledProcessError as e:
+                print(f"Error calling hnt-chat: {e}")
+                if e.stderr:
+                    print(f"stderr: {e.stderr}")
+                return False
+        
         return True
 
     def write_memory(
@@ -1070,12 +1102,13 @@ Examples:
   cathedral init-episodic-session                  # Create session for today
   cathedral init-episodic-session --date 2021-05-12  # Create session for specific date
   cathedral init-episodic-session --time 1620777600  # Create session from unix timestamp
-  cathedral import-hinata-messages *.md            # Import all .md files
-  cathedral import-hinata-messages ./conv-dir/     # Import all files from directory
-  cathedral import-hinata-messages abc123          # Import from Hinata conversation ID
+  cathedral import-messages *.md                   # Import all .md files
+  cathedral import-messages ./conv-dir/            # Import all files from directory
+  cathedral import-messages abc123                 # Import from Hinata conversation ID
   cathedral write-memory                           # Generate memory prompt for latest session
   cathedral write-memory --session 20250710/A      # Generate memory prompt for specific session
-  cathedral start-session                          # Generate conversation start with memory index
+  cathedral init-session                           # Initialize new hnt-chat session with memory
+  cathedral init-session --get-prompt              # Just print the prompt without creating session
   cathedral check-health                           # Check health of active store's memory files
   cathedral check-health file1.md file2.md         # Check health of specific files
         """,
@@ -1131,17 +1164,17 @@ Examples:
         help="Date/time for the session (YYYY-MM-DD, YYYYMMDD, or unix timestamp)",
     )
 
-    # Import Hinata messages command
-    import_hinata_parser = subparsers.add_parser(
-        "import-hinata-messages", help="Import messages from Hinata format"
+    # Import messages command
+    import_parser = subparsers.add_parser(
+        "import-messages", help="Import messages from Hinata format"
     )
-    import_hinata_parser.add_argument(
+    import_parser.add_argument(
         "files", nargs="+", 
         help="Files, directories, or conversation IDs to import. Can be: "
              "1) File paths, 2) Directory paths (imports all files inside), "
              "3) Conversation IDs (looks in $XDG_DATA_HOME/hinata/chat/conversations/)"
     )
-    import_hinata_parser.add_argument(
+    import_parser.add_argument(
         "--session",
         help="Existing session to append to (format: YYYYMMDD/SESSION_ID)",
     )
@@ -1168,13 +1201,18 @@ Examples:
         help="Only output the prompt without submitting to LLM (default: submit and update index)",
     )
 
-    # Start session command
-    start_session_parser = subparsers.add_parser(
-        "start-session", help="Generate conversation start injection with memory index"
+    # Init session command
+    init_session_parser = subparsers.add_parser(
+        "init-session", help="Initialize a new conversation session with memory index"
     )
-    start_session_parser.add_argument(
+    init_session_parser.add_argument(
         "--template",
         help="Template file to use (default: grimoire/conv-start-injection.md)",
+    )
+    init_session_parser.add_argument(
+        "--get-prompt",
+        action="store_true",
+        help="Only output the prompt without creating a hnt-chat session",
     )
 
     # Check health command
@@ -1224,8 +1262,8 @@ Examples:
         success = cli.init_episodic_session(args.date)
         return 0 if success else 1
 
-    elif args.command == "import-hinata-messages":
-        success = cli.import_hinata_messages(args.files, args.session)
+    elif args.command == "import-messages":
+        success = cli.import_messages(args.files, args.session)
         return 0 if success else 1
 
     elif args.command == "write-memory":
@@ -1234,8 +1272,8 @@ Examples:
         )
         return 0 if success else 1
 
-    elif args.command == "start-session":
-        success = cli.start_session(args.template)
+    elif args.command == "init-session":
+        success = cli.init_session(args.template, args.get_prompt)
         return 0 if success else 1
 
     elif args.command == "check-health":
