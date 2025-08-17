@@ -1,6 +1,6 @@
 #!/bin/sh -e
 
-input=1753547681021516523
+input=1752027130799478600
 llm_name="Gemini-C"
 
 # =================================================
@@ -16,5 +16,5 @@ cathedral create-store "$title"
 cd "$title"
 sd "Cyralynth" "$llm_name" index.md
 
-cathedral import-hinata-messages $input
+cathedral import-messages $input
 cathedral write-memory
