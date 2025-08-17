@@ -442,10 +442,54 @@ class CathedralCLI:
         print(f"{date_str}/{session_name}")
         return True
 
+    def _resolve_hinata_paths(self, paths: list[str]) -> list[str]:
+        """Resolve input paths to actual file paths for Hinata import.
+        
+        For each path:
+        1. If it's a file, use it
+        2. If it's a directory, use all files in it (non-recursive)
+        3. Otherwise check $XDG_DATA_HOME/hinata/chat/conversations/{path}/
+        """
+        resolved_files = []
+        
+        for path_str in paths:
+            path = Path(path_str)
+            
+            # Check if it's a file
+            if path.is_file():
+                resolved_files.append(str(path))
+            # Check if it's a directory
+            elif path.is_dir():
+                # Get all files in the directory (non-recursive)
+                for file_path in sorted(path.iterdir()):
+                    if file_path.is_file():
+                        resolved_files.append(str(file_path))
+            else:
+                # Check Hinata data directory
+                xdg_data_home = os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share")
+                hinata_conv_dir = Path(xdg_data_home) / "hinata" / "chat" / "conversations" / path_str
+                
+                if hinata_conv_dir.is_dir():
+                    # Get all files in the Hinata conversation directory
+                    for file_path in sorted(hinata_conv_dir.iterdir()):
+                        if file_path.is_file():
+                            resolved_files.append(str(file_path))
+                else:
+                    print(f"Warning: Path not found: {path_str}")
+                    # Also checked: {hinata_conv_dir}
+        
+        return resolved_files
+
     def import_hinata_messages(
         self, file_paths: list[str], session: Optional[str] = None
     ) -> bool:
-        """Import messages from Hinata format into Cathedral."""
+        """Import messages from Hinata format into Cathedral.
+        
+        file_paths can be:
+        - Individual file paths
+        - Directory paths (all files inside will be imported)
+        - Conversation IDs (will look in $XDG_DATA_HOME/hinata/chat/conversations/)
+        """
         active_store = self.config.get_active_store()
         if not active_store:
             print(
@@ -455,6 +499,13 @@ class CathedralCLI:
 
         store_path = Path(active_store)
         episodic_raw_dir = store_path / "episodic-raw"
+        
+        # Resolve all input paths to actual files
+        resolved_files = self._resolve_hinata_paths(file_paths)
+        
+        if not resolved_files:
+            print("Error: No valid files found to import")
+            return False
 
         if session:
             # Use existing session
@@ -481,7 +532,7 @@ class CathedralCLI:
                 message_count = 0
             
             # Calculate total messages to determine padding
-            total_messages = message_count + len(file_paths)
+            total_messages = message_count + len(resolved_files)
             required_padding = self._get_required_padding(total_messages)
             
             # Repad existing files if necessary
@@ -503,10 +554,10 @@ class CathedralCLI:
             message_count = 0
             
             # Calculate required padding for new session
-            required_padding = self._get_required_padding(len(file_paths))
+            required_padding = self._get_required_padding(len(resolved_files))
 
-        # Sort file paths alphabetically
-        sorted_paths = sorted(file_paths)
+        # Sort file paths alphabetically (already sorted in _resolve_hinata_paths but ensure consistency)
+        sorted_paths = sorted(resolved_files)
 
         # Import messages
         imported_count = 0
@@ -1019,6 +1070,9 @@ Examples:
   cathedral init-episodic-session                  # Create session for today
   cathedral init-episodic-session --date 2021-05-12  # Create session for specific date
   cathedral init-episodic-session --time 1620777600  # Create session from unix timestamp
+  cathedral import-hinata-messages *.md            # Import all .md files
+  cathedral import-hinata-messages ./conv-dir/     # Import all files from directory
+  cathedral import-hinata-messages abc123          # Import from Hinata conversation ID
   cathedral write-memory                           # Generate memory prompt for latest session
   cathedral write-memory --session 20250710/A      # Generate memory prompt for specific session
   cathedral start-session                          # Generate conversation start with memory index
@@ -1082,7 +1136,10 @@ Examples:
         "import-hinata-messages", help="Import messages from Hinata format"
     )
     import_hinata_parser.add_argument(
-        "files", nargs="+", help="File paths to import (will be sorted alphabetically)"
+        "files", nargs="+", 
+        help="Files, directories, or conversation IDs to import. Can be: "
+             "1) File paths, 2) Directory paths (imports all files inside), "
+             "3) Conversation IDs (looks in $XDG_DATA_HOME/hinata/chat/conversations/)"
     )
     import_hinata_parser.add_argument(
         "--session",
