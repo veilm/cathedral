@@ -25,12 +25,10 @@ Extract comprehensive knowledge with full context:
 - Include specific examples, edge cases, and nuance
 - Preserve exact phrasings for important concepts
 - Note uncertainty or partial information
-- Include context that explains why something matters
-- Think about what you would find most valuable to remember to maintain continuity
 - Link key facts to their source messages: [[YYYYMMDD/X/N-role.md]]
+  - Focus on linking claims, preferences, boundaries, or surprising information
   - Not every fact needs a link - use judgment for what benefits from provenance
-  - Unique, surprising, uncertain, important, and/or volatile knowledge will often be most valuable to track sources for
-  - On the other hand, information that is very self-contained, conceptual, or a clear abstraction of other knowledge, may not require it
+- Include context that explains why something matters
 
 ### Compression Target
 The original conversation was ~__ORIG_CHARS__ characters (~__ORIG_WORDS__ words).
