@@ -589,8 +589,25 @@ class CathedralCLI:
             session_dir.mkdir(exist_ok=True)
             message_count = 0
             
-            # Calculate required padding for new session
-            required_padding = self._get_required_padding(len(resolved_files))
+            # Count valid messages first to calculate proper padding
+            valid_message_count = 0
+            for file_path in resolved_files:
+                path = Path(file_path)
+                if not path.exists():
+                    continue
+                filename = path.name
+                # Skip files that won't be imported
+                if ("-archived-" in filename or 
+                    filename.endswith("-assistant-reasoning.md") or 
+                    filename in ["model.txt", "title.txt", "pinned.txt"]):
+                    continue
+                # Check if it's a valid message type
+                if (filename.endswith("-user.md") or filename.endswith("-system.md") or 
+                    filename.endswith("-assistant.md")):
+                    valid_message_count += 1
+            
+            # Calculate required padding based on actual messages that will be imported
+            required_padding = self._get_required_padding(valid_message_count)
 
         # Sort file paths alphabetically (already sorted in _resolve_hinata_paths but ensure consistency)
         sorted_paths = sorted(resolved_files)
