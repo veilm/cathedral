@@ -916,6 +916,21 @@ class CathedralCLI:
                 chat_dir = result.stdout.strip()
                 print(f"New session hnt-chat dir: {chat_dir}")
                 
+                # Get the memory store name
+                stores = self.config.list_stores()
+                store_name = None
+                for name, path in stores.items():
+                    if path == active_store:
+                        store_name = name
+                        break
+                
+                # Create title.txt file with memory store name
+                if store_name and chat_dir:
+                    title_path = Path(chat_dir) / "title.txt"
+                    title_content = f"cathedral: {store_name}"
+                    title_path.write_text(title_content)
+                    print(f"Created title.txt: {title_content}")
+                
                 # Add system message
                 result = subprocess.run(
                     ["hnt-chat", "add", "system", "-c", chat_dir],

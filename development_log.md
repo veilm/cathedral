@@ -68,4 +68,4 @@ save to index.md based on the content of a given conversation
 - Identified memory design decision with pros and cons: whether at all semantic
 	memory should link back to semantic memory as sources
 
-	Added to "config" (possible variables): ./config.md
+	Added this and more to "config" (possible variables): ./config.md
