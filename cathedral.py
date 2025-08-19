@@ -888,15 +888,38 @@ class CathedralCLI:
             print("\nHealth check PASSED")
             return True
 
-    def read_node(self, node_path: str) -> bool:
-        """Read a memory node file and write its contents to stdout.
+    def _get_tag_name(self, file_path: Path, store_path: Path) -> str:
+        """Generate the tag name for a file based on its location."""
+        try:
+            # Get relative path from store
+            relative_path = file_path.relative_to(store_path)
 
-        Search order:
+            # Check if file is in episodic-raw
+            if (
+                relative_path.parts[0] == "episodic-raw"
+                and len(relative_path.parts) >= 4
+            ):
+                # Format: episodic-raw/YYYYMMDD/SESSION/filename.md
+                # Return as: YYYYMMDD/SESSION/filename.md
+                return "/".join(relative_path.parts[1:])
+            else:
+                # For all other locations, just use the base filename
+                return file_path.name
+        except ValueError:
+            # If not relative to store_path, just return the filename
+            return file_path.name
+
+    def read_node(self, node_paths: List[str], no_tags: bool = False) -> bool:
+        """Read memory node files and write their contents to stdout.
+
+        Search order for each file:
         1. node_path relative to active store root (/)
         2. node_path relative to /semantic/
         3. node_path relative to /episodic/
         4. node_path relative to /episodic-raw/
         5. node_path relative to most recent episodic-raw session
+
+        If file not found and doesn't end with .md, retry with .md appended.
         """
         active_store = self.config.get_active_store()
         if not active_store:
@@ -907,40 +930,98 @@ class CathedralCLI:
             return False
 
         store_path = Path(active_store)
+        success_count = 0
 
-        # Search locations in order
-        search_paths = [
-            store_path / node_path,  # 1. Relative to store root
-            store_path / "semantic" / node_path,  # 2. Relative to /semantic/
-            store_path / "episodic" / node_path,  # 3. Relative to /episodic/
-            store_path / "episodic-raw" / node_path,  # 4. Relative to /episodic-raw/
-        ]
+        for i, node_path in enumerate(node_paths):
+            # Add separator between multiple files (if not using tags)
+            if i > 0 and success_count > 0 and no_tags:
+                print()  # Add blank line between files
 
-        # 5. Check most recent episodic-raw session
-        episodic_raw_dir = store_path / "episodic-raw"
-        latest_session = self._find_latest_session(episodic_raw_dir)
-        if latest_session:
-            search_paths.append(latest_session / node_path)
+            # Try the path as given first
+            paths_to_try = [node_path]
 
-        # Try each location
-        for path in search_paths:
-            if path.exists() and path.is_file():
-                try:
-                    content = path.read_text()
-                    print(content, end="")  # Print without adding extra newline
-                    return True
-                except Exception as e:
-                    print(f"Error reading file {path}: {e}", file=sys.stderr)
-                    return False
+            # If it doesn't end with .md, add a version with .md
+            if not node_path.endswith(".md"):
+                paths_to_try.append(node_path + ".md")
 
-        # File not found in any location
-        print(
-            f"Error: File '{node_path}' not found in any of the following locations:",
-            file=sys.stderr,
-        )
-        for path in search_paths:
-            print(f"  - {path}", file=sys.stderr)
-        return False
+            found = False
+            for path_variant in paths_to_try:
+                # Search locations in order
+                search_paths = [
+                    store_path / path_variant,  # 1. Relative to store root
+                    store_path / "semantic" / path_variant,  # 2. Relative to /semantic/
+                    store_path / "episodic" / path_variant,  # 3. Relative to /episodic/
+                    store_path
+                    / "episodic-raw"
+                    / path_variant,  # 4. Relative to /episodic-raw/
+                ]
+
+                # 5. Check most recent episodic-raw session
+                episodic_raw_dir = store_path / "episodic-raw"
+                latest_session = self._find_latest_session(episodic_raw_dir)
+                if latest_session:
+                    search_paths.append(latest_session / path_variant)
+
+                # Try each location
+                for path in search_paths:
+                    if path.exists() and path.is_file():
+                        try:
+                            content = path.read_text()
+
+                            if no_tags:
+                                # Original behavior: just print content
+                                print(
+                                    content, end=""
+                                )  # Print without adding extra newline
+                            else:
+                                # New behavior: wrap in XML tags
+                                tag_name = self._get_tag_name(path, store_path)
+                                print(f"<{tag_name}>")
+                                print(content, end="")
+                                if not content.endswith("\n"):
+                                    print()  # Ensure newline before closing tag
+                                print(f"</{tag_name}>")
+
+                            found = True
+                            success_count += 1
+                            break
+                        except Exception as e:
+                            print(f"Error reading file {path}: {e}", file=sys.stderr)
+                            # Continue to next file rather than failing entirely
+                            break
+
+                if found:
+                    break
+
+            if not found:
+                # File not found in any location
+                # Build list of search locations for error message
+                all_search_paths = []
+                for path_variant in paths_to_try:
+                    all_search_paths.extend(
+                        [
+                            path_variant,  # Just the relative path within store
+                            f"semantic/{path_variant}",
+                            f"episodic/{path_variant}",
+                            f"episodic-raw/{path_variant}",
+                        ]
+                    )
+                    if latest_session:
+                        # Add the session-relative path
+                        session_parts = latest_session.parts
+                        session_rel = (
+                            f"{session_parts[-2]}/{session_parts[-1]}/{path_variant}"
+                        )
+                        all_search_paths.append(f"episodic-raw/{session_rel}")
+
+                print(
+                    f"Error: File '{node_path}' not found in any of the following locations:",
+                    file=sys.stderr,
+                )
+                for search_path in all_search_paths:
+                    print(f"  - /{search_path}", file=sys.stderr)
+
+        return success_count > 0
 
     def init_session(
         self, template: Optional[str] = None, get_prompt: bool = False
@@ -1374,10 +1455,15 @@ Examples:
 
     # Read/read-node command
     read_parser = subparsers.add_parser(
-        "read", aliases=["read-node"], help="Read a memory node file to stdout"
+        "read", aliases=["read-node"], help="Read memory node files to stdout"
     )
     read_parser.add_argument(
-        "file", help="File to read (searched in multiple locations)"
+        "files", nargs="+", help="File(s) to read (searched in multiple locations)"
+    )
+    read_parser.add_argument(
+        "--no-tags",
+        action="store_true",
+        help="Don't wrap output in XML tags (use original format)",
     )
 
     args = parser.parse_args()
@@ -1436,7 +1522,7 @@ Examples:
         return 0 if success else 1
 
     elif args.command in ["read", "read-node"]:
-        success = cli.read_node(args.file)
+        success = cli.read_node(args.files, args.no_tags)
         return 0 if success else 1
 
     return 0
