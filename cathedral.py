@@ -118,6 +118,11 @@ class CathedralCLI:
         """Read all messages from a session directory and format them."""
         messages = []
 
+        # Extract session path (last two parts of path)
+        # e.g., /path/to/episodic-raw/20250710/A -> 20250710/A
+        parts = session_dir.parts
+        session_path = f"{parts[-2]}/{parts[-1]}"
+
         # Get all message files sorted by number (numeric sort)
         message_files = sorted(
             session_dir.glob("*-*.md"),
@@ -133,16 +138,12 @@ class CathedralCLI:
             # Read content
             content = msg_file.read_text()
 
-            # Format as XML
-            messages.append(f"<{msg_file.name}>\n{content}\n</{msg_file.name}>")
+            # Format as XML with session path included in tag
+            tag_name = f"{session_path}/{msg_file.name}"
+            messages.append(f"<{tag_name}>\n{content}\n</{tag_name}>")
 
         # Join all messages with blank line between
         transcript = "\n\n".join(messages)
-
-        # Extract session path (last two parts of path)
-        # e.g., /path/to/episodic-raw/20250710/A -> 20250710/A
-        parts = session_dir.parts
-        session_path = f"{parts[-2]}/{parts[-1]}"
 
         return transcript, session_path
 
