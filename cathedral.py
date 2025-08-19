@@ -87,6 +87,7 @@ class CathedralCLI:
         if message_count == 0:
             return 1
         import math
+
         return max(1, len(str(message_count - 1)))
 
     def _repad_session_files(self, session_dir: Path, new_padding: int) -> None:
@@ -103,10 +104,10 @@ class CathedralCLI:
                     message_files.append((msg_num, role, f))
             except:
                 continue
-        
+
         # Sort by message number
         message_files.sort(key=lambda x: x[0])
-        
+
         # Rename files with new padding
         for msg_num, role, old_path in message_files:
             new_name = f"{str(msg_num).zfill(new_padding)}-{role}.md"
@@ -125,8 +126,7 @@ class CathedralCLI:
 
         # Get all message files sorted by number (numeric sort)
         message_files = sorted(
-            session_dir.glob("*-*.md"),
-            key=lambda f: int(f.stem.split("-")[0])
+            session_dir.glob("*-*.md"), key=lambda f: int(f.stem.split("-")[0])
         )
 
         for msg_file in message_files:
@@ -242,7 +242,9 @@ class CathedralCLI:
         active_store = self.config.get_active_store()
 
         if not stores:
-            print("No memory stores found. Create one with 'cathedral create-store <name>'")
+            print(
+                "No memory stores found. Create one with 'cathedral create-store <name>'"
+            )
             return
 
         print("Memory stores:")
@@ -301,13 +303,13 @@ class CathedralCLI:
 
     def unlink_store(self, name_or_path: str) -> bool:
         """Unlink a memory store from the configuration, without deleting files.
-        
+
         Can accept either:
         - A store name from the configured stores
         - A path to a directory that is a configured store
         """
         stores = self.config.list_stores()
-        
+
         # First check if it's a known store name
         if name_or_path in stores:
             store_name = name_or_path
@@ -315,17 +317,17 @@ class CathedralCLI:
         else:
             # Try to resolve as a path
             path = Path(name_or_path).resolve()
-            
+
             # Check if this path is a valid directory
             if not path.exists():
                 print(f"Error: Store '{name_or_path}' not found in configuration.")
                 print(f"       Path does not exist: {path}")
                 return False
-            
+
             if not path.is_dir():
                 print(f"Error: Path is not a directory: {path}")
                 return False
-            
+
             # Find if this path matches any configured store
             store_name = None
             store_path_to_unlink = None
@@ -334,14 +336,14 @@ class CathedralCLI:
                     store_name = name
                     store_path_to_unlink = store_path
                     break
-            
+
             if store_name is None:
                 print(f"Error: Directory {path} is not a configured store.")
                 print("Available stores:")
                 for name, store_path in stores.items():
                     print(f"  {name}: {store_path}")
                 return False
-        
+
         # Now unlink the store
         active_store_path = self.config.get_active_store()
         was_active = store_path_to_unlink == active_store_path
@@ -381,7 +383,9 @@ class CathedralCLI:
             else:
                 print(f"Active store: {active_store}")
         else:
-            print("No active memory store. Create one with 'cathedral create-store <name>'")
+            print(
+                "No active memory store. Create one with 'cathedral create-store <name>'"
+            )
 
     def _parse_date_input(self, date_input: str) -> str:
         """Parse date input and return YYYYMMDD format."""
@@ -481,17 +485,17 @@ class CathedralCLI:
 
     def _resolve_hinata_paths(self, paths: list[str]) -> list[str]:
         """Resolve input paths to actual file paths for Hinata import.
-        
+
         For each path:
         1. If it's a file, use it
         2. If it's a directory, use all files in it (non-recursive)
         3. Otherwise check $XDG_DATA_HOME/hinata/chat/conversations/{path}/
         """
         resolved_files = []
-        
+
         for path_str in paths:
             path = Path(path_str)
-            
+
             # Check if it's a file
             if path.is_file():
                 resolved_files.append(str(path))
@@ -503,9 +507,13 @@ class CathedralCLI:
                         resolved_files.append(str(file_path))
             else:
                 # Check Hinata data directory
-                xdg_data_home = os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share")
-                hinata_conv_dir = Path(xdg_data_home) / "hinata" / "chat" / "conversations" / path_str
-                
+                xdg_data_home = os.environ.get(
+                    "XDG_DATA_HOME", Path.home() / ".local" / "share"
+                )
+                hinata_conv_dir = (
+                    Path(xdg_data_home) / "hinata" / "chat" / "conversations" / path_str
+                )
+
                 if hinata_conv_dir.is_dir():
                     # Get all files in the Hinata conversation directory
                     for file_path in sorted(hinata_conv_dir.iterdir()):
@@ -514,14 +522,14 @@ class CathedralCLI:
                 else:
                     print(f"Warning: Path not found: {path_str}")
                     # Also checked: {hinata_conv_dir}
-        
+
         return resolved_files
 
     def import_messages(
         self, file_paths: list[str], session: Optional[str] = None
     ) -> bool:
         """Import messages from Hinata format into Cathedral.
-        
+
         file_paths can be:
         - Individual file paths
         - Directory paths (all files inside will be imported)
@@ -536,10 +544,10 @@ class CathedralCLI:
 
         store_path = Path(active_store)
         episodic_raw_dir = store_path / "episodic-raw"
-        
+
         # Resolve all input paths to actual files
         resolved_files = self._resolve_hinata_paths(file_paths)
-        
+
         if not resolved_files:
             print("Error: No valid files found to import")
             return False
@@ -567,13 +575,15 @@ class CathedralCLI:
                 message_count = max_num + 1
             else:
                 message_count = 0
-            
+
             # Calculate total messages to determine padding
             total_messages = message_count + len(resolved_files)
             required_padding = self._get_required_padding(total_messages)
-            
+
             # Repad existing files if necessary
-            current_padding = len(existing_files[0].name.split("-")[0]) if existing_files else 1
+            current_padding = (
+                len(existing_files[0].name.split("-")[0]) if existing_files else 1
+            )
             if required_padding > current_padding:
                 self._repad_session_files(session_dir, required_padding)
         else:
@@ -589,7 +599,7 @@ class CathedralCLI:
             session_dir = date_dir / session_name
             session_dir.mkdir(exist_ok=True)
             message_count = 0
-            
+
             # Count valid messages first to calculate proper padding
             valid_message_count = 0
             for file_path in resolved_files:
@@ -598,15 +608,20 @@ class CathedralCLI:
                     continue
                 filename = path.name
                 # Skip files that won't be imported
-                if ("-archived-" in filename or 
-                    filename.endswith("-assistant-reasoning.md") or 
-                    filename in ["model.txt", "title.txt", "pinned.txt"]):
+                if (
+                    "-archived-" in filename
+                    or filename.endswith("-assistant-reasoning.md")
+                    or filename in ["model.txt", "title.txt", "pinned.txt"]
+                ):
                     continue
                 # Check if it's a valid message type
-                if (filename.endswith("-user.md") or filename.endswith("-system.md") or 
-                    filename.endswith("-assistant.md")):
+                if (
+                    filename.endswith("-user.md")
+                    or filename.endswith("-system.md")
+                    or filename.endswith("-assistant.md")
+                ):
                     valid_message_count += 1
-            
+
             # Calculate required padding based on actual messages that will be imported
             required_padding = self._get_required_padding(valid_message_count)
 
@@ -662,10 +677,10 @@ class CathedralCLI:
             # Write to Cathedral format with proper padding
             # If we're appending to an existing session, we need to use required_padding from above
             # For new sessions, required_padding was already calculated
-            if 'required_padding' not in locals():
+            if "required_padding" not in locals():
                 # This shouldn't happen, but as a fallback
                 required_padding = self._get_required_padding(message_count + 1)
-            
+
             output_filename = f"{str(message_count).zfill(required_padding)}-{role}.md"
             output_path = session_dir / output_filename
             output_path.write_text(content)
@@ -873,9 +888,65 @@ class CathedralCLI:
             print("\nHealth check PASSED")
             return True
 
-    def init_session(self, template: Optional[str] = None, get_prompt: bool = False) -> bool:
+    def read_node(self, node_path: str) -> bool:
+        """Read a memory node file and write its contents to stdout.
+
+        Search order:
+        1. node_path relative to active store root (/)
+        2. node_path relative to /semantic/
+        3. node_path relative to /episodic/
+        4. node_path relative to /episodic-raw/
+        5. node_path relative to most recent episodic-raw session
+        """
+        active_store = self.config.get_active_store()
+        if not active_store:
+            print(
+                "Error: No active memory store. Create one with 'cathedral create-store <name>'",
+                file=sys.stderr,
+            )
+            return False
+
+        store_path = Path(active_store)
+
+        # Search locations in order
+        search_paths = [
+            store_path / node_path,  # 1. Relative to store root
+            store_path / "semantic" / node_path,  # 2. Relative to /semantic/
+            store_path / "episodic" / node_path,  # 3. Relative to /episodic/
+            store_path / "episodic-raw" / node_path,  # 4. Relative to /episodic-raw/
+        ]
+
+        # 5. Check most recent episodic-raw session
+        episodic_raw_dir = store_path / "episodic-raw"
+        latest_session = self._find_latest_session(episodic_raw_dir)
+        if latest_session:
+            search_paths.append(latest_session / node_path)
+
+        # Try each location
+        for path in search_paths:
+            if path.exists() and path.is_file():
+                try:
+                    content = path.read_text()
+                    print(content, end="")  # Print without adding extra newline
+                    return True
+                except Exception as e:
+                    print(f"Error reading file {path}: {e}", file=sys.stderr)
+                    return False
+
+        # File not found in any location
+        print(
+            f"Error: File '{node_path}' not found in any of the following locations:",
+            file=sys.stderr,
+        )
+        for path in search_paths:
+            print(f"  - {path}", file=sys.stderr)
+        return False
+
+    def init_session(
+        self, template: Optional[str] = None, get_prompt: bool = False
+    ) -> bool:
         """Initialize a new conversation session with memory index.
-        
+
         If get_prompt is True, just print the prompt.
         Otherwise, create a new hnt-chat session with the prompt as system message.
         """
@@ -933,7 +1004,7 @@ class CathedralCLI:
                 )
                 chat_dir = result.stdout.strip()
                 print(f"New session hnt-chat dir: {chat_dir}")
-                
+
                 # Get the memory store name
                 stores = self.config.list_stores()
                 store_name = None
@@ -941,31 +1012,31 @@ class CathedralCLI:
                     if path == active_store:
                         store_name = name
                         break
-                
+
                 # Create title.txt file with memory store name
                 if store_name and chat_dir:
                     title_path = Path(chat_dir) / "title.txt"
                     title_content = f"cathedral: {store_name}"
                     title_path.write_text(title_content)
                     print(f"Created title.txt: {title_content}")
-                
+
                 # Add system message
                 result = subprocess.run(
                     ["hnt-chat", "add", "system", "-c", chat_dir],
                     input=prompt,
                     text=True,
                     capture_output=True,
-                    check=True
+                    check=True,
                 )
                 message_file = result.stdout.strip()
                 print(f"System message written: {message_file}")
-                
+
             except subprocess.CalledProcessError as e:
                 print(f"Error calling hnt-chat: {e}")
                 if e.stderr:
                     print(f"stderr: {e.stderr}")
                 return False
-        
+
         return True
 
     def write_memory(
@@ -1181,13 +1252,16 @@ Examples:
   cathedral init-session --get-prompt              # Just print the prompt without creating session
   cathedral check-health                           # Check health of active store's memory files
   cathedral check-health file1.md file2.md         # Check health of specific files
+  cathedral read foo.md                            # Read foo.md from various locations
         """,
     )
 
     subparsers = parser.add_subparsers(dest="command", help="Command to run")
 
     # Create store command
-    create_parser = subparsers.add_parser("create-store", help="Create a new memory store")
+    create_parser = subparsers.add_parser(
+        "create-store", help="Create a new memory store"
+    )
     create_parser.add_argument("name", help="Name of the memory store")
     create_parser.add_argument(
         "path", nargs="?", help="Path where to create the store (default: ./<name>)"
@@ -1217,8 +1291,7 @@ Examples:
         help="Unlink a memory store from config (does not delete files)",
     )
     unlink_parser.add_argument(
-        "name_or_path", 
-        help="Store name or path to the store directory to unlink"
+        "name_or_path", help="Store name or path to the store directory to unlink"
     )
 
     # Show active store command
@@ -1242,10 +1315,11 @@ Examples:
         "import-messages", help="Import messages from Hinata format"
     )
     import_parser.add_argument(
-        "files", nargs="+", 
+        "files",
+        nargs="+",
         help="Files, directories, or conversation IDs to import. Can be: "
-             "1) File paths, 2) Directory paths (imports all files inside), "
-             "3) Conversation IDs (looks in $XDG_DATA_HOME/hinata/chat/conversations/)"
+        "1) File paths, 2) Directory paths (imports all files inside), "
+        "3) Conversation IDs (looks in $XDG_DATA_HOME/hinata/chat/conversations/)",
     )
     import_parser.add_argument(
         "--session",
@@ -1296,6 +1370,14 @@ Examples:
         "files",
         nargs="*",
         help="File paths to check (default: active store's index.md, episodic/*.md, semantic/*.md)",
+    )
+
+    # Read/read-node command
+    read_parser = subparsers.add_parser(
+        "read", aliases=["read-node"], help="Read a memory node file to stdout"
+    )
+    read_parser.add_argument(
+        "file", help="File to read (searched in multiple locations)"
     )
 
     args = parser.parse_args()
@@ -1351,6 +1433,10 @@ Examples:
 
     elif args.command == "check-health":
         success = cli.health_check(args.files if args.files else None)
+        return 0 if success else 1
+
+    elif args.command in ["read", "read-node"]:
+        success = cli.read_node(args.file)
         return 0 if success else 1
 
     return 0
