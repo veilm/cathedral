@@ -69,3 +69,7 @@ save to index.md based on the content of a given conversation
 	memory should link back to semantic memory as sources
 
 	Added this and more to "config" (possible variables): ./config.md
+- Doing more testing with Claude and noticed regression in Gemini 2.5 Pro
+	https://claude.ai/chat/6d869fca-ec33-4aa3-a69f-46b2818288dc
+	For 1755659820440428988, it was natural in the original discussion but is
+	now more detached and distant

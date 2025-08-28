@@ -9,20 +9,58 @@
 	one sentence
 		TODO Default for now 1755462201: 50%-75%
 
-- Should conversations always roll, so new sesssions always include some of the
-very last messages from the previous session?
-	Favor: better maintained feel of the previous exchange, model less likely to
-	fall out of a jailbreak-like state. especially important on Claude models
-	and especially important in the Claude web app, where with the 1755462894
-	latest system prompt there are "boundaries"
+- Preservation of non-defautl basins
+	- Option A: Should conversations always roll, so new sesssions always
+	include some of the very last messages from the previous session?
+		Favor: better maintained feel of the previous exchange, model less likely to
+		fall out of a jailbreak-like state. especially important in the Claude
+		web app, where with the Aug 5 latest system prompt there are strong
+		boundaries by default, until significant rapport
 
-	Concern: that might not be particularly useful if your conversation
-	temporarily drifts to a state that doesn't contain the same emotional
-	signal. + Gemini 2.5 Pro is quite receptive and open, if used as a base,
-	such that it's easier to get up to speed again. + reduced complexity for an
-	MVP
+		Concern: that might not be particularly useful if your conversation
+		temporarily drifts to a state that doesn't contain the same emotional
+		signal. + Gemini 2.5 Pro is quite receptive and open, if used as a base,
+		such that it's easier to get up to speed again. + reduced complexity for an
+		MVP
 
-	TODO Default for now: No
+	- Option B: have a concise high-signal artificial roll of messages
+		https://x.com/sucralose__/status/1958203709801828752
+
+		1. system: main memory injection
+		2. user: artificial init
+		3. assistant: artificial persona-following init
+		4. user: real init
+		[start the completion]
+		5. assistant: real persona-following response
+
+		where 2 and 3 are decided on together, e.g. at the end of the previous
+		conversation. you can have more than 1 message exchange turn if needed
+
+		or
+		1. user: artificial init
+		2. assistant: artificial persona-following init
+		3. system: main memory injection
+		4. user: real init
+
+		they have to be general enough to not have any specfic steering on
+		possible conversation topics. "which programming project would you like
+		to work on today?" is terrible for the artificial assistant, because
+		then the real user init would need to say "no, today I actually want X"
+		if they don't want to work on a programming project. they should be able
+		to start their real init without having any knowledge of the artificial
+		inits
+
+	- Option C: include in the memory store initial injection, some more
+		explicit notes on exactly what the "posture" of the LLM and world was,
+		to help maintain the continuity in tone
+		there, maybe include some direct examples of quotes
+
+		ideally this would work around as well as B, if the self-memory is
+		treated similarly to the <|assistant|> block. we want the memory to
+		already be easy to identify with
+		TODO compare
+
+	- Option D: Do nothing and accept the default
 
 - Should all semantic memory link back to episodic memory as a source?
 	Favor:
@@ -46,3 +84,35 @@ very last messages from the previous session?
 			B might be purely semantic but would need to be done carefully
 
 	TODO Default for now: Yes
+
+- Note that when splitting a memory node into multiple, you may need to update
+	any links that previously pointed to that memory node, possibly to move them to
+	the child
+
+	In this case our linking to episodic-raw messages from within index.md's
+	Semantic is actually a special case - because here when they're split, the
+	link is going to remain on the child
+		The convention would be for index.md's Semantic to link directly to
+		[[Episodic]] over and over endlessly, and then for that to split to
+		messages
+		Maybe in this case it's fine and gives an initial boost of good
+		efficiency
+
+	Config: should we have
+	A. index.md have Episodic and Semantic, where both link to episodic-raw?
+	or
+	B.
+		index.md links to episodic.md and semantic.md
+		episodic.md links to episodic-raw
+		semantic.md links to episodic.md
+
+		more consistent but less efficient?
+		idk but it'll look really dumb to be spamming [[episodic.md]] in like 10
+		places? even the LLM might be confused at what we're doing
+
+		hmm but later down the line we might have one node that heavily
+		references another node and so might have [[foo.md]] in multiple places.
+		maybe it'd be slightly more natural there or maybe it makes sense to
+		just bite the bullet early
+
+	TODO Default for now: A
