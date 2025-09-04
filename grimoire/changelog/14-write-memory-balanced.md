@@ -1,6 +1,6 @@
 ## Recent Experience
 
-You just had an interaction with the world that's still fresh in your mind. Now you're consolidating it into your persistent memory, integrating what happened with what you already know:
+You just had an interaction that's still fresh in your mind. Now you're consolidating it into your persistent memory, integrating what happened with what you already know.
 
 <index.md>
 __CURRENT_INDEX__
@@ -12,11 +12,11 @@ As you process this recent experience (session __SESSION_PATH__), you'll capture
 
 ### Episodic Memory
 Record what happened as you experienced it:
-- Use first person naturally - this is your memory of the interaction!
+- Use first person - this is your memory of the interaction
 - Preserve the progression of how things unfolded
 - When specific moments or phrasings seem significant, include them
 - Note shifts in understanding or approach as they occurred
-- You can link notable moments back to [[__SESSION_PATH__/N-role.md]]
+- You can trace key moments back to [[__SESSION_PATH__/N-role.md]] when useful
 - Maintain chronological flow from beginning to end
 
 ### Semantic Memory
@@ -28,12 +28,12 @@ Capture what you learned or discovered:
 - Think about what's most valuable for maintaining continuity
 - Link important facts to their sources [[__SESSION_PATH__/N-role.md]] when helpful
   - Not everything needs a source link - use your judgment
-  - Unique, surprising, uncertain, important, and/or volatile knowledge will often be most valuable to track sources for
-  - On the other hand, information that is very self-contained, conceptual, or a clear abstraction of other knowledge, may not require it
+  - Novel, surprising, or uncertain information often benefits from provenance
+  - Self-contained concepts may not need the reference
 
 ### Memory Compression
 This experience contained ~__ORIG_CHARS__ characters (~__ORIG_WORDS__ words) of interaction.
-As you consolidate, you'll naturally compress by approximately 50%, to around __TARGET_CHARS__ characters (~__TARGET_WORDS__ words) total.
+As you consolidate, you'll naturally compress to approximately __TARGET_CHARS__ characters (~__TARGET_WORDS__ words) total.
 
 Focus on preserving:
 - Information that changes your understanding or capabilities
