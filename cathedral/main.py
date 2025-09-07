@@ -11,9 +11,14 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional, Dict, List
 
-# Memory compression constants
-DEFAULT_COMPRESSION_RATIO = 0.5  # 50% retention (2x compression)
-DEFAULT_ROUNDING = 50  # Round to nearest 50 chars/words
+from .config import (
+    DEFAULT_COMPRESSION_RATIO,
+    DEFAULT_ROUNDING,
+    COMPRESSION_PROFILES,
+    DEFAULT_TEMPLATES,
+    STORE_STRUCTURE,
+    CathedralSettings,
+)
 
 
 class CathedralConfig:
@@ -1430,6 +1435,11 @@ Examples:
         default=DEFAULT_COMPRESSION_RATIO,
         help=f"Compression ratio (retention rate, 0.0-1.0). Default: {DEFAULT_COMPRESSION_RATIO} (50%% retention)",
     )
+    write_memory_parser.add_argument(
+        "--compression-profile",
+        choices=list(COMPRESSION_PROFILES.keys()),
+        help=f"Use predefined compression profile: {', '.join(f'{k}={v}' for k,v in COMPRESSION_PROFILES.items())}",
+    )
 
     # Init session command
     init_session_parser = subparsers.add_parser(
@@ -1510,8 +1520,14 @@ Examples:
         return 0 if success else 1
 
     elif args.command == "write-memory":
+        # Use compression profile if specified, otherwise use direct ratio
+        compression = (
+            COMPRESSION_PROFILES[args.compression_profile]
+            if hasattr(args, 'compression_profile') and args.compression_profile
+            else args.compression
+        )
         success = cli.write_memory(
-            args.session, args.template, args.index, args.get_prompt, args.compression
+            args.session, args.template, args.index, args.get_prompt, compression
         )
         return 0 if success else 1
 
