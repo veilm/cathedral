@@ -11,6 +11,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import Optional, Dict, List
 
+# Memory compression constants
+DEFAULT_COMPRESSION_RATIO = 0.5  # 50% retention (2x compression)
+DEFAULT_ROUNDING = 50  # Round to nearest 50 chars/words
+
 
 class CathedralConfig:
     """Manages Cathedral configuration."""
@@ -148,7 +152,7 @@ class CathedralCLI:
         return transcript, session_path
 
     def _generate_memory_prompt(
-        self, index_path: Path, template_path: Path, session_dir: Path
+        self, index_path: Path, template_path: Path, session_dir: Path, compression_ratio: float = DEFAULT_COMPRESSION_RATIO
     ) -> str:
         """Generate the final prompt by filling in the template."""
 
@@ -169,19 +173,10 @@ class CathedralCLI:
         orig_chars = round(orig_chars / 100) * 100
         orig_words = round(orig_words / 100) * 100
 
-        # Calculate targets based on compression ratio in template
-        if "4x compression" in template:
-            # 4x compression = 25% retention
-            target_chars = round(orig_chars / 4 / 50) * 50
-            target_words = round(orig_words / 4 / 50) * 50
-        elif "2x compression" in template:
-            # 2x compression = 50% retention
-            target_chars = round(orig_chars / 2 / 50) * 50
-            target_words = round(orig_words / 2 / 50) * 50
-        else:
-            # Default to no compression if not specified
-            target_chars = orig_chars
-            target_words = orig_words
+        # Calculate targets based on compression ratio
+        # compression_ratio is the retention rate (0.5 = 50% retention = 2x compression)
+        target_chars = round(orig_chars * compression_ratio / DEFAULT_ROUNDING) * DEFAULT_ROUNDING
+        target_words = round(orig_words * compression_ratio / DEFAULT_ROUNDING) * DEFAULT_ROUNDING
 
         # Replace variables
         prompt = template.replace("__CURRENT_INDEX__", current_index)
@@ -1126,6 +1121,7 @@ class CathedralCLI:
         template: Optional[str] = None,
         index: Optional[str] = None,
         get_prompt: bool = False,
+        compression: float = DEFAULT_COMPRESSION_RATIO,
     ) -> bool:
         """Generate a memory writing prompt for a conversation session."""
         active_store = self.config.get_active_store()
@@ -1224,7 +1220,7 @@ class CathedralCLI:
         # Generate prompt
         try:
             prompt = self._generate_memory_prompt(
-                index_path, template_path, session_dir
+                index_path, template_path, session_dir, compression
             )
         except Exception as e:
             print(f"Error generating prompt: {e}")
@@ -1428,6 +1424,12 @@ Examples:
         action="store_true",
         help="Only output the prompt without submitting to LLM (default: submit and update index)",
     )
+    write_memory_parser.add_argument(
+        "--compression",
+        type=float,
+        default=DEFAULT_COMPRESSION_RATIO,
+        help=f"Compression ratio (retention rate, 0.0-1.0). Default: {DEFAULT_COMPRESSION_RATIO} (50%% retention)",
+    )
 
     # Init session command
     init_session_parser = subparsers.add_parser(
@@ -1509,7 +1511,7 @@ Examples:
 
     elif args.command == "write-memory":
         success = cli.write_memory(
-            args.session, args.template, args.index, args.get_prompt
+            args.session, args.template, args.index, args.get_prompt, args.compression
         )
         return 0 if success else 1
 
