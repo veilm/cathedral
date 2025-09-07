@@ -26,5 +26,14 @@ cp -r grimoire/* "$CONFIG_DIR"
 
 echo "cathedral: installed prompts to $CONFIG_DIR"
 
-sudo cp ./cathedral.py /usr/local/bin/cathedral
+# Install the cathedral module to a system location
+INSTALL_DIR="/usr/local/lib/cathedral"
+sudo rm -rf "$INSTALL_DIR"
+sudo mkdir -p "$INSTALL_DIR"
+sudo cp -r cathedral/* "$INSTALL_DIR/"
+echo "cathedral: installed module to $INSTALL_DIR"
+
+# Install the CLI wrapper
+sudo cp ./cathedral/cli.py /usr/local/bin/cathedral
+sudo chmod +x /usr/local/bin/cathedral
 echo "cathedral: installed cathedral CLI to /usr/local/bin/"
