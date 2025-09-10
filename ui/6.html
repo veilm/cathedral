@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>void-hud</title>
+<style>
+:root{
+  --bg:#0a0a0f;
+  --primary:#00e5ff;
+  --shadow:#00e5ff22;
+  --glow:#00e5ff88;
+  font-size:17px;
+  font-family:"JetBrainsMono NF","SF Mono",Consolas,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--primary);height:100vh;display:flex;
+     flex-direction:column;overflow:hidden;-webkit-font-smoothing:antialiased;}
+main{flex:1;display:flex;flex-direction:column;padding:min(4vh,2rem) 1.2rem;}
+.message{margin:.4rem 0;max-width:52ch;}
+.user{align-self:flex-start;transform:translateY(-.2rem);opacity:.9}
+.assistant{align-self:flex-start;transform:translateY(.1rem);opacity:.8}
+footer{flex-shrink:0;padding:0 1.2rem 2vh;background:#0000;}
+#input{
+  width:100%;
+  background:#0000;
+  border:0;
+  color:var(--primary);
+  font:inherit;
+  outline:none;
+  caret-shape:underscore;
+}
+.caret{animation:pulse 1.2s infinite;}
+@keyframes pulse{50%{opacity:.3;}}
+.echo{
+  position:absolute;
+  color:var(--glow);
+  pointer-events:none;
+  animation:echo 420ms forwards;
+}
+@keyframes echo{to{opacity:0;transform:translateY(-.75em) scale(.9);}}
+</style>
+</head>
+<body>
+<main id="chat">
+  <p class="message assistant">
+    wake up, commander.<br>
+    fleet telemetry online.
+  </p>
+</main>
+
+<footer>
+  <input id="input" type="text" placeholder="broadcast…" autocomplete="off">
+</footer>
+
+<script>
+const chat   = document.getElementById('chat');
+const input  = document.getElementById('input');
+
+/* echo on keypress */
+input.addEventListener('keydown',e=>{
+  if(!('abcdefghijklmnopqrstuvwxyz0123456789 '.includes(e.key)))return;
+  const span=document.createElement('span');
+  span.className='echo';
+  span.textContent=e.key;
+  span.style.left=e.offsetX+'px';
+  input.appendChild(span);
+});
+
+/* send line */
+function send(){
+  const txt=input.value.trim(); if(!txt)return;
+  const m=document.createElement('p');
+  m.className='message user';
+  m.innerText=txt;
+  chat.appendChild(m);
+  input.value='';
+  setTimeout(()=>{
+    const r=document.createElement('p');
+    r.className='message assistant';
+    r.innerText='acknowledged.';
+    chat.appendChild(r);
+  },450);
+}
+input.addEventListener('keydown',e=>{
+  if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send();}
+});
+input.focus();
+</script>
+</body>
+</html>
