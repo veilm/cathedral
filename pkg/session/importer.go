@@ -52,16 +52,16 @@ func (i *Importer) ImportMessages(filePaths []string, sessionID string) error {
 		// Find the highest message number to continue from
 		messageCount = i.getHighestMessageNumber(sessionDir) + 1
 	} else {
-		// Create new session
+		// Create new episode
 		mgr := NewManager(i.config)
-		newSessionPath, err := mgr.InitEpisodicSession("")
+		newEpisodePath, err := mgr.InitMemoryEpisode("")
 		if err != nil {
 			return err
 		}
 
-		sessionDir = filepath.Join(episodicRawDir, strings.ReplaceAll(newSessionPath, "/", string(os.PathSeparator)))
+		sessionDir = filepath.Join(episodicRawDir, strings.ReplaceAll(newEpisodePath, "/", string(os.PathSeparator)))
 		messageCount = 0
-		fmt.Printf("Created new session: %s\n", newSessionPath)
+		fmt.Printf("Created new episode: %s\n", newEpisodePath)
 	}
 
 	// Import messages

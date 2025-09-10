@@ -88,14 +88,14 @@ and knowledge bases with episodic and semantic memory structures.`,
 		RunE:  runShowActive,
 	}
 
-	// Session management commands
-	initSessionCmd := &cobra.Command{
-		Use:   "init-episodic-session",
-		Short: "Initialize a new episodic session",
+	// Memory episode management commands
+	initMemoryEpisodeCmd := &cobra.Command{
+		Use:   "init-memory-episode",
+		Short: "Initialize a new memory episode for storing conversations",
 		Args:  cobra.NoArgs,
-		RunE:  runInitEpisodicSession,
+		RunE:  runInitMemoryEpisode,
 	}
-	initSessionCmd.Flags().StringVar(&dateInput, "date", "", "Date/time for the session (YYYY-MM-DD, YYYYMMDD, or unix timestamp)")
+	initMemoryEpisodeCmd.Flags().StringVar(&dateInput, "date", "", "Date/time for the episode (YYYY-MM-DD, YYYYMMDD, or unix timestamp)")
 
 	// Import command
 	importCmd := &cobra.Command{
@@ -120,15 +120,15 @@ and knowledge bases with episodic and semantic memory structures.`,
 	writeMemoryCmd.Flags().Float64Var(&compression, "compression", 0.5, "Compression ratio (0.0-1.0)")
 	writeMemoryCmd.Flags().StringVar(&compressionProfile, "compression-profile", "", "Use predefined compression profile")
 
-	// Conversation init command
-	initConvCmd := &cobra.Command{
-		Use:   "init-session",
-		Short: "Initialize a new conversation session with memory index",
+	// Conversation start command
+	startConvCmd := &cobra.Command{
+		Use:   "start-conversation",
+		Short: "Start a new conversation with memory context injected",
 		Args:  cobra.NoArgs,
-		RunE:  runInitConversation,
+		RunE:  runStartConversation,
 	}
-	initConvCmd.Flags().StringVar(&templatePath, "template", "", "Template file to use")
-	initConvCmd.Flags().BoolVar(&getPromptOnly, "get-prompt", false, "Only output the prompt without creating a session")
+	startConvCmd.Flags().StringVar(&templatePath, "template", "", "Template file to use")
+	startConvCmd.Flags().BoolVar(&getPromptOnly, "get-prompt", false, "Only output the prompt without creating a hnt-chat session")
 
 	// Health check command
 	healthCmd := &cobra.Command{
@@ -156,10 +156,10 @@ and knowledge bases with episodic and semantic memory structures.`,
 		switchStoreCmd,
 		unlinkStoreCmd,
 		showActiveCmd,
-		initSessionCmd,
+		initMemoryEpisodeCmd,
 		importCmd,
 		writeMemoryCmd,
-		initConvCmd,
+		startConvCmd,
 		healthCmd,
 		readCmd,
 	)
@@ -247,19 +247,19 @@ func runShowActive(cmd *cobra.Command, args []string) error {
 	return mgr.ShowActive()
 }
 
-func runInitEpisodicSession(cmd *cobra.Command, args []string) error {
+func runInitMemoryEpisode(cmd *cobra.Command, args []string) error {
 	cfg, err := config.Load(configPath)
 	if err != nil {
 		return err
 	}
 
 	sessMgr := session.NewManager(cfg)
-	sessionPath, err := sessMgr.InitEpisodicSession(dateInput)
+	episodePath, err := sessMgr.InitMemoryEpisode(dateInput)
 	if err != nil {
 		return err
 	}
 
-	fmt.Println(sessionPath)
+	fmt.Println(episodePath)
 	return nil
 }
 
@@ -292,14 +292,14 @@ func runWriteMemory(cmd *cobra.Command, args []string) error {
 	return writer.WriteMemory(sessionID, templatePath, indexPath, getPromptOnly, compression)
 }
 
-func runInitConversation(cmd *cobra.Command, args []string) error {
+func runStartConversation(cmd *cobra.Command, args []string) error {
 	cfg, err := config.Load(configPath)
 	if err != nil {
 		return err
 	}
 
-	conv := session.NewConversationInitializer(cfg)
-	return conv.InitSession(templatePath, getPromptOnly)
+	conv := session.NewConversationStarter(cfg)
+	return conv.StartConversation(templatePath, getPromptOnly)
 }
 
 func runHealthCheck(cmd *cobra.Command, args []string) error {

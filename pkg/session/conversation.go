@@ -10,18 +10,18 @@ import (
 	"github.com/oboro/cathedral/pkg/config"
 )
 
-// ConversationInitializer handles initializing new conversation sessions
-type ConversationInitializer struct {
+// ConversationStarter handles starting new conversations with memory context
+type ConversationStarter struct {
 	config *config.Config
 }
 
-// NewConversationInitializer creates a new conversation initializer
-func NewConversationInitializer(cfg *config.Config) *ConversationInitializer {
-	return &ConversationInitializer{config: cfg}
+// NewConversationStarter creates a new conversation starter
+func NewConversationStarter(cfg *config.Config) *ConversationStarter {
+	return &ConversationStarter{config: cfg}
 }
 
-// InitSession initializes a new conversation session with memory index
-func (c *ConversationInitializer) InitSession(templatePath string, getPromptOnly bool) error {
+// StartConversation starts a new conversation with memory context injected
+func (c *ConversationStarter) StartConversation(templatePath string, getPromptOnly bool) error {
 	activeStore := c.config.GetActiveStorePath()
 	if activeStore == "" {
 		return fmt.Errorf("no active memory store. Create one with 'cathedral create-store <name>'")
