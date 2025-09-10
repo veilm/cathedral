@@ -116,3 +116,7 @@
 		just bite the bullet early
 
 	TODO Default for now: A
+
+- Should you use a system message or user message for the context/instruction
+	in `write-memory`?
+	see recent 1757485226 ./development_log.md - definitely system for G2.5
