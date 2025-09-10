@@ -16,6 +16,13 @@ set -e
 # 1. cds to the directory the script is in
 cd "$(dirname "$0")"
 
+# Check if Go is available (required for building)
+if ! which go > /dev/null 2>&1
+then
+	echo "Go is required to build Cathedral. Please install Go from https://go.dev"
+	exit 1
+fi
+
 # Determine config directory path, using $HOME/.config as a fallback for XDG_CONFIG_HOME
 # and make the config dir if it doesn't exist.
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/cathedral/grimoire"
@@ -26,14 +33,13 @@ cp -r grimoire/* "$CONFIG_DIR"
 
 echo "cathedral: installed prompts to $CONFIG_DIR"
 
-# Install the cathedral module to a system location
-INSTALL_DIR="/usr/local/lib/cathedral"
-sudo rm -rf "$INSTALL_DIR"
-sudo mkdir -p "$INSTALL_DIR"
-sudo cp -r cathedral/* "$INSTALL_DIR/"
-echo "cathedral: installed module to $INSTALL_DIR"
+# 3. Build Cathedral using the build script
+echo "cathedral: building binary..."
+./build.sh
 
-# Install the CLI wrapper
-sudo cp ./cathedral/cli.py /usr/local/bin/cathedral
+# 4. Install the binary to /usr/local/bin
+sudo cp bin/cathedral /usr/local/bin/cathedral
 sudo chmod +x /usr/local/bin/cathedral
-echo "cathedral: installed cathedral CLI to /usr/local/bin/"
+echo "cathedral: installed cathedral binary to /usr/local/bin/"
+
+echo "cathedral: installation complete!"
