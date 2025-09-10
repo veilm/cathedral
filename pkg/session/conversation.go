@@ -46,8 +46,17 @@ func (c *ConversationStarter) StartConversation(templatePath string, getPromptOn
 		return fmt.Errorf("failed to read template: %w", err)
 	}
 
-	// Replace placeholder
+	// Read agentic-retrieval.md if it exists
+	agenticRetrievalContent := ""
+	grimoirePath := config.GetGrimoirePath()
+	agenticRetrievalPath := filepath.Join(grimoirePath, "agentic-retrieval.md")
+	if agenticData, err := os.ReadFile(agenticRetrievalPath); err == nil {
+		agenticRetrievalContent = string(agenticData)
+	}
+
+	// Replace placeholders
 	prompt := strings.ReplaceAll(string(templateContent), "__MEMORY_INDEX__", strings.TrimSpace(string(indexContent)))
+	prompt = strings.ReplaceAll(prompt, "__AGENTIC_RETRIEVAL__", strings.TrimSpace(agenticRetrievalContent))
 
 	if getPromptOnly {
 		// Just output the prompt
