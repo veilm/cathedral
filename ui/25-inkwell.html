@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>inkwell-hours</title>
+<style>
+:root{
+  --bg:#1a1b2e;
+  --ink:#d7dce2;
+  --user:#a0a9b8;
+  --rule:#2d3047;
+  --accent:#6b7394;
+  --indigo:#415a77;
+  --wash:#252740;
+  --quill:#8892b0;
+  font-size:17px;
+  line-height:1.72;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{
+  background:var(--bg);
+  background-image:
+    radial-gradient(circle at 30% 40%, #1e2138 0%, transparent 40%),
+    radial-gradient(circle at 70% 60%, #222540 0%, transparent 40%);
+  color:var(--ink);
+  font-family:"Literata","Iowan Old Style",serif;
+  display:flex;
+  flex-direction:column;
+  height:100vh;
+  padding:0 clamp(1rem, 4vw, 4rem);
+  position:relative;
+}
+body::before{
+  content:"";
+  position:fixed;
+  top:15%;
+  left:10%;
+  width:200px;
+  height:200px;
+  background:radial-gradient(circle, var(--indigo) 0%, transparent 70%);
+  opacity:0.03;
+  border-radius:50%;
+  pointer-events:none;
+  filter:blur(40px);
+}
+header{
+  flex-shrink:0;
+  padding:1.8rem 0 1.3rem;
+  border-bottom:1px solid var(--rule);
+  font-size:.84rem;
+  color:var(--accent);
+  letter-spacing:0.08em;
+  font-variant:small-caps;
+}
+main{
+  flex:1 1 auto;
+  overflow:auto;
+  padding:2.4rem 0;
+  position:relative;
+}
+.message{
+  max-width:41rem;
+  margin:0 auto 1.9rem;
+  position:relative;
+}
+.message .text{
+  position:relative;
+}
+.message .text::before{
+  content:"";
+  position:absolute;
+  left:-1.5rem;
+  top:0.3em;
+  width:3px;
+  height:1em;
+  background:linear-gradient(180deg, var(--indigo), transparent);
+  opacity:0;
+  transition:opacity 0.3s;
+}
+.message:hover .text::before{
+  opacity:0.4;
+}
+.user .text{
+  font-weight:375;
+  font-size:0.95em;
+  margin-left:1.5rem;
+  color:var(--user);
+  letter-spacing:0.01em;
+}
+.user .text::before{
+  background:linear-gradient(180deg, var(--quill), transparent);
+}
+.collapsed{
+  max-height:4.1em;
+  overflow:hidden;
+  position:relative;
+}
+.collapsed::after{
+  content:"";
+  position:absolute;
+  bottom:0;
+  left:0;
+  right:0;
+  height:1.2em;
+  background:linear-gradient(transparent, var(--bg) 90%);
+}
+.expand{
+  position:absolute;
+  bottom:.15rem;
+  right:0;
+  background:var(--wash);
+  border:0;
+  color:var(--quill);
+  font-size:.72rem;
+  cursor:pointer;
+  padding:.25rem .6rem;
+  border-radius:12px;
+  opacity:0.7;
+  transition:all 0.2s;
+  z-index:1;
+  font-family:inherit;
+}
+.expand:hover{
+  background:var(--indigo);
+  opacity:0.9;
+  transform:translateY(-1px);
+}
+hr{
+  border:0;
+  margin:2.2rem auto;
+  max-width:41rem;
+  position:relative;
+  height:20px;
+}
+hr::before{
+  content:"§";
+  position:absolute;
+  left:50%;
+  top:50%;
+  transform:translate(-50%, -50%);
+  color:var(--indigo);
+  opacity:0.5;
+  font-size:1.1em;
+}
+footer{
+  flex-shrink:0;
+  padding:1.5rem 0 2.3rem;
+  display:flex;
+  gap:.9rem;
+  align-items:center;
+  justify-content:center;
+}
+textarea{
+  flex:1;
+  max-width:41rem;
+  border:0;
+  background:var(--wash);
+  color:var(--ink);
+  font:inherit;
+  resize:none;
+  outline:none;
+  min-height:2.9rem;
+  padding:0.7rem 0.9rem;
+  border-radius:4px;
+  box-shadow:inset 0 1px 3px #00000020;
+  transition:all 0.2s;
+}
+textarea:focus{
+  background:#2a2d48;
+  box-shadow:inset 0 2px 4px #00000025, 0 0 0 2px var(--indigo);
+}
+textarea::placeholder{
+  color:var(--accent);
+  opacity:0.45;
+  letter-spacing:0.02em;
+}
+#settings{
+  position:fixed;
+  bottom:1.5rem;
+  right:1.7rem;
+  width:21px;
+  height:21px;
+  cursor:pointer;
+  opacity:.28;
+  transition:.25s;
+}
+#settings:hover{
+  opacity:.55;
+}
+
+/* ink wash table */
+.ink-table{
+  margin:2.3rem auto;
+  max-width:37rem;
+  border-collapse:collapse;
+  font-size:0.9em;
+  position:relative;
+}
+.ink-table::before{
+  content:"";
+  position:absolute;
+  top:-10px;
+  left:-10px;
+  right:-10px;
+  bottom:-10px;
+  background:linear-gradient(135deg, transparent, var(--wash) 50%, transparent);
+  opacity:0.5;
+  border-radius:6px;
+  z-index:-1;
+}
+.ink-table th,
+.ink-table td{
+  padding:0.85rem 1rem;
+  text-align:left;
+  border-bottom:1px solid var(--wash);
+}
+.ink-table th{
+  color:var(--quill);
+  font-weight:400;
+  font-variant:small-caps;
+  letter-spacing:0.05em;
+  font-size:0.85em;
+}
+.ink-table tr:last-child td{
+  border-bottom:none;
+}
+.ink-table td:first-child{
+  color:var(--indigo);
+  font-style:italic;
+}
+.ink-table td{
+  position:relative;
+}
+.ink-table td::after{
+  content:"";
+  position:absolute;
+  bottom:0;
+  left:0;
+  width:0;
+  height:1px;
+  background:var(--indigo);
+  transition:width 0.3s;
+}
+.ink-table tr:hover td::after{
+  width:100%;
+}
+
+/* ink drops */
+@keyframes spread{
+  0%{transform:scale(0);opacity:0.6;}
+  100%{transform:scale(1);opacity:0;}
+}
+.ink-drop{
+  position:fixed;
+  width:60px;
+  height:60px;
+  border-radius:50%;
+  background:var(--indigo);
+  opacity:0;
+  pointer-events:none;
+  animation:spread 1.5s ease-out;
+}
+</style>
+</head>
+<body>
+<header>third watch · ink & hours</header>
+
+<main id="chat">
+  <div class="message">
+    <p class="text">
+      Here, between the inkwell and the page, thoughts pool before they flow.
+      Each word carries the weight of midnight oil, the curve of careful script.
+      Write as you would with quill and patience—let the ink find its course.
+    </p>
+  </div>
+  
+  <table class="ink-table">
+    <thead>
+      <tr>
+        <th>watch</th>
+        <th>ink color</th>
+        <th>temperament</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>First</td>
+        <td>Prussian blue</td>
+        <td>Contemplative</td>
+      </tr>
+      <tr>
+        <td>Second</td>
+        <td>Midnight indigo</td>
+        <td>Introspective</td>
+      </tr>
+      <tr>
+        <td>Third</td>
+        <td>Iron gall</td>
+        <td>Resolute</td>
+      </tr>
+      <tr>
+        <td>Fourth</td>
+        <td>Sepia wash</td>
+        <td>Remembering</td>
+      </tr>
+      <tr>
+        <td>Fifth</td>
+        <td>Lampblack</td>
+        <td>Complete</td>
+      </tr>
+    </tbody>
+  </table>
+</main>
+
+<footer>
+  <textarea placeholder="dip your pen, begin…" rows="1"></textarea>
+</footer>
+
+<svg id="settings" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+  <circle cx="12" cy="12" r="3"/>
+  <path d="M12 1v6m0 6v6m11-7h-6m-6 0H1m20.4-4.6l-4.2 4.2m-12 12l-4.2 4.2m12-20.8l-4.2 4.2M7.6 7.6L3.4 3.4"/>
+</svg>
+
+<script>
+/* ---------- ink drop on click ---------- */
+document.addEventListener('click',e=>{
+  if(e.target.tagName==='TEXTAREA' || e.target.tagName==='BUTTON')return;
+  const drop=document.createElement('div');
+  drop.className='ink-drop';
+  drop.style.left=(e.clientX-30)+'px';
+  drop.style.top=(e.clientY-30)+'px';
+  document.body.appendChild(drop);
+  setTimeout(()=>drop.remove(),1500);
+});
+
+/* ---------- expand/collapse ---------- */
+function maybeCollapse(p){
+  if(p.scrollHeight > 4.1 * parseFloat(getComputedStyle(p).fontSize)){
+    p.classList.add('collapsed');
+    const btn=document.createElement('button');
+    btn.className='expand';
+    btn.textContent='more';
+    btn.onclick=()=>{
+      p.classList.toggle('collapsed');
+      btn.textContent = p.classList.contains('collapsed') ? 'more' : 'fold';
+    };
+    p.parentNode.appendChild(btn);
+  }
+}
+document.querySelectorAll('.text').forEach(maybeCollapse);
+
+/* ---------- minimal chat loop ---------- */
+const chat=document.getElementById('chat');
+const ta=document.querySelector('textarea');
+const send=()=>{
+  const val=ta.value.trim();
+  if(!val)return;
+  const div=document.createElement('div');
+  div.className='message user';
+  div.innerHTML=`<p class="text">${val}</p>`;
+  chat.appendChild(div);
+  maybeCollapse(div.querySelector('p'));
+  
+  const hr=document.createElement('hr');
+  chat.appendChild(hr);
+
+  setTimeout(()=>{
+    const reply=document.createElement('div');
+    reply.className='message';
+    reply.innerHTML=`<p class="text">
+      The ink settles into form, each letter a small decision.
+      What emerges from this exchange is neither yours nor mine alone,
+      but something written in the space between us—a third script, still wet on the page.
+    </p>`;
+    chat.appendChild(reply);
+    maybeCollapse(reply.querySelector('p'));
+    hr.scrollIntoView({behavior:'smooth'});
+  },850);
+  ta.value='';
+};
+ta.addEventListener('keydown',e=>{
+  if(e.key==='Enter' && !e.shiftKey){e.preventDefault();send();}
+});
+</script>
+</body>
+</html>

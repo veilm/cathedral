@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>inkwell</title>
+<style>
+:root{
+  --bg:#000000;
+  --ink:#f0f0f0;
+  --dim:#606060;
+  --faint:#303030;
+  --ember:#b85c00;
+  --paper:#080808;
+  font-size:17px;
+  line-height:1.8;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{
+  background:var(--bg);
+  color:var(--ink);
+  font-family:"Literata","Georgia",serif;
+  display:flex;
+  flex-direction:column;
+  height:100vh;
+  padding:0 clamp(1rem, 5vw, 5rem);
+}
+header{
+  flex-shrink:0;
+  padding:2rem 0 1.2rem;
+  font-size:.75rem;
+  color:var(--faint);
+  letter-spacing:0.3em;
+  text-transform:uppercase;
+  opacity:0;
+  animation:fadeIn 2s forwards;
+}
+@keyframes fadeIn{
+  to{opacity:1;}
+}
+main{
+  flex:1 1 auto;
+  overflow:auto;
+  padding:3rem 0;
+  mask-image:linear-gradient(transparent, black 5%, black 95%, transparent);
+}
+.message{
+  max-width:38rem;
+  margin:0 auto 2.5rem;
+  position:relative;
+  animation:emerge 0.8s ease-out;
+}
+@keyframes emerge{
+  from{
+    opacity:0;
+    transform:translateY(10px);
+  }
+  to{
+    opacity:1;
+    transform:translateY(0);
+  }
+}
+.message .text{
+  font-weight:300;
+  letter-spacing:0.01em;
+}
+.user .text{
+  font-weight:400;
+  font-size:0.92em;
+  margin-left:2rem;
+  color:var(--dim);
+  position:relative;
+}
+.user .text::before{
+  content:"";
+  position:absolute;
+  left:-1.5rem;
+  top:0.5em;
+  width:3px;
+  height:1px;
+  background:var(--faint);
+}
+.collapsed{
+  max-height:4.5em;
+  overflow:hidden;
+  position:relative;
+}
+.collapsed::after{
+  content:"";
+  position:absolute;
+  bottom:0;
+  left:0;
+  right:0;
+  height:2em;
+  background:linear-gradient(transparent, var(--bg) 70%);
+}
+.expand{
+  position:absolute;
+  bottom:0;
+  right:0;
+  background:transparent;
+  border:0;
+  color:var(--faint);
+  font-family:inherit;
+  font-size:.65rem;
+  cursor:pointer;
+  padding:.3rem .5rem;
+  letter-spacing:0.3em;
+  transition:all 0.3s;
+  z-index:1;
+}
+.expand:hover{
+  color:var(--ember);
+  text-shadow:0 0 8px var(--ember);
+}
+hr{
+  border:0;
+  height:0;
+  margin:3rem auto;
+  max-width:38rem;
+  position:relative;
+}
+hr::after{
+  content:"";
+  position:absolute;
+  left:50%;
+  top:50%;
+  transform:translate(-50%, -50%);
+  width:20px;
+  height:1px;
+  background:var(--faint);
+  opacity:0.5;
+}
+footer{
+  flex-shrink:0;
+  padding:1.8rem 0 2.5rem;
+  display:flex;
+  gap:1rem;
+  align-items:center;
+  justify-content:center;
+  position:relative;
+}
+footer::before{
+  content:"";
+  position:absolute;
+  top:0;
+  left:50%;
+  transform:translateX(-50%);
+  width:100px;
+  height:1px;
+  background:linear-gradient(90deg, transparent, var(--faint), transparent);
+  opacity:0.3;
+}
+textarea{
+  flex:1;
+  max-width:38rem;
+  border:0;
+  background:var(--paper);
+  color:var(--ink);
+  font:inherit;
+  font-weight:300;
+  resize:none;
+  outline:none;
+  min-height:3rem;
+  padding:0.8rem 1.2rem;
+  transition:all 0.4s;
+}
+textarea:focus{
+  background:#0a0a0a;
+  box-shadow:inset 0 0 0 1px var(--faint);
+}
+textarea::placeholder{
+  color:var(--faint);
+  opacity:0.8;
+  letter-spacing:0.05em;
+}
+#settings{
+  position:fixed;
+  bottom:1.8rem;
+  right:2rem;
+  width:18px;
+  height:18px;
+  cursor:pointer;
+  opacity:.2;
+  transition:all 0.4s;
+}
+#settings:hover{
+  opacity:.4;
+  transform:rotate(180deg);
+}
+#settings:active{
+  color:var(--ember);
+}
+
+/* ink table */
+.ink-table{
+  margin:3rem auto;
+  max-width:32rem;
+  border-collapse:collapse;
+  font-size:0.85em;
+  font-weight:300;
+}
+.ink-table th,
+.ink-table td{
+  padding:1rem 1.5rem;
+  text-align:left;
+}
+.ink-table th{
+  color:var(--faint);
+  font-weight:300;
+  letter-spacing:0.2em;
+  text-transform:uppercase;
+  font-size:0.7em;
+  border-bottom:1px solid var(--faint);
+}
+.ink-table td{
+  border-bottom:1px solid #ffffff05;
+  transition:all 0.3s;
+}
+.ink-table tr:last-child td{
+  border-bottom:none;
+}
+.ink-table td:first-child{
+  color:var(--dim);
+}
+.ink-table tr:hover td{
+  color:var(--ink);
+  padding-left:1.7rem;
+}
+.ink-table tr:hover td:first-child{
+  color:var(--ember);
+  text-shadow:0 0 10px var(--ember);
+}
+
+/* cursor glow */
+@keyframes pulse{
+  0%, 100%{opacity:0.3;}
+  50%{opacity:0.6;}
+}
+.typing-indicator{
+  display:inline-block;
+  width:2px;
+  height:1em;
+  background:var(--ember);
+  margin-left:2px;
+  animation:pulse 1.5s infinite;
+  vertical-align:text-bottom;
+}
+</style>
+</head>
+<body>
+<header>manuscript</header>
+
+<main id="chat">
+  <div class="message">
+    <p class="text">
+      Here, in the absolute dark, words are all that remain luminous.
+      Each letter carved from shadow, each sentence a path through silence.
+      Write, and watch the page remember.
+    </p>
+  </div>
+  
+  <table class="ink-table">
+    <thead>
+      <tr>
+        <th>Mark</th>
+        <th>Meaning</th>
+        <th>Weight</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>I</td>
+        <td>Beginning</td>
+        <td>Light</td>
+      </tr>
+      <tr>
+        <td>II</td>
+        <td>Continuation</td>
+        <td>Medium</td>
+      </tr>
+      <tr>
+        <td>III</td>
+        <td>Emphasis</td>
+        <td>Bold</td>
+      </tr>
+      <tr>
+        <td>IV</td>
+        <td>Pause</td>
+        <td>Breath</td>
+      </tr>
+      <tr>
+        <td>V</td>
+        <td>Conclusion</td>
+        <td>Finality</td>
+      </tr>
+    </tbody>
+  </table>
+</main>
+
+<footer>
+  <textarea placeholder="inscribe..." rows="1"></textarea>
+</footer>
+
+<svg id="settings" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+  <circle cx="12" cy="12" r="3"/>
+  <path d="M12 1v6m0 6v6m11-7h-6m-6 0H1"/>
+</svg>
+
+<script>
+/* ---------- expand/collapse ---------- */
+function maybeCollapse(p){
+  if(p.scrollHeight > 4.5 * parseFloat(getComputedStyle(p).fontSize)){
+    p.classList.add('collapsed');
+    const btn=document.createElement('button');
+    btn.className='expand';
+    btn.textContent='MORE';
+    btn.onclick=()=>{
+      p.classList.toggle('collapsed');
+      btn.textContent = p.classList.contains('collapsed') ? 'MORE' : 'LESS';
+    };
+    p.parentNode.appendChild(btn);
+  }
+}
+document.querySelectorAll('.text').forEach(maybeCollapse);
+
+/* ---------- minimal chat loop ---------- */
+const chat=document.getElementById('chat');
+const ta=document.querySelector('textarea');
+let typingTimer;
+
+const send=()=>{
+  const val=ta.value.trim();
+  if(!val)return;
+  const div=document.createElement('div');
+  div.className='message user';
+  div.innerHTML=`<p class="text">${val}</p>`;
+  chat.appendChild(div);
+  maybeCollapse(div.querySelector('p'));
+  
+  const hr=document.createElement('hr');
+  chat.appendChild(hr);
+
+  // Show typing indicator
+  const typing=document.createElement('div');
+  typing.className='message';
+  typing.innerHTML=`<p class="text"><span class="typing-indicator"></span></p>`;
+  chat.appendChild(typing);
+  
+  setTimeout(()=>{
+    typing.remove();
+    const reply=document.createElement('div');
+    reply.className='message';
+    reply.innerHTML=`<p class="text">
+      The ink dries slowly here, each word settling into permanence.
+      What you've written joins the endless manuscript,
+      another verse in the dialogue between light and void.
+    </p>`;
+    chat.appendChild(reply);
+    maybeCollapse(reply.querySelector('p'));
+    hr.scrollIntoView({behavior:'smooth'});
+  },1200);
+  ta.value='';
+};
+
+ta.addEventListener('keydown',e=>{
+  if(e.key==='Enter' && !e.shiftKey){e.preventDefault();send();}
+});
+
+// Subtle textarea glow on typing
+ta.addEventListener('input',()=>{
+  clearTimeout(typingTimer);
+  ta.style.boxShadow='inset 0 0 0 1px var(--faint), 0 0 20px #00000080';
+  typingTimer=setTimeout(()=>{
+    ta.style.boxShadow='';
+  },500);
+});
+</script>
+</body>
+</html>
