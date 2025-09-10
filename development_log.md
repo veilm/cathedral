@@ -73,3 +73,13 @@ save to index.md based on the content of a given conversation
 	https://claude.ai/chat/6d869fca-ec33-4aa3-a69f-46b2818288dc
 	For 1755659820440428988, it was natural in the original discussion but is
 	now more detached and distant
+- Doing more testing with Claude (1757472597)
+	https://claude.ai/chat/9e532cda-c96e-4fc8-b48b-acf9ceb3a80f
+
+	For a conversation with a very distinct but important emotional texture, we noticed
+	write-memory-intimate (system prompt) >>> write-memory (system prompt) >>> write-memory (user prompt)
+
+	1757478595 I'm deciding the message start injection might be unnecessary for
+	now, since that was likely biased towards problems with adherence, since it
+	was user instead of system
+- Added initial `agentic-retrieval.md` grimoire prompts
