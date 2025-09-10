@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
-	
+
 	"github.com/oboro/cathedral/pkg/config"
 )
 
@@ -32,7 +32,7 @@ func NewWriter(cfg *config.Config) *Writer {
 // WriteMemory generates a memory writing prompt for a conversation session
 func (w *Writer) WriteMemory(sessionID, templatePath, indexPath string, getPromptOnly bool, compression float64) error {
 	activeStore := w.config.GetActiveStorePath()
-	
+
 	// Resolve session directory
 	var sessionDir string
 	if sessionID != "" {
@@ -58,23 +58,23 @@ func (w *Writer) WriteMemory(sessionID, templatePath, indexPath string, getPromp
 		if activeStore == "" {
 			return fmt.Errorf("no active memory store. Create one with 'cathedral create-store <name>'")
 		}
-		
+
 		episodicRawDir := filepath.Join(activeStore, "episodic-raw")
 		sessionDir = w.findLatestSession(episodicRawDir)
 		if sessionDir == "" {
 			return fmt.Errorf("no sessions found in active store")
 		}
-		
+
 		// Extract session ID for display
 		rel, _ := filepath.Rel(episodicRawDir, sessionDir)
 		fmt.Printf("Using latest session: %s\n\n", rel)
 	}
-	
+
 	// Check session directory exists
 	if _, err := os.Stat(sessionDir); os.IsNotExist(err) {
 		return fmt.Errorf("session directory not found: %s", sessionDir)
 	}
-	
+
 	// Resolve index path
 	if indexPath == "" {
 		if activeStore == "" {
@@ -82,24 +82,24 @@ func (w *Writer) WriteMemory(sessionID, templatePath, indexPath string, getPromp
 		}
 		indexPath = filepath.Join(activeStore, "index.md")
 	}
-	
+
 	// Resolve template path
 	if templatePath == "" {
 		grimoirePath := config.GetGrimoirePath()
 		templatePath = filepath.Join(grimoirePath, "write-memory.md")
 	}
-	
+
 	// Generate prompt
 	prompt, err := w.generateMemoryPrompt(indexPath, templatePath, sessionDir, compression)
 	if err != nil {
 		return fmt.Errorf("failed to generate prompt: %w", err)
 	}
-	
+
 	if getPromptOnly {
 		fmt.Print(prompt)
 		return nil
 	}
-	
+
 	// Submit to LLM and process response
 	return w.submitToLLM(prompt, indexPath)
 }
@@ -111,28 +111,28 @@ func (w *Writer) generateMemoryPrompt(indexPath, templatePath, sessionDir string
 	if err != nil {
 		return "", fmt.Errorf("failed to read index: %w", err)
 	}
-	
+
 	// Read template
 	template, err := os.ReadFile(templatePath)
 	if err != nil {
 		return "", fmt.Errorf("failed to read template: %w", err)
 	}
-	
+
 	// Read conversation
 	transcript, sessionPath := w.readConversationMessages(sessionDir)
-	
+
 	// Calculate length metrics
 	origChars := len(transcript)
 	origWords := origChars / 6 // Heuristic: ~6 chars per word
-	
+
 	// Round to nearest 100
 	origChars = (origChars / 100) * 100
 	origWords = (origWords / 100) * 100
-	
+
 	// Calculate targets based on compression ratio
 	targetChars := int(float64(origChars)*compression/50) * 50
 	targetWords := int(float64(origWords)*compression/50) * 50
-	
+
 	// Replace variables
 	prompt := string(template)
 	prompt = strings.ReplaceAll(prompt, "__CURRENT_INDEX__", strings.TrimSpace(string(currentIndex)))
@@ -142,7 +142,7 @@ func (w *Writer) generateMemoryPrompt(indexPath, templatePath, sessionDir string
 	prompt = strings.ReplaceAll(prompt, "__ORIG_WORDS__", fmt.Sprintf("%d", origWords))
 	prompt = strings.ReplaceAll(prompt, "__TARGET_CHARS__", fmt.Sprintf("%d", targetChars))
 	prompt = strings.ReplaceAll(prompt, "__TARGET_WORDS__", fmt.Sprintf("%d", targetWords))
-	
+
 	return prompt, nil
 }
 
@@ -154,31 +154,31 @@ func (w *Writer) readConversationMessages(sessionDir string) (string, string) {
 	if len(parts) >= 2 {
 		sessionPath = fmt.Sprintf("%s/%s", parts[len(parts)-2], parts[len(parts)-1])
 	}
-	
+
 	// Get all message files sorted by number
 	entries, _ := os.ReadDir(sessionDir)
 	var messageFiles []string
-	
+
 	for _, entry := range entries {
 		if !entry.IsDir() && strings.Contains(entry.Name(), "-") && strings.HasSuffix(entry.Name(), ".md") {
 			messageFiles = append(messageFiles, entry.Name())
 		}
 	}
-	
+
 	// Sort numerically by message number
 	// This is simplified - proper numeric sort would be better
 	var messages []string
-	
+
 	for _, filename := range messageFiles {
 		content, err := os.ReadFile(filepath.Join(sessionDir, filename))
 		if err != nil {
 			continue
 		}
-		
+
 		tagName := fmt.Sprintf("%s/%s", sessionPath, filename)
 		messages = append(messages, fmt.Sprintf("<%s>\n%s\n</%s>", tagName, string(content), tagName))
 	}
-	
+
 	return strings.Join(messages, "\n\n"), sessionPath
 }
 
@@ -189,32 +189,32 @@ func (w *Writer) findLatestSession(episodicRawDir string) string {
 	if err != nil {
 		return ""
 	}
-	
+
 	var dateDirs []string
 	for _, entry := range entries {
 		if entry.IsDir() && len(entry.Name()) == 8 {
 			dateDirs = append(dateDirs, entry.Name())
 		}
 	}
-	
+
 	if len(dateDirs) == 0 {
 		return ""
 	}
-	
+
 	// Sort in reverse to get latest date first
 	// This is simplified - proper sort would be better
 	latestDate := dateDirs[len(dateDirs)-1]
-	
+
 	// Get latest session in that date
 	dateDir := filepath.Join(episodicRawDir, latestDate)
 	sessionEntries, _ := os.ReadDir(dateDir)
-	
+
 	for i := len(sessionEntries) - 1; i >= 0; i-- {
 		if sessionEntries[i].IsDir() {
 			return filepath.Join(dateDir, sessionEntries[i].Name())
 		}
 	}
-	
+
 	return ""
 }
 
@@ -227,14 +227,14 @@ func (w *Writer) submitToLLM(prompt, indexPath string) error {
 		return fmt.Errorf("failed to create chat directory: %w", err)
 	}
 	chatDir := strings.TrimSpace(string(output))
-	
+
 	// Add prompt as user message
 	cmd = exec.Command("hnt-chat", "add", "user", "-c", chatDir)
 	cmd.Stdin = strings.NewReader(prompt)
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("failed to add user message: %w", err)
 	}
-	
+
 	// Generate LLM response
 	cmd = exec.Command(
 		"hnt-chat", "gen",
@@ -248,16 +248,16 @@ func (w *Writer) submitToLLM(prompt, indexPath string) error {
 	if err != nil {
 		return fmt.Errorf("failed to generate LLM response: %w", err)
 	}
-	
+
 	responseFile := strings.TrimSpace(string(output))
-	
+
 	// Read the response
 	responsePath := filepath.Join(chatDir, responseFile)
 	response, err := os.ReadFile(responsePath)
 	if err != nil {
 		return fmt.Errorf("failed to read response: %w", err)
 	}
-	
+
 	// Extract updated index content
 	pattern := regexp.MustCompile(`<updated_index\.md>\s*(.*?)\s*</updated_index\.md>`)
 	matches := pattern.FindSubmatch(response)
@@ -266,14 +266,14 @@ func (w *Writer) submitToLLM(prompt, indexPath string) error {
 		fmt.Printf("Response saved in: %s\n", chatDir)
 		return fmt.Errorf("invalid LLM response format")
 	}
-	
+
 	updatedIndexContent := string(matches[1])
-	
+
 	// Write the updated content to index.md
 	if err := os.WriteFile(indexPath, []byte(updatedIndexContent+"\n"), 0644); err != nil {
 		return fmt.Errorf("failed to write updated index: %w", err)
 	}
-	
+
 	fmt.Printf("Successfully updated index.md: %s\n", indexPath)
 	fmt.Printf("Chat session saved in: %s\n", chatDir)
 	return nil
