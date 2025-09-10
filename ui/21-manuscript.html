@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>manuscript-stark</title>
+<style>
+:root{
+  --ink:#0a0a0a;
+  --paper:#fafaf8;
+  --fade:#666;
+  --rule:#ddd;
+  --seal:#8b0000;
+  --ghost:#f0f0ed;
+  font-size:17px;
+  line-height:1.8;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{
+  background:var(--paper);
+  color:var(--ink);
+  font-family:"Literata","Iowan Old Style",serif;
+  display:flex;
+  flex-direction:column;
+  height:100vh;
+  padding:0 clamp(1rem, 4vw, 4rem);
+  position:relative;
+}
+body::before{
+  content:"";
+  position:fixed;
+  top:0;
+  left:0;
+  right:0;
+  height:100%;
+  background-image:
+    repeating-linear-gradient(0deg, transparent, transparent 31px, #00000003 31px, #00000003 32px);
+  pointer-events:none;
+}
+header{
+  flex-shrink:0;
+  padding:2.2rem 0 1.5rem;
+  border-bottom:2px solid var(--ink);
+  font-size:.75rem;
+  letter-spacing:0.3em;
+  text-transform:uppercase;
+  font-weight:600;
+  position:relative;
+}
+header::after{
+  content:"¶";
+  position:absolute;
+  right:0;
+  top:2.2rem;
+  color:var(--seal);
+  font-size:1.2rem;
+  font-weight:400;
+  letter-spacing:0;
+}
+main{
+  flex:1 1 auto;
+  overflow:auto;
+  padding:3rem 0;
+}
+.message{
+  max-width:38rem;
+  margin:0 auto 2.2rem;
+  position:relative;
+}
+.message .text{
+  font-weight:400;
+  text-rendering:optimizeLegibility;
+}
+.message .text::first-letter{
+  font-size:2.8em;
+  float:left;
+  line-height:0.8;
+  margin:0.15em 0.1em 0 0;
+  color:var(--seal);
+  font-weight:400;
+}
+.user .text{
+  font-weight:300;
+  font-size:0.95em;
+  margin-left:2rem;
+  color:var(--fade);
+  font-style:italic;
+}
+.user .text::first-letter{
+  font-size:1em;
+  float:none;
+  margin:0;
+  color:inherit;
+}
+.collapsed{
+  max-height:4.5em;
+  overflow:hidden;
+}
+.collapsed::after{
+  content:"";
+  position:absolute;
+  bottom:0;
+  left:0;
+  right:0;
+  height:2em;
+  background:linear-gradient(transparent, var(--paper) 70%);
+}
+.expand{
+  position:absolute;
+  bottom:0;
+  right:0;
+  background:var(--paper);
+  border:1px solid var(--ink);
+  color:var(--ink);
+  font-size:.65rem;
+  font-weight:600;
+  cursor:pointer;
+  padding:.25rem .6rem;
+  letter-spacing:0.1em;
+  text-transform:uppercase;
+  z-index:1;
+}
+.expand:hover{
+  background:var(--ink);
+  color:var(--paper);
+}
+hr{
+  border:0;
+  margin:3rem auto;
+  max-width:38rem;
+  text-align:center;
+  position:relative;
+  height:2rem;
+}
+hr::before{
+  content:"§";
+  font-size:1.4rem;
+  color:var(--fade);
+  position:absolute;
+  left:50%;
+  top:50%;
+  transform:translate(-50%, -50%);
+}
+footer{
+  flex-shrink:0;
+  padding:1.8rem 0 2.6rem;
+  display:flex;
+  gap:1rem;
+  align-items:center;
+  justify-content:center;
+  border-top:1px solid var(--rule);
+}
+textarea{
+  flex:1;
+  max-width:38rem;
+  border:0;
+  border-bottom:2px solid var(--ink);
+  background:transparent;
+  color:var(--ink);
+  font:inherit;
+  resize:none;
+  outline:none;
+  min-height:2.8rem;
+  padding:0.5rem 0;
+}
+textarea::placeholder{
+  color:var(--fade);
+  opacity:0.5;
+  font-style:italic;
+}
+textarea:focus{
+  border-bottom-color:var(--seal);
+}
+#settings{
+  position:fixed;
+  bottom:1.8rem;
+  right:2rem;
+  width:18px;
+  height:18px;
+  cursor:pointer;
+  opacity:.2;
+  transition:.25s;
+}
+#settings:hover{
+  opacity:.6;
+}
+
+/* manuscript table */
+.codex-table{
+  margin:3rem auto;
+  max-width:34rem;
+  border-collapse:collapse;
+  font-size:0.9em;
+  border:2px solid var(--ink);
+}
+.codex-table th,
+.codex-table td{
+  padding:1rem 1.2rem;
+  text-align:left;
+  border:1px solid var(--rule);
+}
+.codex-table th{
+  background:var(--ghost);
+  font-weight:600;
+  letter-spacing:0.1em;
+  text-transform:uppercase;
+  font-size:0.7em;
+  border-bottom:2px solid var(--ink);
+}
+.codex-table td:first-child{
+  font-weight:600;
+  position:relative;
+}
+.codex-table td:first-child::before{
+  content:"";
+  position:absolute;
+  left:0.5rem;
+  top:50%;
+  transform:translateY(-50%);
+  width:4px;
+  height:4px;
+  background:var(--seal);
+  border-radius:50%;
+}
+
+/* margin notes */
+.margin-note{
+  position:absolute;
+  right:-8rem;
+  width:6rem;
+  font-size:0.7em;
+  color:var(--fade);
+  font-style:italic;
+  line-height:1.6;
+  display:none;
+}
+@media (min-width: 70rem){
+  .margin-note{display:block;}
+}
+</style>
+</head>
+<body>
+<header>folio primo</header>
+
+<main id="chat">
+  <div class="message">
+    <p class="text">
+      Here, on vellum worn smooth by centuries of reading, 
+      words carry the weight of permanence. Each letter pressed 
+      deep into the page remembers its making. Write as though 
+      carving into stone, as though mixing your own ink from 
+      oak galls and iron.
+    </p>
+    <span class="margin-note">Written in the year of our interface, 2024</span>
+  </div>
+  
+  <table class="codex-table">
+    <thead>
+      <tr>
+        <th>Script</th>
+        <th>Era</th>
+        <th>Character</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Uncial</td>
+        <td>4th–8th c.</td>
+        <td>Rounded majesty</td>
+      </tr>
+      <tr>
+        <td>Carolingian</td>
+        <td>8th–12th c.</td>
+        <td>Clear hierarchy</td>
+      </tr>
+      <tr>
+        <td>Gothic</td>
+        <td>12th–15th c.</td>
+        <td>Vertical rhythm</td>
+      </tr>
+      <tr>
+        <td>Humanist</td>
+        <td>15th c.</td>
+        <td>Open clarity</td>
+      </tr>
+    </tbody>
+  </table>
+</main>
+
+<footer>
+  <textarea placeholder="inscribe your words..." rows="1"></textarea>
+</footer>
+
+<svg id="settings" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+  <circle cx="12" cy="12" r="3"/>
+  <path d="M12 1v6m0 6v6m11-7h-6m-6 0H1m20.4-4.6l-4.2 4.2m-12 12l-4.2 4.2m12-20.8l-4.2 4.2M7.6 7.6L3.4 3.4"/>
+</svg>
+
+<script>
+/* ---------- expand/collapse ---------- */
+function maybeCollapse(p){
+  if(p.scrollHeight > 4.5 * parseFloat(getComputedStyle(p).fontSize)){
+    p.classList.add('collapsed');
+    const btn=document.createElement('button');
+    btn.className='expand';
+    btn.textContent='more';
+    btn.onclick=()=>{
+      p.classList.toggle('collapsed');
+      btn.textContent = p.classList.contains('collapsed') ? 'more' : 'less';
+    };
+    p.parentNode.appendChild(btn);
+  }
+}
+document.querySelectorAll('.text').forEach(maybeCollapse);
+
+/* ---------- minimal chat loop ---------- */
+const chat=document.getElementById('chat');
+const ta=document.querySelector('textarea');
+const send=()=>{
+  const val=ta.value.trim();
+  if(!val)return;
+  const div=document.createElement('div');
+  div.className='message user';
+  div.innerHTML=`<p class="text">${val}</p>`;
+  chat.appendChild(div);
+  maybeCollapse(div.querySelector('p'));
+  
+  const hr=document.createElement('hr');
+  chat.appendChild(hr);
+
+  setTimeout(()=>{
+    const reply=document.createElement('div');
+    reply.className='message';
+    reply.innerHTML=`<p class="text">
+      The quill scratches against parchment, leaving traces 
+      that will outlast the hand that writes them. In this scriptorum 
+      of endless pages, every word becomes artifact, every phrase 
+      a small eternity.
+    </p>`;
+    chat.appendChild(reply);
+    maybeCollapse(reply.querySelector('p'));
+    hr.scrollIntoView({behavior:'smooth'});
+  },800);
+  ta.value='';
+};
+ta.addEventListener('keydown',e=>{
+  if(e.key==='Enter' && !e.shiftKey){e.preventDefault();send();}
+});
+</script>
+</body>
+</html>

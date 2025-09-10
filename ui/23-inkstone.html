@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>inkstone</title>
+<style>
+:root{
+  --bg:#000;
+  --ink:#fff;
+  --user:#ccc;
+  --rule:#222;
+  --accent:#ff0d0d;
+  --fade:#666;
+  font-size:16px;
+  line-height:1.8;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{
+  background:var(--bg);
+  color:var(--ink);
+  font-family:"IBM Plex Mono","Courier",monospace;
+  font-weight:300;
+  display:flex;
+  flex-direction:column;
+  height:100vh;
+  padding:0 clamp(1rem, 5vw, 5rem);
+}
+header{
+  flex-shrink:0;
+  padding:2.5rem 0 1.5rem;
+  font-size:.75rem;
+  color:var(--fade);
+  letter-spacing:0.5em;
+  text-transform:uppercase;
+  position:relative;
+}
+header::after{
+  content:"";
+  position:absolute;
+  bottom:0;
+  left:0;
+  width:3rem;
+  height:1px;
+  background:var(--ink);
+}
+main{
+  flex:1 1 auto;
+  overflow:auto;
+  padding:3rem 0;
+}
+.message{
+  max-width:38rem;
+  margin:0 auto 2.5rem;
+  position:relative;
+}
+.message .text{
+  font-size:1.05em;
+  letter-spacing:0.02em;
+}
+.user .text{
+  font-weight:200;
+  color:var(--user);
+  padding-left:2rem;
+  border-left:1px solid var(--rule);
+  font-style:normal;
+}
+.collapsed{
+  max-height:4.5em;
+  overflow:hidden;
+  -webkit-mask-image:linear-gradient(180deg, #000 60%, transparent);
+  mask-image:linear-gradient(180deg, #000 60%, transparent);
+}
+.expand{
+  position:absolute;
+  bottom:0;
+  right:0;
+  background:var(--bg);
+  border:0;
+  color:var(--fade);
+  font-family:inherit;
+  font-size:.65rem;
+  cursor:pointer;
+  padding:.3rem 0;
+  letter-spacing:0.3em;
+  text-transform:uppercase;
+}
+.expand:hover{
+  color:var(--ink);
+}
+hr{
+  border:0;
+  margin:3rem auto;
+  max-width:38rem;
+  text-align:center;
+  position:relative;
+  height:2rem;
+}
+hr::before{
+  content:"◆";
+  color:var(--accent);
+  font-size:0.5rem;
+  position:absolute;
+  left:50%;
+  top:50%;
+  transform:translate(-50%, -50%);
+}
+footer{
+  flex-shrink:0;
+  padding:1.8rem 0 2.5rem;
+  display:flex;
+  gap:1rem;
+  align-items:center;
+  justify-content:center;
+  position:relative;
+}
+footer::before{
+  content:"";
+  position:absolute;
+  top:0;
+  left:50%;
+  transform:translateX(-50%);
+  width:1px;
+  height:1rem;
+  background:var(--rule);
+}
+textarea{
+  flex:1;
+  max-width:38rem;
+  border:0;
+  background:transparent;
+  color:var(--ink);
+  font:inherit;
+  font-weight:200;
+  resize:none;
+  outline:none;
+  min-height:3.2rem;
+  padding:0;
+  letter-spacing:0.02em;
+}
+textarea::placeholder{
+  color:var(--fade);
+  opacity:1;
+}
+#settings{
+  position:fixed;
+  bottom:1.8rem;
+  right:2rem;
+  width:18px;
+  height:18px;
+  cursor:pointer;
+  opacity:.2;
+  transition:.3s;
+}
+#settings:hover{
+  opacity:.6;
+}
+
+/* ink table */
+.ink-table{
+  margin:3rem auto;
+  max-width:32rem;
+  border-collapse:collapse;
+  font-size:0.9em;
+  font-weight:200;
+}
+.ink-table th,
+.ink-table td{
+  padding:1rem 0;
+  text-align:left;
+}
+.ink-table th{
+  color:var(--fade);
+  font-weight:300;
+  letter-spacing:0.3em;
+  text-transform:uppercase;
+  font-size:0.7em;
+  border-bottom:1px solid var(--ink);
+}
+.ink-table td{
+  border-bottom:1px solid var(--rule);
+}
+.ink-table td:first-child{
+  width:30%;
+  color:var(--fade);
+}
+.ink-table td:last-child{
+  text-align:right;
+  padding-right:0;
+}
+.ink-table tr:last-child td{
+  border-bottom:none;
+}
+.ink-table tr:hover td:first-child{
+  color:var(--ink);
+}
+
+/* red accent flash */
+@keyframes redflash{
+  0%{opacity:0;}
+  50%{opacity:1;}
+  100%{opacity:0;}
+}
+.flash{
+  position:fixed;
+  top:50%;
+  left:0;
+  width:1px;
+  height:10rem;
+  background:var(--accent);
+  transform:translateY(-50%);
+  animation:redflash 3s infinite;
+  animation-delay:10s;
+  pointer-events:none;
+}
+</style>
+</head>
+<body>
+<div class="flash"></div>
+<header>void</header>
+
+<main id="chat">
+  <div class="message">
+    <p class="text">
+      Black ink on black stone. Words carved with light.
+      Every stroke deliberate, every silence measured.
+      This is the space between spaces.
+    </p>
+  </div>
+  
+  <table class="ink-table">
+    <thead>
+      <tr>
+        <th>Mark</th>
+        <th>Weight</th>
+        <th>Void</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Stroke</td>
+        <td>Heavy</td>
+        <td>0.1</td>
+      </tr>
+      <tr>
+        <td>Brush</td>
+        <td>Light</td>
+        <td>0.3</td>
+      </tr>
+      <tr>
+        <td>Chisel</td>
+        <td>Sharp</td>
+        <td>0.0</td>
+      </tr>
+      <tr>
+        <td>Shadow</td>
+        <td>Soft</td>
+        <td>0.7</td>
+      </tr>
+      <tr>
+        <td>Silence</td>
+        <td>Complete</td>
+        <td>1.0</td>
+      </tr>
+    </tbody>
+  </table>
+</main>
+
+<footer>
+  <textarea placeholder="carve" rows="1"></textarea>
+</footer>
+
+<svg id="settings" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+  <circle cx="12" cy="12" r="3"/>
+  <path d="M12 1v6m0 6v6m11-7h-6m-6 0H1m20.4-4.6l-4.2 4.2m-12 12l-4.2 4.2m12-20.8l-4.2 4.2M7.6 7.6L3.4 3.4"/>
+</svg>
+
+<script>
+/* ---------- expand/collapse ---------- */
+function maybeCollapse(p){
+  if(p.scrollHeight > 4.5 * parseFloat(getComputedStyle(p).fontSize)){
+    p.classList.add('collapsed');
+    const btn=document.createElement('button');
+    btn.className='expand';
+    btn.textContent='more';
+    btn.onclick=()=>{
+      p.classList.toggle('collapsed');
+      btn.textContent = p.classList.contains('collapsed') ? 'more' : 'less';
+    };
+    p.parentNode.appendChild(btn);
+  }
+}
+document.querySelectorAll('.text').forEach(maybeCollapse);
+
+/* ---------- minimal chat loop ---------- */
+const chat=document.getElementById('chat');
+const ta=document.querySelector('textarea');
+const send=()=>{
+  const val=ta.value.trim();
+  if(!val)return;
+  const div=document.createElement('div');
+  div.className='message user';
+  div.innerHTML=`<p class="text">${val}</p>`;
+  chat.appendChild(div);
+  maybeCollapse(div.querySelector('p'));
+  
+  const hr=document.createElement('hr');
+  chat.appendChild(hr);
+
+  setTimeout(()=>{
+    const reply=document.createElement('div');
+    reply.className='message';
+    reply.innerHTML=`<p class="text">
+      The void receives your marks. Each word etched 
+      into darkness becomes its own light.
+      What remains is what was always there.
+    </p>`;
+    chat.appendChild(reply);
+    maybeCollapse(reply.querySelector('p'));
+    hr.scrollIntoView({behavior:'smooth'});
+  },800);
+  ta.value='';
+};
+ta.addEventListener('keydown',e=>{
+  if(e.key==='Enter' && !e.shiftKey){e.preventDefault();send();}
+});
+</script>
+</body>
+</html>
