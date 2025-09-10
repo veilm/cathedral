@@ -11,7 +11,7 @@ import (
 type Config struct {
 	ActiveStore string            `json:"active_store"`
 	Stores      map[string]string `json:"stores"` // name -> path mapping
-	
+
 	configPath string // Internal: path to config file
 }
 
@@ -28,18 +28,18 @@ func Load(configPath string) (*Config, error) {
 	if configPath == "" {
 		configPath = getDefaultConfigPath()
 	}
-	
+
 	cfg := &Config{
 		Stores:     make(map[string]string),
 		configPath: configPath,
 	}
-	
+
 	// Ensure config directory exists
 	configDir := filepath.Dir(configPath)
 	if err := os.MkdirAll(configDir, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create config directory: %w", err)
 	}
-	
+
 	// Try to load existing config
 	data, err := os.ReadFile(configPath)
 	if err != nil {
@@ -49,11 +49,11 @@ func Load(configPath string) (*Config, error) {
 		}
 		return nil, fmt.Errorf("failed to read config: %w", err)
 	}
-	
+
 	if err := json.Unmarshal(data, cfg); err != nil {
 		return nil, fmt.Errorf("failed to parse config: %w", err)
 	}
-	
+
 	cfg.configPath = configPath
 	return cfg, nil
 }
@@ -64,11 +64,11 @@ func (c *Config) Save() error {
 	if err != nil {
 		return fmt.Errorf("failed to marshal config: %w", err)
 	}
-	
+
 	if err := os.WriteFile(c.configPath, data, 0644); err != nil {
 		return fmt.Errorf("failed to write config: %w", err)
 	}
-	
+
 	return nil
 }
 

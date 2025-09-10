@@ -6,9 +6,9 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
-	
-	"github.com/oboro/cathedral/pkg/config"
+
 	"github.com/fatih/color"
+	"github.com/oboro/cathedral/pkg/config"
 )
 
 // HealthChecker validates memory node files
@@ -29,13 +29,13 @@ func (h *HealthChecker) CheckHealth(filePaths []string) error {
 		if activeStore == "" {
 			return fmt.Errorf("no active memory store. Create one with 'cathedral create-store <name>'")
 		}
-		
+
 		// Add index.md if it exists
 		indexPath := filepath.Join(activeStore, "index.md")
 		if _, err := os.Stat(indexPath); err == nil {
 			filePaths = append(filePaths, indexPath)
 		}
-		
+
 		// Add all episodic/*.md files
 		episodicDir := filepath.Join(activeStore, "episodic")
 		if entries, err := os.ReadDir(episodicDir); err == nil {
@@ -45,7 +45,7 @@ func (h *HealthChecker) CheckHealth(filePaths []string) error {
 				}
 			}
 		}
-		
+
 		// Add all semantic/*.md files
 		semanticDir := filepath.Join(activeStore, "semantic")
 		if entries, err := os.ReadDir(semanticDir); err == nil {
@@ -55,13 +55,13 @@ func (h *HealthChecker) CheckHealth(filePaths []string) error {
 				}
 			}
 		}
-		
+
 		if len(filePaths) == 0 {
 			fmt.Println("No memory files found in active store")
 			return nil
 		}
 	}
-	
+
 	// Get store path for resolving relative links
 	storePath := h.config.GetActiveStorePath()
 	if storePath == "" && len(filePaths) > 0 {
@@ -80,28 +80,28 @@ func (h *HealthChecker) CheckHealth(filePaths []string) error {
 			storePath = filepath.Dir(storePath)
 		}
 	}
-	
+
 	// Pattern to match [[links]]
 	linkPattern := regexp.MustCompile(`\[\[([^\]]+)\]\]`)
-	
+
 	var allErrors []string
 	var filesWithFixes []string
-	
+
 	for _, filePath := range filePaths {
 		content, err := os.ReadFile(filePath)
 		if err != nil {
 			fmt.Printf("Warning: File not found: %s\n", filePath)
 			continue
 		}
-		
+
 		originalContent := string(content)
 		fixedContent := originalContent
 		var fileErrors []string
 		fixedCommaLinks := false
-		
+
 		// Find all [[links]] in the file
 		links := linkPattern.FindAllStringSubmatch(originalContent, -1)
-		
+
 		// First pass: fix comma-separated links
 		for _, match := range links {
 			linkText := match[1]
@@ -122,7 +122,7 @@ func (h *HealthChecker) CheckHealth(filePaths []string) error {
 				fixedCommaLinks = true
 			}
 		}
-		
+
 		// Write back if we made fixes
 		if fixedCommaLinks {
 			if err := os.WriteFile(filePath, []byte(fixedContent), 0644); err == nil {
@@ -131,19 +131,19 @@ func (h *HealthChecker) CheckHealth(filePaths []string) error {
 				links = linkPattern.FindAllStringSubmatch(fixedContent, -1)
 			}
 		}
-		
+
 		// Second pass: validate each link
 		for _, match := range links {
 			linkName := strings.TrimSpace(match[1])
-			
+
 			// Skip if this still has a comma (shouldn't happen after fix)
 			if strings.Contains(linkName, ",") {
 				continue
 			}
-			
+
 			// Check if the link exists
 			foundLocations := h.findLinkTargets(storePath, linkName)
-			
+
 			if len(foundLocations) == 0 {
 				error := fmt.Sprintf("  [[%s]] - NOT FOUND", linkName)
 				fileErrors = append(fileErrors, error)
@@ -153,24 +153,24 @@ func (h *HealthChecker) CheckHealth(filePaths []string) error {
 			}
 			// If exactly 1 location, it's valid
 		}
-		
+
 		if len(fileErrors) > 0 {
 			allErrors = append(allErrors, fmt.Sprintf("\n%s:", filePath))
 			allErrors = append(allErrors, fileErrors...)
 		}
 	}
-	
+
 	// Report results
 	fmt.Printf("\nHealth check for %d file(s):\n", len(filePaths))
 	fmt.Println(strings.Repeat("-", 60))
-	
+
 	if len(filesWithFixes) > 0 {
 		fmt.Println("\nFixed comma-separated links in:")
 		for _, file := range filesWithFixes {
 			fmt.Printf("  %s %s\n", color.GreenString("✓"), file)
 		}
 	}
-	
+
 	if len(allErrors) > 0 {
 		fmt.Println("\nErrors found:")
 		for _, error := range allErrors {
@@ -179,7 +179,7 @@ func (h *HealthChecker) CheckHealth(filePaths []string) error {
 		fmt.Println("\nHealth check FAILED")
 		return fmt.Errorf("health check failed")
 	}
-	
+
 	fmt.Println("\nAll files are clean:")
 	for _, filePath := range filePaths {
 		fmt.Printf("  %s %s\n", color.GreenString("✓"), filePath)
@@ -191,23 +191,23 @@ func (h *HealthChecker) CheckHealth(filePaths []string) error {
 // findLinkTargets searches for a link target in the store
 func (h *HealthChecker) findLinkTargets(storePath, linkName string) []string {
 	var foundLocations []string
-	
+
 	// Check episodic/
 	episodicPath := filepath.Join(storePath, "episodic", linkName)
 	if _, err := os.Stat(episodicPath); err == nil {
 		foundLocations = append(foundLocations, fmt.Sprintf("episodic/%s", linkName))
 	}
-	
+
 	// Check episodic-raw/ (recursively)
 	episodicRawDir := filepath.Join(storePath, "episodic-raw")
 	h.searchRecursive(episodicRawDir, linkName, storePath, &foundLocations)
-	
+
 	// Check semantic/
 	semanticPath := filepath.Join(storePath, "semantic", linkName)
 	if _, err := os.Stat(semanticPath); err == nil {
 		foundLocations = append(foundLocations, fmt.Sprintf("semantic/%s", linkName))
 	}
-	
+
 	return foundLocations
 }
 
@@ -217,7 +217,7 @@ func (h *HealthChecker) searchRecursive(dir, filename, storePath string, results
 	if err != nil {
 		return
 	}
-	
+
 	for _, entry := range entries {
 		fullPath := filepath.Join(dir, entry.Name())
 		if entry.IsDir() {

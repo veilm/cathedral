@@ -13,10 +13,10 @@ DEFAULT_ROUNDING = 50  # Round to nearest 50 chars/words for clean numbers
 
 # Future compression profiles (from config.md)
 COMPRESSION_PROFILES = {
-    "default": 0.5,      # Balanced: 50% retention
-    "compact": 0.25,     # Aggressive: 25% retention  
-    "verbose": 0.75,     # Gentle: 75% retention
-    "full": 1.0,         # No compression (for testing)
+    "default": 0.5,  # Balanced: 50% retention
+    "compact": 0.25,  # Aggressive: 25% retention
+    "verbose": 0.75,  # Gentle: 75% retention
+    "full": 1.0,  # No compression (for testing)
 }
 
 
@@ -25,8 +25,8 @@ COMPRESSION_PROFILES = {
 # ============================================================================
 
 DEFAULT_NODE_SIZE = 1000  # Target tokens per node (soft limit)
-MAX_NODE_SIZE = 2000      # Maximum before splitting required
-INDEX_NODE_SIZE = 3000    # Special size for index.md
+MAX_NODE_SIZE = 2000  # Maximum before splitting required
+INDEX_NODE_SIZE = 3000  # Special size for index.md
 
 # Node types and their characteristics
 NODE_TYPES = {
@@ -60,7 +60,7 @@ DEFAULT_ROLE_NAMES = {
 
 DEFAULT_TEMPLATES = {
     "write_memory": "grimoire/write-memory.md",
-    "init_session": "grimoire/conv-start-injection.md", 
+    "init_session": "grimoire/conv-start-injection.md",
     "blank_index": "grimoire/index-blank.md",
 }
 
@@ -77,28 +77,32 @@ STORE_STRUCTURE = {
 # Runtime Configuration - for dynamic navigation
 # ============================================================================
 
+
 @dataclass
 class CathedralSettings:
     """Runtime settings that can be adjusted per operation."""
-    
+
     compression_ratio: float = DEFAULT_COMPRESSION_RATIO
     compression_profile: Optional[str] = None
-    
+
     # Memory writing settings
     preserve_quotes: bool = True  # Keep exact phrasing when significant
     link_all_episodic: bool = False  # Link every episodic mention vs selective
-    
+
     # Reflection settings (future)
     reflection_enabled: bool = False
     reflection_frequency: int = 5  # After N sessions
-    
+
     # Debug/testing
     verbose: bool = False
     dry_run: bool = False
-    
+
     def __post_init__(self):
         """Apply compression profile if specified."""
-        if self.compression_profile and self.compression_profile in COMPRESSION_PROFILES:
+        if (
+            self.compression_profile
+            and self.compression_profile in COMPRESSION_PROFILES
+        ):
             self.compression_ratio = COMPRESSION_PROFILES[self.compression_profile]
 
 

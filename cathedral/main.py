@@ -157,7 +157,11 @@ class CathedralCLI:
         return transcript, session_path
 
     def _generate_memory_prompt(
-        self, index_path: Path, template_path: Path, session_dir: Path, compression_ratio: float = DEFAULT_COMPRESSION_RATIO
+        self,
+        index_path: Path,
+        template_path: Path,
+        session_dir: Path,
+        compression_ratio: float = DEFAULT_COMPRESSION_RATIO,
     ) -> str:
         """Generate the final prompt by filling in the template."""
 
@@ -180,8 +184,12 @@ class CathedralCLI:
 
         # Calculate targets based on compression ratio
         # compression_ratio is the retention rate (0.5 = 50% retention = 2x compression)
-        target_chars = round(orig_chars * compression_ratio / DEFAULT_ROUNDING) * DEFAULT_ROUNDING
-        target_words = round(orig_words * compression_ratio / DEFAULT_ROUNDING) * DEFAULT_ROUNDING
+        target_chars = (
+            round(orig_chars * compression_ratio / DEFAULT_ROUNDING) * DEFAULT_ROUNDING
+        )
+        target_words = (
+            round(orig_words * compression_ratio / DEFAULT_ROUNDING) * DEFAULT_ROUNDING
+        )
 
         # Replace variables
         prompt = template.replace("__CURRENT_INDEX__", current_index)
@@ -1438,7 +1446,7 @@ Examples:
     write_memory_parser.add_argument(
         "--compression-profile",
         choices=list(COMPRESSION_PROFILES.keys()),
-        help=f"Use predefined compression profile: {', '.join(f'{k}={v}' for k,v in COMPRESSION_PROFILES.items())}",
+        help=f"Use predefined compression profile: {', '.join(f'{k}={v}' for k, v in COMPRESSION_PROFILES.items())}",
     )
 
     # Init session command
@@ -1523,7 +1531,7 @@ Examples:
         # Use compression profile if specified, otherwise use direct ratio
         compression = (
             COMPRESSION_PROFILES[args.compression_profile]
-            if hasattr(args, 'compression_profile') and args.compression_profile
+            if hasattr(args, "compression_profile") and args.compression_profile
             else args.compression
         )
         success = cli.write_memory(

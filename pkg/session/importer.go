@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-	
+
 	"github.com/oboro/cathedral/pkg/config"
 )
 
@@ -26,29 +26,29 @@ func (i *Importer) ImportMessages(filePaths []string, sessionID string) error {
 	if activeStore == "" {
 		return fmt.Errorf("no active memory store. Create one with 'cathedral create-store <name>'")
 	}
-	
+
 	// Resolve all input paths to actual files
 	resolvedFiles := i.resolveHinataPaths(filePaths)
 	if len(resolvedFiles) == 0 {
 		return fmt.Errorf("no valid files found to import")
 	}
-	
+
 	episodicRawDir := filepath.Join(activeStore, "episodic-raw")
 	var sessionDir string
 	var messageCount int
-	
+
 	if sessionID != "" {
 		// Use existing session
 		parts := strings.Split(sessionID, "/")
 		if len(parts) != 2 {
 			return fmt.Errorf("invalid session format '%s'. Expected format: YYYYMMDD/SESSION_ID", sessionID)
 		}
-		
+
 		sessionDir = filepath.Join(episodicRawDir, parts[0], parts[1])
 		if _, err := os.Stat(sessionDir); os.IsNotExist(err) {
 			return fmt.Errorf("session '%s' does not exist", sessionID)
 		}
-		
+
 		// Find the highest message number to continue from
 		messageCount = i.getHighestMessageNumber(sessionDir) + 1
 	} else {
@@ -58,16 +58,16 @@ func (i *Importer) ImportMessages(filePaths []string, sessionID string) error {
 		if err != nil {
 			return err
 		}
-		
+
 		sessionDir = filepath.Join(episodicRawDir, strings.ReplaceAll(newSessionPath, "/", string(os.PathSeparator)))
 		messageCount = 0
 		fmt.Printf("Created new session: %s\n", newSessionPath)
 	}
-	
+
 	// Import messages
 	importedCount := 0
 	skippedCount := 0
-	
+
 	for _, filePath := range resolvedFiles {
 		content, err := os.ReadFile(filePath)
 		if err != nil {
@@ -75,11 +75,11 @@ func (i *Importer) ImportMessages(filePaths []string, sessionID string) error {
 			skippedCount++
 			continue
 		}
-		
+
 		// Determine role based on filename
 		filename := filepath.Base(filePath)
 		var role string
-		
+
 		if shouldSkipFile(filename) {
 			skippedCount++
 			continue
@@ -92,32 +92,32 @@ func (i *Importer) ImportMessages(filePaths []string, sessionID string) error {
 			skippedCount++
 			continue
 		}
-		
+
 		// Write to Cathedral format
 		padding := calculatePadding(messageCount + len(resolvedFiles))
 		outputFilename := fmt.Sprintf("%0*d-%s.md", padding, messageCount, role)
 		outputPath := filepath.Join(sessionDir, outputFilename)
-		
+
 		if err := os.WriteFile(outputPath, content, 0644); err != nil {
 			fmt.Printf("Error writing %s: %v\n", outputPath, err)
 			skippedCount++
 			continue
 		}
-		
+
 		messageCount++
 		importedCount++
 	}
-	
+
 	if sessionID != "" {
 		fmt.Printf("Appended %d messages to session: %s\n", importedCount, sessionID)
 	} else {
 		fmt.Printf("Imported %d messages\n", importedCount)
 	}
-	
+
 	if skippedCount > 0 {
 		fmt.Printf("Skipped %d files (reasoning, metadata, or unrecognized)\n", skippedCount)
 	}
-	
+
 	fmt.Printf("Session directory: %s\n", sessionDir)
 	return nil
 }
@@ -125,7 +125,7 @@ func (i *Importer) ImportMessages(filePaths []string, sessionID string) error {
 // resolveHinataPaths resolves input paths to actual file paths
 func (i *Importer) resolveHinataPaths(paths []string) []string {
 	var resolvedFiles []string
-	
+
 	for _, pathStr := range paths {
 		info, err := os.Stat(pathStr)
 		if err == nil {
@@ -148,7 +148,7 @@ func (i *Importer) resolveHinataPaths(paths []string) []string {
 				home, _ := os.UserHomeDir()
 				xdgDataHome = filepath.Join(home, ".local", "share")
 			}
-			
+
 			hinataConvDir := filepath.Join(xdgDataHome, "hinata", "chat", "conversations", pathStr)
 			if info, err := os.Stat(hinataConvDir); err == nil && info.IsDir() {
 				entries, _ := os.ReadDir(hinataConvDir)
@@ -162,7 +162,7 @@ func (i *Importer) resolveHinataPaths(paths []string) []string {
 			}
 		}
 	}
-	
+
 	sort.Strings(resolvedFiles)
 	return resolvedFiles
 }
@@ -170,12 +170,12 @@ func (i *Importer) resolveHinataPaths(paths []string) []string {
 // getHighestMessageNumber finds the highest message number in a session directory
 func (i *Importer) getHighestMessageNumber(sessionDir string) int {
 	maxNum := -1
-	
+
 	entries, err := os.ReadDir(sessionDir)
 	if err != nil {
 		return maxNum
 	}
-	
+
 	for _, entry := range entries {
 		if !entry.IsDir() && strings.Contains(entry.Name(), "-") {
 			parts := strings.SplitN(entry.Name(), "-", 2)
@@ -189,7 +189,7 @@ func (i *Importer) getHighestMessageNumber(sessionDir string) int {
 			}
 		}
 	}
-	
+
 	return maxNum
 }
 
@@ -207,12 +207,12 @@ func calculatePadding(totalMessages int) int {
 	if totalMessages == 0 {
 		return 1
 	}
-	
+
 	digits := 0
 	for n := totalMessages - 1; n > 0; n /= 10 {
 		digits++
 	}
-	
+
 	if digits == 0 {
 		return 1
 	}

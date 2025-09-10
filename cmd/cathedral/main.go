@@ -6,9 +6,9 @@ import (
 	"path/filepath"
 
 	"github.com/oboro/cathedral/pkg/config"
-	"github.com/oboro/cathedral/pkg/store"
-	"github.com/oboro/cathedral/pkg/session"
 	"github.com/oboro/cathedral/pkg/memory"
+	"github.com/oboro/cathedral/pkg/session"
+	"github.com/oboro/cathedral/pkg/store"
 	"github.com/spf13/cobra"
 )
 
@@ -16,18 +16,18 @@ var (
 	// Global flags
 	configPath string
 	verbose    bool
-	
+
 	// Command-specific flags
-	storePath      string
-	storeName      string
-	sessionID      string
-	templatePath   string
-	indexPath      string
-	getPromptOnly  bool
-	noTags         bool
-	compression    float64
+	storePath          string
+	storeName          string
+	sessionID          string
+	templatePath       string
+	indexPath          string
+	getPromptOnly      bool
+	noTags             bool
+	compression        float64
 	compressionProfile string
-	dateInput      string
+	dateInput          string
 )
 
 func main() {
@@ -177,28 +177,28 @@ func runCreateStore(cmd *cobra.Command, args []string) error {
 	if len(args) > 1 {
 		path = args[1]
 	}
-	
+
 	cfg, err := config.Load(configPath)
 	if err != nil {
 		return err
 	}
-	
+
 	mgr := store.NewManager(cfg)
 	return mgr.CreateStore(name, path)
 }
 
 func runLinkStore(cmd *cobra.Command, args []string) error {
 	path := args[0]
-	
+
 	cfg, err := config.Load(configPath)
 	if err != nil {
 		return err
 	}
-	
+
 	if storeName == "" {
 		storeName = filepath.Base(path)
 	}
-	
+
 	mgr := store.NewManager(cfg)
 	return mgr.LinkStore(storeName, path)
 }
@@ -208,31 +208,31 @@ func runListStores(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	
+
 	mgr := store.NewManager(cfg)
 	return mgr.ListStores()
 }
 
 func runSwitchStore(cmd *cobra.Command, args []string) error {
 	name := args[0]
-	
+
 	cfg, err := config.Load(configPath)
 	if err != nil {
 		return err
 	}
-	
+
 	mgr := store.NewManager(cfg)
 	return mgr.SwitchStore(name)
 }
 
 func runUnlinkStore(cmd *cobra.Command, args []string) error {
 	nameOrPath := args[0]
-	
+
 	cfg, err := config.Load(configPath)
 	if err != nil {
 		return err
 	}
-	
+
 	mgr := store.NewManager(cfg)
 	return mgr.UnlinkStore(nameOrPath)
 }
@@ -242,7 +242,7 @@ func runShowActive(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	
+
 	mgr := store.NewManager(cfg)
 	return mgr.ShowActive()
 }
@@ -252,13 +252,13 @@ func runInitEpisodicSession(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	
+
 	sessMgr := session.NewManager(cfg)
 	sessionPath, err := sessMgr.InitEpisodicSession(dateInput)
 	if err != nil {
 		return err
 	}
-	
+
 	fmt.Println(sessionPath)
 	return nil
 }
@@ -268,7 +268,7 @@ func runImportMessages(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	
+
 	importer := session.NewImporter(cfg)
 	return importer.ImportMessages(args, sessionID)
 }
@@ -278,7 +278,7 @@ func runWriteMemory(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	
+
 	// Handle compression profile
 	if compressionProfile != "" {
 		if ratio, ok := memory.CompressionProfiles[compressionProfile]; ok {
@@ -287,7 +287,7 @@ func runWriteMemory(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("unknown compression profile: %s", compressionProfile)
 		}
 	}
-	
+
 	writer := memory.NewWriter(cfg)
 	return writer.WriteMemory(sessionID, templatePath, indexPath, getPromptOnly, compression)
 }
@@ -297,7 +297,7 @@ func runInitConversation(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	
+
 	conv := session.NewConversationInitializer(cfg)
 	return conv.InitSession(templatePath, getPromptOnly)
 }
@@ -307,7 +307,7 @@ func runHealthCheck(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	
+
 	checker := memory.NewHealthChecker(cfg)
 	return checker.CheckHealth(args)
 }
@@ -317,7 +317,7 @@ func runReadNode(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	
+
 	reader := memory.NewNodeReader(cfg)
 	return reader.ReadNodes(args, noTags)
 }
