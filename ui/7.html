@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>HUD-dream</title>
+<style>
+:root{
+  --bg:#0a0a0f;
+  --glow:#00e5ff;
+  --muted:#00e5ff77;
+  --font-mono:"JetBrains Mono","Fira Code",Monaco,Consolas,"Courier New",monospace;
+  font-size:17px;
+}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;height:100vh;background:var(--bg);color:var(--glow);font-family:var(--font-mono);overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+#chat{position:relative;width:100%;max-width:44rem;height:60vh;overflow-y:auto;scroll-behavior:smooth;scrollbar-width:none}
+#chat::-webkit-scrollbar{display:none}
+.line{position:relative;padding:.2rem 0;margin:.1rem 1.4rem;transition:transform .6s ease}
+.line.user{transform:translateY(-4px)}
+.line.assistant{transform:translateY(4px)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+.caret{width:.6rem;height.1.2rem;background:var(--glow);display:inline-block;animation:pulse 1.2s infinite}
+.echo{position:absolute;color:var(--muted);pointer-events:none;font:inherit;left:1.4rem;top:0;transition:opacity .4s}
+footer{position:fixed;bottom:6vh;width:100%;display:flex;justify-content:center}
+textarea{
+  background:transparent;border:0;outline:0;
+  color:var(--glow);
+  font-family:inherit;font-size:1rem;line-height:1.4;
+  resize:none;overflow:hidden;width:100%;max-width:40rem
+}
+textarea::placeholder{color:var(--muted)}
+</style>
+</head>
+<body>
+
+<div id="chat">
+  <div class="line assistant">status: awaiting input.</div>
+</div>
+
+<footer>
+  <textarea id="input" rows="1" placeholder="_"></textarea>
+</footer>
+
+<script>
+const chat=document.getElementById('chat');
+const input=document.getElementById('input');
+const send=()=>{
+  const val=input.value.trim();
+  if(!val)return;
+  // user line
+  const u=document.createElement('div');u.className='line user';
+  u.textContent=val;
+  chat.appendChild(u);
+  // echo effect
+  input.blur();
+  const echo=document.createElement('span');
+  echo.className='echo'; echo.textContent=val;
+  document.body.appendChild(echo);
+  setTimeout(()=>echo.style.opacity=0,400);
+  // assistant response
+  setTimeout(()=>{
+    const a=document.createElement('div');
+    a.className='line assistant';
+    a.textContent='acknowledged — ‘'+val.slice(0,18)+(val.length>18?'…':'')+'’ logged at '+new Date().toLocaleTimeString();
+    chat.appendChild(a);
+    chat.scrollTop=chat.scrollHeight;
+  },900);
+  input.value='';
+};
+input.addEventListener('keydown',e=>{
+  if(e.key==='Enter' && !e.shiftKey){e.preventDefault();send();}
+});
+input.addEventListener('input',()=>input.style.height='auto');
+</script>
+</body>
+</html>
