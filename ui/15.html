@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>longform-quiet</title>
+<style>
+:root{
+  /* graphite paper with ivory ink */
+  --bg:#202124;               /* twitter-bg dark */
+  --ink:#f3efe9;              /* warm ivory */
+  --rule:#3f4142;             /* ultra-soft divider */
+  --accent:#9d9d9d;           /* metallic grey for … & gear */
+
+  font-size:18px;
+  line-height:1.65;
+}
+*{
+  box-sizing:border-box;
+}
+body{
+  background:var(--bg);
+  color:var(--ink);
+  font-family:"Georgia","Times",serif;
+  display:flex;
+  flex-direction:column;
+  height:100vh;
+  padding:0 clamp(1rem, 4vw, 4rem);
+}
+header{
+  flex-shrink:0;
+  padding:1.4rem 0 1rem;
+  border-bottom:1px solid var(--rule);
+  font-size:.9rem;
+  color:var(--accent);
+}
+main{
+  flex:1 1 auto;
+  overflow:auto;
+  padding:2rem 0;
+}
+.message{
+  max-width:45rem;
+  margin:0 auto 1.6rem;
+  position:relative;
+}
+.user .text{
+  font-family:inherit;  /* keep same serif */
+  font-weight:380;
+  font-size:.95em;
+  margin-left:1rem;
+  text-indent:-.5rem;
+}
+.collapsed{
+  max-height:3.8em;
+  overflow:hidden;
+}
+.expand{
+  position:absolute;
+  bottom:.1rem;
+  right:0;
+  background:transparent;
+  border:0;
+  color:var(--accent);
+  font-size:.8rem;
+  cursor:pointer;
+  padding:.2rem .3rem;
+}
+.expand:hover{background:#ffffff06;}
+hr{
+  border:0;
+  border-top:1px solid var(--rule);
+  margin:1.6rem auto;
+  max-width:45rem;
+}
+footer{
+  flex-shrink:0;
+  padding:1.2rem 0 2rem;
+  display:flex;
+  gap:.8rem;
+  align-items:center;
+  justify-content:center;
+}
+textarea{
+  flex:1;
+  max-width:45rem;
+  border:0;
+  background:transparent;
+  color:var(--ink);
+  font:inherit;
+  resize:none;
+  outline:none;
+  min-height:2.5rem;
+}
+::placeholder{color:var(--accent);}
+#settings{
+  position:fixed;
+  bottom:1.2rem;
+  right:1.4rem;
+  width:24px;
+  height:24px;
+  cursor:pointer;
+  color:var(--accent);
+  opacity:.35;
+  transition:.2s;
+}
+#settings:hover{opacity:.75;}
+</style>
+</head>
+<body>
+<header>longform-quiet</header>
+
+<main id="chat">
+  <div class="message">
+    <p class="text">
+      I can write a novel here, but I’ll start small.  
+      Tell me anything—one sentence or one chapter—and I’ll match your cadence.
+    </p>
+  </div>
+</main>
+
+<footer>
+  <textarea placeholder="write freely…" rows="1"></textarea>
+</footer>
+
+<svg id="settings" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+  <circle cx="12" cy="12" r="3"/>
+  <path d="M12 1v6m0 6v6m11-7h-6m-6 0H1m20.4-4.6l-4.2 4.2m-12 12l-4.2 4.2m12-20.8l-4.2 4.2M7.6 7.6L3.4 3.4"/>
+</svg>
+
+<script>
+/* ---------- expand/collapse ---------- */
+function maybeCollapse(p){
+  if(p.scrollHeight > 3.8 * parseFloat(getComputedStyle(p).fontSize)){
+    p.classList.add('collapsed');
+    const btn=document.createElement('button');
+    btn.className='expand';
+    btn.textContent='⋯';
+    btn.onclick=()=>{
+      p.classList.toggle('collapsed');
+      btn.textContent = p.classList.contains('collapsed') ? '⋯' : '↑';
+    };
+    p.parentNode.appendChild(btn);
+  }
+}
+document.querySelectorAll('.text').forEach(maybeCollapse);
+
+/* ---------- minimal chat loop ---------- */
+const chat=document.getElementById('chat');
+const ta=document.querySelector('textarea');
+const send=()=>{
+  const val=ta.value.trim();
+  if(!val)return;
+  const div=document.createElement('div');
+  div.className='message user';
+  div.innerHTML=`<p class="text">${val}</p>`;
+  chat.appendChild(div);
+  maybeCollapse(div.querySelector('p'));
+  
+  const hr=document.createElement('hr');
+  chat.appendChild(hr);
+
+  setTimeout(()=>{
+    const reply=document.createElement('div');
+    reply.className='message';
+    reply.innerHTML=`<p class="text">
+      I can keep my answer concise, or I can stretch into paragraphs.  
+      Either way, the page will stay calm—you can always click to fold or unfold.
+    </p>`;
+    chat.appendChild(reply);
+    maybeCollapse(reply.querySelector('p'));
+    hr.scrollIntoView({behavior:'smooth'});
+  },700);
+  ta.value='';
+};
+ta.addEventListener('keydown',e=>{
+  if(e.key==='Enter' && !e.shiftKey){e.preventDefault();send();}
+});
+</script>
+</body>
+</html>

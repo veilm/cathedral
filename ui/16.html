@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>gothic-longform</title>
+<style>
+:root{
+  --bg:#0a0a0c;
+  --serif:#c8c6c1;
+  --user:#8a3b3b;
+  --rule:#2c2a27;
+  --accent:#60605c;
+  font-size:18px;
+  line-height:1.65;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{
+  background:var(--bg);
+  color:var(--serif);
+  font-family:"Georgia","Times",serif;
+  display:flex;
+  flex-direction:column;
+  height:100vh;
+  padding:0 clamp(1rem, 4vw, 4rem);
+}
+header{
+  flex-shrink:0;
+  padding:1.4rem 0 1rem;
+  border-bottom:1px solid var(--rule);
+  font-size:.9rem;
+  color:var(--accent);
+}
+main{
+  flex:1;
+  overflow:auto;
+  padding:2rem 0;
+}
+.message{
+  max-width:45rem;
+  margin:0 auto 1.6rem;
+  position:relative;
+}
+.user .text{
+  font-family:inherit;
+  font-weight:380;
+  font-size:.95em;
+  margin-left:1rem;
+  text-indent:-.5rem;
+  color:var(--user);
+}
+.collapsed{max-height:3.8em;overflow:hidden;}
+.expand{
+  position:absolute;
+  bottom:.1rem;
+  right:0;
+  background:0;
+  border:0;
+  color:var(--accent);
+  font-size:.8rem;
+  cursor:pointer;
+  padding:.2rem .3rem;
+  border-radius:3px;
+}
+.expand:hover{background:#ffffff05;}
+hr{
+  border:0;
+  border-top:1px solid var(--rule);
+  margin:1.6rem auto;
+  max-width:45rem;
+}
+footer{
+  flex-shrink:0;
+  padding:1.2rem 0 2rem;
+  display:flex;
+  gap:.8rem;
+  align-items:center;
+  justify-content:center;
+}
+textarea{
+  flex:1;
+  max-width:45rem;
+  border:0;
+  background:0;
+  color:var(--serif);
+  font:inherit;
+  resize:none;
+  outline:none;
+  min-height:2.5rem;
+}
+textarea::placeholder{color:#9a9692;}
+/* skull gear */
+#settings{
+  position:fixed;
+  bottom:1.2rem;
+  right:1.4rem;
+  width:20px;
+  cursor:pointer;
+  opacity:.35;
+  transition:.2s;
+}
+#settings:hover{opacity:.75;}
+</style>
+</head>
+<body>
+
+<header>gothic-longform</header>
+
+<main id="chat">
+  <div class="message">
+    <p class="text">
+      beneath the chapel stone the air is still, but speech travels far in such darkness.  
+      cast your line and i shall answer with hushed syllables.
+    </p>
+  </div>
+</main>
+
+<footer>
+  <textarea placeholder="write in shadow…" rows="1"></textarea>
+</footer>
+
+<!-- matte tin skull ⚙️ -->
+<svg id="settings" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+  <path d="M12 2A10 10 0 0 0 2 12a10 10 0 0 0 10 10 10 10 0 0 0 10-10A10 10 0 0 0 12 2zM12 4a8 8 0 0 1 8 8 8 8 0 0 1-8 8 8 8 0 0 1-8-8 8 8 0 0 1 8-8zM9 9l6 6M9 15l6-6"/>
+</svg>
+
+<script>
+/* fold / unfold */
+function maybeCollapse(p){
+  if(p.scrollHeight > 3.8*parseFloat(getComputedStyle(p).fontSize)){
+    p.classList.add('collapsed');
+    const btn=document.createElement('button');
+    btn.className='expand';
+    btn.textContent='⋯';
+    btn.onclick=()=>{
+      p.classList.toggle('collapsed');
+      btn.textContent=p.classList.contains('collapsed')?'⋯':'↑';
+    };
+    p.parentNode.appendChild(btn);
+  }
+}
+document.querySelectorAll('.text').forEach(maybeCollapse);
+
+/* chat ripple */
+const chat=document.getElementById('chat');
+const ta=document.querySelector('textarea');
+ta.addEventListener('keydown',e=>{
+  if(e.key==='Enter' && !e.shiftKey){
+    e.preventDefault();
+    const val=ta.value.trim();
+    if(!val) return;
+    
+    const u=document.createElement('div');
+    u.className='message user';
+    u.innerHTML=`<p class="text">${val}</p>`;
+    chat.appendChild(u); maybeCollapse(u.querySelector('p'));
+
+    const hr=document.createElement('hr'); chat.appendChild(hr);
+
+    setTimeout(()=>{
+      const r=document.createElement('div');
+      r.className='message';
+      r.innerHTML=`<p class="text">
+        i keep silent archives for every whispered vow.  
+        the dark does not forget.
+      </p>`;
+      chat.appendChild(r); maybeCollapse(r.querySelector('p'));
+      hr.scrollIntoView({behavior:'smooth'});
+    },700);
+    ta.value='';
+  }
+});
+</script>
+</body>
+</html>

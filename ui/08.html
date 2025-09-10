@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>cockpit-dream</title>
+<style>
+:root{
+  --void:#0a0a0f;
+  --cyan:#00e5ff;
+  --cyan-fade:#00e5ff33;
+  font-size:17px;
+  line-height:1.55;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{
+  height:100vh;
+  background:var(--void);
+  color:var(--cyan);
+  font-family:"Inter",system-ui,sans-serif;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+}
+#space{
+  flex:1;
+  overflow:auto;
+  padding:2.2rem 2.5rem;
+  display:flex;
+  flex-direction:column;
+}
+p{
+  max-width:45rem;
+  word-break:break-word;
+  margin:.6rem 0;
+  opacity:0;
+  animation:fade .4s forwards;
+}
+@keyframes fade{to{opacity:1;}}
+.user{align-self:flex-start;transform:translateY(-.7rem);}
+.assistant{align-self:flex-start;transform:translateY(.7rem);}
+footer{
+  flex-shrink:0;
+  display:flex;
+  align-items:center;
+  padding:1.2rem 2.5rem 2rem;
+}
+textarea{
+  flex:1;
+  background:transparent;
+  border:0;
+  outline:0;
+  color:var(--cyan);
+  font:inherit;
+  resize:none;
+  caret-color:var(--cyan);
+  overflow:hidden;
+}
+/* soft pulse on caret */
+@keyframes pulse{50%{opacity:.55;}}
+textarea:focus::placeholder{color:transparent;}
+/* echo of last keystroke */
+.ghost{
+  position:absolute;
+  color:var(--cyan-fade);
+  pointer-events:none;
+  animation:ghostFade .4s ease-out forwards;
+}
+@keyframes ghostFade{
+  0%{opacity:.9;}100%{opacity:0;transform:translateY(-1.2rem);}
+}
+</style>
+</head>
+<body>
+  <div id="space"></div>
+  <footer>
+    <textarea placeholder="speak …" rows="1"></textarea>
+  </footer>
+
+<script>
+const space=document.getElementById('space');
+const ta=document.querySelector('textarea');
+
+function add(txt,cls){
+  const p=document.createElement('p');
+  p.className=cls;
+  p.innerText=txt;
+  space.appendChild(p);
+  p.scrollIntoView({behavior:'smooth',block:'end'});
+}
+
+/* ghost echo for each keystroke */
+ta.addEventListener('input',e=>{
+  const g=document.createElement('span');
+  g.className='ghost';
+  g.innerText=e.data||' ';
+  ta.parentNode.appendChild(g);
+  setTimeout(()=>g.remove(),400);
+});
+
+function send(){
+  const v=ta.value.trim();
+  if(!v)return;
+  add(v,'user');
+  ta.value='';
+  setTimeout(()=>add('signal received — processing silence into words …','assistant'),600);
+}
+ta.addEventListener('keydown',e=>{
+  if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send();}
+});
+</script>
+</body>
+</html>
