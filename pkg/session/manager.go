@@ -20,8 +20,8 @@ func NewManager(cfg *config.Config) *Manager {
 	return &Manager{config: cfg}
 }
 
-// InitEpisodicSession initializes a new episodic session
-func (m *Manager) InitEpisodicSession(dateInput string) (string, error) {
+// InitMemoryEpisode initializes a new memory episode for storing conversations
+func (m *Manager) InitMemoryEpisode(dateInput string) (string, error) {
 	activeStore := m.config.GetActiveStorePath()
 	if activeStore == "" {
 		return "", fmt.Errorf("no active memory store. Create one with 'cathedral create-store <name>'")
@@ -38,17 +38,17 @@ func (m *Manager) InitEpisodicSession(dateInput string) (string, error) {
 		return "", fmt.Errorf("failed to create date directory: %w", err)
 	}
 
-	// Get the next available session name
-	sessionName := m.getNextSessionName(dateDir)
+	// Get the next available episode name (A, B, C...)
+	episodeName := m.getNextEpisodeName(dateDir)
 
-	// Create the session directory
-	sessionDir := filepath.Join(dateDir, sessionName)
-	if err := os.MkdirAll(sessionDir, 0755); err != nil {
-		return "", fmt.Errorf("failed to create session directory: %w", err)
+	// Create the episode directory
+	episodeDir := filepath.Join(dateDir, episodeName)
+	if err := os.MkdirAll(episodeDir, 0755); err != nil {
+		return "", fmt.Errorf("failed to create episode directory: %w", err)
 	}
 
 	// Return the relative path from episodic-raw
-	return fmt.Sprintf("%s/%s", dateStr, sessionName), nil
+	return fmt.Sprintf("%s/%s", dateStr, episodeName), nil
 }
 
 // parseDateInput converts various date formats to YYYYMMDD
@@ -73,8 +73,8 @@ func (m *Manager) parseDateInput(dateInput string) string {
 	return time.Now().Format("20060102")
 }
 
-// getNextSessionName returns the next available session name (A, B, ..., Z, AA, AB, ...)
-func (m *Manager) getNextSessionName(dateDir string) string {
+// getNextEpisodeName returns the next available episode name (A, B, ..., Z, AA, AB, ...)
+func (m *Manager) getNextEpisodeName(dateDir string) string {
 	existing := make(map[string]bool)
 
 	entries, err := os.ReadDir(dateDir)
