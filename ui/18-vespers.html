@@ -17,7 +17,30 @@
 }
 *{margin:0;padding:0;box-sizing:border-box;}
 body{
-  background:var(--bg);
+  /* Subtle radial gradient - like candlelight on stone */
+  /*
+  background:radial-gradient(ellipse at center top, #1f1d1a 0%, var(--bg) 50%);
+  */
+  
+  /* Alternative gradients - uncomment to try: */
+  
+  /* Vespers light - vertical dawn/dusk */
+  /* background:linear-gradient(180deg, #1e1c19 0%, var(--bg) 20%, var(--bg) 80%, #16140f 100%); */
+  
+  /* Cathedral depth - diagonal with warm undertone */
+  /* background:linear-gradient(135deg, #1c1917 0%, var(--bg) 40%, #181513 100%); */
+  
+  /* Stone texture - multiple layers for depth */
+  /* background:
+    radial-gradient(circle at 20% 50%, rgba(139, 115, 85, 0.02) 0%, transparent 50%),
+    radial-gradient(circle at 80% 80%, rgba(107, 99, 90, 0.02) 0%, transparent 50%),
+    var(--bg); */
+  
+  /* Combined warmth - radial candlelight + diagonal depth */
+  background:
+    radial-gradient(ellipse at center top, rgba(31, 29, 26, 0.8) 0%, transparent 50%),
+    linear-gradient(135deg, #1c1917 0%, var(--bg) 40%, #181513 100%);
+  
   color:var(--ink);
   font-family:"Crimson Text","Garamond",serif;
   display:flex;
