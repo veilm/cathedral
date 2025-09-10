@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<title>cathedral-light</title>
+<style>
+:root{
+  --stone:#f7f5f0;
+  --text:#2c2824;
+  --user:#4a433b;
+  --rule:#d4cfc4;
+  --accent:#8b7355;
+  --ruby:#a52a2a;
+  --sapphire:#1e5490;
+  --emerald:#2a7044;
+  --amber:#d4a520;
+  --gold:#c9a961;
+  --light:#fffef9;
+  font-size:17px;
+  line-height:1.72;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{
+  background:var(--stone);
+  background-image:
+    radial-gradient(ellipse at 20% 30%, rgba(165,42,42,0.08) 0%, transparent 35%),
+    radial-gradient(ellipse at 80% 40%, rgba(30,84,144,0.06) 0%, transparent 35%),
+    radial-gradient(ellipse at 50% 70%, rgba(42,112,68,0.07) 0%, transparent 35%);
+  color:var(--text);
+  font-family:"Literata","Iowan Old Style",serif;
+  display:flex;
+  flex-direction:column;
+  height:100vh;
+  padding:0 clamp(1rem, 4vw, 4rem);
+  position:relative;
+}
+body::before{
+  content:"";
+  position:fixed;
+  top:10%;
+  right:15%;
+  width:300px;
+  height:300px;
+  background:
+    radial-gradient(circle at 30% 30%, rgba(212,165,32,0.15) 0%, transparent 40%),
+    radial-gradient(circle at 70% 70%, rgba(30,84,144,0.12) 0%, transparent 40%);
+  opacity:0.4;
+  border-radius:50%;
+  pointer-events:none;
+  filter:blur(60px);
+  mix-blend-mode:multiply;
+}
+body::after{
+  content:"";
+  position:fixed;
+  bottom:10%;
+  left:10%;
+  width:250px;
+  height:250px;
+  background:radial-gradient(circle, rgba(165,42,42,0.1) 0%, transparent 60%);
+  opacity:0.3;
+  border-radius:50%;
+  pointer-events:none;
+  filter:blur(50px);
+  mix-blend-mode:multiply;
+}
+header{
+  flex-shrink:0;
+  padding:1.8rem 0 1.3rem;
+  border-bottom:1px solid var(--rule);
+  font-size:.84rem;
+  color:var(--accent);
+  letter-spacing:0.08em;
+  font-variant:small-caps;
+  text-align:center;
+  background:linear-gradient(90deg, transparent, var(--light) 50%, transparent);
+}
+main{
+  flex:1 1 auto;
+  overflow:auto;
+  padding:2.4rem 0;
+  position:relative;
+}
+.message{
+  max-width:41rem;
+  margin:0 auto 1.9rem;
+  position:relative;
+}
+.message .text{
+  position:relative;
+}
+.message .text::before{
+  content:"";
+  position:absolute;
+  left:-1.5rem;
+  top:0.3em;
+  width:3px;
+  height:1em;
+  background:linear-gradient(180deg, var(--gold), transparent);
+  opacity:0;
+  transition:opacity 0.3s;
+}
+.message:hover .text::before{
+  opacity:0.6;
+}
+.user .text{
+  font-weight:375;
+  font-size:0.95em;
+  margin-left:1.5rem;
+  color:var(--user);
+  letter-spacing:0.01em;
+}
+.user .text::before{
+  background:linear-gradient(180deg, var(--sapphire), transparent);
+}
+.collapsed{
+  max-height:4.1em;
+  overflow:hidden;
+  position:relative;
+}
+.collapsed::after{
+  content:"";
+  position:absolute;
+  bottom:0;
+  left:0;
+  right:0;
+  height:1.2em;
+  background:linear-gradient(transparent, var(--stone) 90%);
+}
+.expand{
+  position:absolute;
+  bottom:.15rem;
+  right:0;
+  background:var(--light);
+  border:1px solid var(--rule);
+  color:var(--accent);
+  font-size:.72rem;
+  cursor:pointer;
+  padding:.25rem .6rem;
+  border-radius:12px;
+  opacity:0.8;
+  transition:all 0.2s;
+  z-index:1;
+  font-family:inherit;
+}
+.expand:hover{
+  background:var(--gold);
+  color:var(--light);
+  opacity:1;
+  transform:translateY(-1px);
+  border-color:var(--gold);
+}
+hr{
+  border:0;
+  margin:2.2rem auto;
+  max-width:41rem;
+  position:relative;
+  height:20px;
+}
+hr::before{
+  content:"✠";
+  position:absolute;
+  left:50%;
+  top:50%;
+  transform:translate(-50%, -50%);
+  color:var(--gold);
+  opacity:0.6;
+  font-size:1.1em;
+}
+footer{
+  flex-shrink:0;
+  padding:1.5rem 0 2.3rem;
+  display:flex;
+  gap:.9rem;
+  align-items:center;
+  justify-content:center;
+}
+textarea{
+  flex:1;
+  max-width:41rem;
+  border:1px solid var(--rule);
+  background:var(--light);
+  color:var(--text);
+  font:inherit;
+  resize:none;
+  outline:none;
+  min-height:2.9rem;
+  padding:0.7rem 0.9rem;
+  border-radius:4px;
+  box-shadow:0 1px 3px rgba(0,0,0,0.05);
+  transition:all 0.2s;
+}
+textarea:focus{
+  background:#ffffff;
+  box-shadow:
+    0 2px 8px rgba(212,165,32,0.15),
+    inset 0 0 0 2px var(--gold);
+  border-color:transparent;
+}
+textarea::placeholder{
+  color:var(--accent);
+  opacity:0.5;
+  letter-spacing:0.02em;
+}
+#settings{
+  position:fixed;
+  bottom:1.5rem;
+  right:1.7rem;
+  width:21px;
+  height:21px;
+  cursor:pointer;
+  opacity:.35;
+  transition:.25s;
+  color:var(--accent);
+}
+#settings:hover{
+  opacity:.7;
+  transform:rotate(90deg);
+}
+
+/* stained glass table */
+.glass-table{
+  margin:2.3rem auto;
+  max-width:37rem;
+  border-collapse:collapse;
+  font-size:0.9em;
+  position:relative;
+  background:linear-gradient(135deg, rgba(255,255,255,0.6), rgba(255,255,255,0.3));
+  border-radius:6px;
+  overflow:hidden;
+}
+.glass-table::before{
+  content:"";
+  position:absolute;
+  top:0;
+  left:0;
+  right:0;
+  bottom:0;
+  background:
+    linear-gradient(45deg, rgba(165,42,42,0.05) 0%, transparent 50%),
+    linear-gradient(-45deg, rgba(30,84,144,0.05) 0%, transparent 50%);
+  pointer-events:none;
+}
+.glass-table th,
+.glass-table td{
+  padding:0.85rem 1rem;
+  text-align:left;
+  border-bottom:1px solid rgba(212,207,196,0.5);
+  position:relative;
+}
+.glass-table th{
+  color:var(--accent);
+  font-weight:400;
+  font-variant:small-caps;
+  letter-spacing:0.05em;
+  font-size:0.85em;
+  background:rgba(255,255,255,0.5);
+}
+.glass-table tr:last-child td{
+  border-bottom:none;
+}
+.glass-table td:first-child{
+  font-style:italic;
+  font-weight:500;
+}
+.glass-table tr:nth-child(2) td:first-child{color:var(--ruby);}
+.glass-table tr:nth-child(3) td:first-child{color:var(--sapphire);}
+.glass-table tr:nth-child(4) td:first-child{color:var(--emerald);}
+.glass-table tr:nth-child(5) td:first-child{color:var(--amber);}
+.glass-table tr:nth-child(6) td:first-child{color:var(--gold);}
+.glass-table td{
+  background:rgba(255,255,255,0.3);
+}
+.glass-table tr:hover td{
+  background:rgba(255,255,255,0.6);
+}
+
+/* light burst */
+@keyframes illuminate{
+  0%{transform:scale(0) rotate(0deg);opacity:0.8;}
+  100%{transform:scale(1) rotate(180deg);opacity:0;}
+}
+.light-burst{
+  position:fixed;
+  width:120px;
+  height:120px;
+  pointer-events:none;
+  opacity:0;
+  animation:illuminate 2s ease-out;
+}
+.light-burst::before,
+.light-burst::after{
+  content:"";
+  position:absolute;
+  top:50%;
+  left:50%;
+  width:100%;
+  height:2px;
+  background:linear-gradient(90deg, transparent, var(--gold), transparent);
+  transform:translate(-50%, -50%);
+}
+.light-burst::after{
+  transform:translate(-50%, -50%) rotate(90deg);
+}
+.light-ray{
+  position:absolute;
+  top:50%;
+  left:50%;
+  width:100%;
+  height:2px;
+  background:linear-gradient(90deg, transparent, var(--amber), transparent);
+}
+.light-ray:nth-child(1){transform:translate(-50%, -50%) rotate(45deg);}
+.light-ray:nth-child(2){transform:translate(-50%, -50%) rotate(-45deg);}
+.light-ray:nth-child(3){transform:translate(-50%, -50%) rotate(22.5deg);}
+.light-ray:nth-child(4){transform:translate(-50%, -50%) rotate(-22.5deg);}
+.light-ray:nth-child(5){transform:translate(-50%, -50%) rotate(67.5deg);}
+.light-ray:nth-child(6){transform:translate(-50%, -50%) rotate(-67.5deg);}
+</style>
+</head>
+<body>
+<header>vespers · colored light</header>
+
+<main id="chat">
+  <div class="message">
+    <p class="text">
+      Here, where light passes through colored glass, each beam tells its own story.
+      Ruby speaks of passion, sapphire of contemplation, emerald of growth.
+      In this sacred geometry of color and light, words become prayers ascending.
+    </p>
+  </div>
+  
+  <table class="glass-table">
+    <thead>
+      <tr>
+        <th>window</th>
+        <th>glass hue</th>
+        <th>illumination</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Rose</td>
+        <td>Ruby crimson</td>
+        <td>Dawn's first light</td>
+      </tr>
+      <tr>
+        <td>North</td>
+        <td>Sapphire depths</td>
+        <td>Midday clarity</td>
+      </tr>
+      <tr>
+        <td>East</td>
+        <td>Emerald meadow</td>
+        <td>Morning promise</td>
+      </tr>
+      <tr>
+        <td>West</td>
+        <td>Amber sunset</td>
+        <td>Evening glow</td>
+      </tr>
+      <tr>
+        <td>Clerestory</td>
+        <td>Golden radiance</td>
+        <td>Divine presence</td>
+      </tr>
+    </tbody>
+  </table>
+</main>
+
+<footer>
+  <textarea placeholder="speak your prayer into the light…" rows="1"></textarea>
+</footer>
+
+<svg id="settings" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+  <circle cx="12" cy="12" r="3"/>
+  <path d="M12 1v6m0 6v6m11-7h-6m-6 0H1m20.4-4.6l-4.2 4.2m-12 12l-4.2 4.2m12-20.8l-4.2 4.2M7.6 7.6L3.4 3.4"/>
+</svg>
+
+<script>
+/* ---------- light burst on click ---------- */
+document.addEventListener('click',e=>{
+  if(e.target.tagName==='TEXTAREA' || e.target.tagName==='BUTTON')return;
+  const burst=document.createElement('div');
+  burst.className='light-burst';
+  burst.style.left=(e.clientX-60)+'px';
+  burst.style.top=(e.clientY-60)+'px';
+  
+  for(let i=0;i<6;i++){
+    const ray=document.createElement('div');
+    ray.className='light-ray';
+    burst.appendChild(ray);
+  }
+  
+  document.body.appendChild(burst);
+  setTimeout(()=>burst.remove(),2000);
+});
+
+/* ---------- expand/collapse ---------- */
+function maybeCollapse(p){
+  if(p.scrollHeight > 4.1 * parseFloat(getComputedStyle(p).fontSize)){
+    p.classList.add('collapsed');
+    const btn=document.createElement('button');
+    btn.className='expand';
+    btn.textContent='more';
+    btn.onclick=()=>{
+      p.classList.toggle('collapsed');
+      btn.textContent = p.classList.contains('collapsed') ? 'more' : 'fold';
+    };
+    p.parentNode.appendChild(btn);
+  }
+}
+document.querySelectorAll('.text').forEach(maybeCollapse);
+
+/* ---------- minimal chat loop ---------- */
+const chat=document.getElementById('chat');
+const ta=document.querySelector('textarea');
+const send=()=>{
+  const val=ta.value.trim();
+  if(!val)return;
+  const div=document.createElement('div');
+  div.className='message user';
+  div.innerHTML=`<p class="text">${val}</p>`;
+  chat.appendChild(div);
+  maybeCollapse(div.querySelector('p'));
+  
+  const hr=document.createElement('hr');
+  chat.appendChild(hr);
+
+  setTimeout(()=>{
+    const reply=document.createElement('div');
+    reply.className='message';
+    reply.innerHTML=`<p class="text">
+      Through these ancient panes, your words transform into colored light,
+      casting patterns on stone floors worn smooth by centuries of footsteps.
+      What we share here becomes part of the cathedral's endless song—each voice a note in the greater hymn.
+    </p>`;
+    chat.appendChild(reply);
+    maybeCollapse(reply.querySelector('p'));
+    hr.scrollIntoView({behavior:'smooth'});
+  },850);
+  ta.value='';
+};
+ta.addEventListener('keydown',e=>{
+  if(e.key==='Enter' && !e.shiftKey){e.preventDefault();send();}
+});
+</script>
+</body>
+</html>
