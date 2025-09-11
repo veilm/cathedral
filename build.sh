@@ -50,7 +50,7 @@ mkdir -p bin
 
 print_header "Building Cathedral"
 
-# Build the binary
+# Build cathedral CLI binary
 print_info "Building cathedral binary..."
 if go build -o bin/cathedral ./cmd/cathedral; then
     print_success "Built cathedral successfully"
@@ -59,6 +59,17 @@ else
     exit 1
 fi
 
+# Build cathedral-web binary
+print_info "Building cathedral-web binary..."
+if go build -o bin/cathedral-web ./cmd/cathedral-web; then
+    print_success "Built cathedral-web successfully"
+else
+    print_error "Failed to build cathedral-web"
+    exit 1
+fi
+
 printf "\n"
 printf "${GREEN}${BOLD}Build Complete!${NC}\n"
-printf "${GREEN}Binary built at ${BOLD}./bin/cathedral${NC}\n"
+printf "${GREEN}Binaries built at:${NC}\n"
+printf "${GREEN}  • ${BOLD}./bin/cathedral${NC}\n"
+printf "${GREEN}  • ${BOLD}./bin/cathedral-web${NC}\n"

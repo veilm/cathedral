@@ -37,9 +37,13 @@ echo "cathedral: installed prompts to $CONFIG_DIR"
 echo "cathedral: building binary..."
 ./build.sh
 
-# 4. Install the binary to /usr/local/bin
+# 4. Install the binaries to /usr/local/bin
 sudo cp bin/cathedral /usr/local/bin/cathedral
 sudo chmod +x /usr/local/bin/cathedral
 echo "cathedral: installed cathedral binary to /usr/local/bin/"
+
+sudo cp bin/cathedral-web /usr/local/bin/cathedral-web
+sudo chmod +x /usr/local/bin/cathedral-web
+echo "cathedral: installed cathedral-web binary to /usr/local/bin/"
 
 echo "cathedral: installation complete!"
