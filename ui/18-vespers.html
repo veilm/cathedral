@@ -259,31 +259,76 @@ document.querySelectorAll('.text').forEach(maybeCollapse);
 /* ---------- minimal chat loop ---------- */
 const chat=document.getElementById('chat');
 const ta=document.querySelector('textarea');
-const send=()=>{
+
+const escapeHtml = (text) => {
+  const map = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#039;'
+  };
+  return text.replace(/[&<>"']/g, m => map[m]);
+};
+
+const send=async()=>{
   const val=ta.value.trim();
   if(!val)return;
+  
+  // Add user message to UI
   const div=document.createElement('div');
   div.className='message user';
-  div.innerHTML=`<p class="text">${val}</p>`;
+  div.innerHTML=`<p class="text">${escapeHtml(val)}</p>`;
   chat.appendChild(div);
   maybeCollapse(div.querySelector('p'));
   
   const hr=document.createElement('hr');
   chat.appendChild(hr);
-
-  setTimeout(()=>{
+  
+  // Clear input immediately for better UX
+  ta.value='';
+  ta.disabled = true;
+  
+  try {
+    // Send to backend API
+    const response = await fetch('/api/chat', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ message: val })
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Server responded with ${response.status}`);
+    }
+    
+    const data = await response.json();
+    
+    // Add server response to UI
     const reply=document.createElement('div');
     reply.className='message';
-    reply.innerHTML=`<p class="text">
-      The stones have heard your words. In this space between breaths,
-      between thoughts, meaning settles like dust in slanted light.
-      What was spoken echoes back, transformed.
-    </p>`;
+    reply.innerHTML=`<p class="text">${escapeHtml(data.response)}</p>`;
     chat.appendChild(reply);
     maybeCollapse(reply.querySelector('p'));
     hr.scrollIntoView({behavior:'smooth'});
-  },900);
-  ta.value='';
+    
+  } catch (error) {
+    console.error('Chat error:', error);
+    
+    // Show error message
+    const reply=document.createElement('div');
+    reply.className='message';
+    reply.innerHTML=`<p class="text" style="color: var(--gold);">
+      The stones are silent. The connection to cathedral has been lost.
+      Please try again later.
+    </p>`;
+    chat.appendChild(reply);
+    hr.scrollIntoView({behavior:'smooth'});
+  } finally {
+    ta.disabled = false;
+    ta.focus();
+  }
 };
 ta.addEventListener('keydown',e=>{
   if(e.key==='Enter' && !e.shiftKey){e.preventDefault();send();}
