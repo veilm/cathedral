@@ -20,9 +20,9 @@ func main() {
 		verbose    bool
 	)
 
-	flag.StringVar(&port, "port", "8080", "Port to run the server on")
+	flag.StringVar(&port, "port", "1345", "Port to run the server on")
 	flag.StringVar(&configPath, "config", "", "Config file path (default: $XDG_CONFIG_HOME/cathedral/config.json)")
-	flag.StringVar(&uiPath, "webui", "", "Path to webui directory (default: $XDG_DATA_HOME/cathedral/webui)")
+	flag.StringVar(&uiPath, "web-static-dir", "", "Path to web static files directory (default: $XDG_DATA_HOME/cathedral/webui)")
 	flag.BoolVar(&verbose, "verbose", false, "Enable verbose logging")
 	flag.Parse()
 
@@ -43,7 +43,7 @@ func main() {
 
 	// Verify UI directory exists
 	if _, err := os.Stat(uiPath); os.IsNotExist(err) {
-		log.Fatalf("WebUI directory does not exist: %s\nPlease run 'install.sh' or specify a custom path with --webui", uiPath)
+		log.Fatalf("WebUI directory does not exist: %s\nPlease run 'install.sh' or specify a custom path with --web-static-dir", uiPath)
 	}
 
 	// Get absolute path for UI directory
