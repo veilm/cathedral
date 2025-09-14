@@ -33,6 +33,16 @@ cp -r grimoire/* "$CONFIG_DIR"
 
 echo "cathedral: installed prompts to $CONFIG_DIR"
 
+# Determine data directory path, using $HOME/.local/share as a fallback for XDG_DATA_HOME
+# and copy webui files there
+DATA_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/cathedral/webui"
+mkdir -p "$DATA_DIR"
+
+# Copy webui files to data directory
+cp -r webui/* "$DATA_DIR"
+
+echo "cathedral: installed webui to $DATA_DIR"
+
 # 3. Build Cathedral using the build script
 echo "cathedral: building binary..."
 ./build.sh
