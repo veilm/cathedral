@@ -14,11 +14,11 @@ import (
 )
 
 type Server struct {
-	config     *config.Config
-	uiPath     string
-	verbose    bool
-	sessMgr    *session.Manager
-	mux        *http.ServeMux
+	config  *config.Config
+	uiPath  string
+	verbose bool
+	sessMgr *session.Manager
+	mux     *http.ServeMux
 }
 
 type ChatRequest struct {
@@ -51,7 +51,7 @@ func (s *Server) setupRoutes() {
 	s.mux.HandleFunc("/api/session", s.handleSession)
 
 	// Static file server for UI
-	// Serve 18-vespers.html as the default page
+	// Serve conversation.html as the default page
 	s.mux.HandleFunc("/", s.handleUI)
 }
 
@@ -74,10 +74,10 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleUI(w http.ResponseWriter, r *http.Request) {
-	// Default to serving 18-vespers.html for root path
+	// Default to serving conversation.html for root path
 	path := r.URL.Path
 	if path == "/" {
-		path = "/18-vespers.html"
+		path = "/conversation.html"
 	}
 
 	// Security: prevent directory traversal
@@ -125,7 +125,7 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 	// For now, return a placeholder response
 	// TODO: Integrate with the actual conversation/memory system
 	resp := ChatResponse{
-		Response: fmt.Sprintf("The stones of cathedral echo: '%s'. In this sacred space, your words are remembered and held in reverence.", req.Message),
+		Response:  fmt.Sprintf("The stones of cathedral echo: '%s'. In this sacred space, your words are remembered and held in reverence.", req.Message),
 		Timestamp: time.Now(),
 	}
 
@@ -155,7 +155,7 @@ func (s *Server) handleSession(w http.ResponseWriter, r *http.Request) {
 			"active_store": s.config.ActiveStore,
 			"stores":       s.config.Stores,
 		})
-	
+
 	case http.MethodPost:
 		// Create new session
 		episodePath, err := s.sessMgr.InitMemoryEpisode("")
@@ -163,13 +163,13 @@ func (s *Server) handleSession(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, fmt.Sprintf("Failed to create session: %v", err), http.StatusInternalServerError)
 			return
 		}
-		
+
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]interface{}{
 			"session_path": episodePath,
 			"created":      time.Now(),
 		})
-	
+
 	default:
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}
