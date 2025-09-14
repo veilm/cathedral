@@ -22,7 +22,7 @@ func main() {
 
 	flag.StringVar(&port, "port", "8080", "Port to run the server on")
 	flag.StringVar(&configPath, "config", "", "Config file path (default: $XDG_CONFIG_HOME/cathedral/config.json)")
-	flag.StringVar(&uiPath, "ui", "ui", "Path to UI directory")
+	flag.StringVar(&uiPath, "webui", "", "Path to webui directory (default: $XDG_DATA_HOME/cathedral/webui)")
 	flag.BoolVar(&verbose, "verbose", false, "Enable verbose logging")
 	flag.Parse()
 
@@ -32,9 +32,18 @@ func main() {
 		log.Fatalf("Failed to load configuration: %v", err)
 	}
 
+	// If no custom UI path provided, use default XDG_DATA_HOME location
+	if uiPath == "" {
+		dataHome := os.Getenv("XDG_DATA_HOME")
+		if dataHome == "" {
+			dataHome = filepath.Join(os.Getenv("HOME"), ".local", "share")
+		}
+		uiPath = filepath.Join(dataHome, "cathedral", "webui")
+	}
+
 	// Verify UI directory exists
 	if _, err := os.Stat(uiPath); os.IsNotExist(err) {
-		log.Fatalf("UI directory does not exist: %s", uiPath)
+		log.Fatalf("WebUI directory does not exist: %s\nPlease run 'install.sh' or specify a custom path with --webui", uiPath)
 	}
 
 	// Get absolute path for UI directory
