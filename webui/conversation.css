@@ -288,3 +288,33 @@ textarea::placeholder{
   border-top:1px solid var(--rule);
   margin:1.5rem 0;
 }
+
+/* Custom scrollbar styling */
+::-webkit-scrollbar{
+  width:10px;
+  height:10px;
+}
+::-webkit-scrollbar-track{
+  background:var(--bg);
+  border-radius:5px;
+}
+::-webkit-scrollbar-thumb{
+  background:var(--accent);
+  border-radius:5px;
+  border:2px solid var(--bg);
+}
+::-webkit-scrollbar-thumb:hover{
+  background:var(--gold);
+}
+::-webkit-scrollbar-corner{
+  background:var(--bg);
+}
+
+/* Firefox scrollbar styling */
+*{
+  scrollbar-width:thin;
+  scrollbar-color:var(--accent) var(--bg);
+}
+*:hover{
+  scrollbar-color:var(--gold) var(--bg);
+}
