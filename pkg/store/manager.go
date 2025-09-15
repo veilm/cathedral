@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 
 	"github.com/fatih/color"
-	"github.com/oboro/cathedral/pkg/config"
+	"github.com/veilm/cathedral/pkg/config"
 )
 
 // Manager handles memory store operations

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/oboro/cathedral/pkg/config"
+	"github.com/veilm/cathedral/pkg/config"
 )
 
 // Manager handles episodic session operations

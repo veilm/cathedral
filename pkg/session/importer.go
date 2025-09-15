@@ -7,7 +7,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/oboro/cathedral/pkg/config"
+	"github.com/veilm/cathedral/pkg/config"
 )
 
 // Importer handles importing messages from Hinata format

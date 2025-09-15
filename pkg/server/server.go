@@ -12,8 +12,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/oboro/cathedral/pkg/config"
-	"github.com/oboro/cathedral/pkg/session"
+	"github.com/veilm/cathedral/pkg/config"
+	"github.com/veilm/cathedral/pkg/session"
 	"github.com/veilm/hinata/cmd/hnt-chat/pkg/chat"
 	"github.com/veilm/hinata/cmd/hnt-llm/pkg/llm"
 )
