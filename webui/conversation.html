@@ -3,6 +3,11 @@
 <head>
 <meta charset="utf-8"/>
 <title>cathedral</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Crimson+Text:ital,wght@0,400;0,600;0,700;1,400;1,600;1,700&display=swap" rel="stylesheet">
+
 <style>
 :root{
   --bg:#1a1816;
@@ -141,13 +146,61 @@ textarea::placeholder{
   position:fixed;
   bottom:1.4rem;
   right:1.6rem;
-  width:22px;
-  height:22px;
+  width:48px;
+  height:48px;
   cursor:pointer;
-  opacity:.3;
-  transition:.2s;
+  opacity:.4;
+  transition:opacity .3s;
 }
-#settings:hover{opacity:.6;}
+#settings:hover{opacity:.7;}
+#settings svg{
+  width:100%;
+  height:100%;
+}
+@keyframes spin-slow{
+  from{transform:rotate(0deg);}
+  to{transform:rotate(360deg);}
+}
+@keyframes spin-fast{
+  from{transform:rotate(0deg);}
+  to{transform:rotate(-360deg);}
+}
+
+/* settings menu */
+.settings-menu{
+  position:fixed;
+  bottom:4.5rem;
+  right:1.6rem;
+  background:var(--bg);
+  border:1px solid var(--rule);
+  border-radius:3px;
+  padding:0.5rem;
+  opacity:0;
+  visibility:hidden;
+  transition:opacity 0.2s, visibility 0.2s;
+}
+.settings-menu.open{
+  opacity:1;
+  visibility:visible;
+}
+.settings-menu button{
+  display:block;
+  width:100%;
+  padding:0.5rem 0.8rem;
+  background:transparent;
+  border:0;
+  color:var(--ink);
+  font:inherit;
+  font-size:0.85rem;
+  text-align:left;
+  cursor:pointer;
+  border-radius:2px;
+  transition:background 0.15s;
+}
+.settings-menu button:hover{
+  background:#ffffff08;
+  color:var(--gold);
+}
 
 /* cathedral table styling */
 .scripture-table{
@@ -233,10 +286,19 @@ textarea::placeholder{
   <textarea placeholder="speak into the stone…" rows="1"></textarea>
 </footer>
 
-<svg id="settings" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-  <circle cx="12" cy="12" r="3"/>
-  <path d="M12 1v6m0 6v6m11-7h-6m-6 0H1m20.4-4.6l-4.2 4.2m-12 12l-4.2 4.2m12-20.8l-4.2 4.2M7.6 7.6L3.4 3.4"/>
-</svg>
+<div id="settings">
+  <svg viewBox="0 0 24 24">
+    <!-- <polygon points="12,7 16.33,14.5 7.67,14.5" fill="none" stroke="#6b635a" stroke-width="0.7" opacity="0.5" style="animation: spin-fast 8s linear infinite; transform-origin: center;"/> -->
+
+    <polygon points="12,4 19,16 5,16" fill="none" stroke="#8b7355" stroke-width="0.8" opacity="0.8" style="animation: spin-slow 12s linear infinite; transform-origin: center;"/>
+    <!-- <polygon points="12,4 19,16 5,16" fill="none" stroke="#deb887" stroke-width="0.8" opacity="0.8" style="animation: spin-fast 16s linear infinite; transform-origin: center;"/> -->
+    <polygon points="12,4 19,16 5,16" fill="none" stroke="#6b635a" stroke-width="0.7" opacity="0.5" style="animation: spin-fast 8s linear infinite; transform-origin: center;"/>
+  </svg>
+</div>
+
+<div class="settings-menu">
+  <button onclick="newConversation()">New Conversation</button>
+</div>
 
 <script>
 /* ---------- expand/collapse ---------- */
@@ -254,6 +316,73 @@ function maybeCollapse(p){
   }
 }
 document.querySelectorAll('.text').forEach(maybeCollapse);
+
+/* ---------- settings menu ---------- */
+const settingsBtn = document.getElementById('settings');
+const settingsMenu = document.querySelector('.settings-menu');
+
+settingsBtn.addEventListener('click', () => {
+  settingsMenu.classList.toggle('open');
+});
+
+document.addEventListener('click', (e) => {
+  if (!settingsBtn.contains(e.target) && !settingsMenu.contains(e.target)) {
+    settingsMenu.classList.remove('open');
+  }
+});
+
+function newConversation() {
+  if (confirm('Start a new conversation? The current dialogue will be cleared.')) {
+    const chat = document.getElementById('chat');
+    chat.innerHTML = `
+      <div class="message">
+        <p class="text">
+          In this quiet hall, words echo differently.
+          Stone remembers what was spoken, and silence holds its own weight.
+          Share what moves through your mind—brief meditation or lengthy contemplation.
+        </p>
+      </div>
+
+      <table class="scripture-table">
+        <thead>
+          <tr>
+            <th>Hour</th>
+            <th>Office</th>
+            <th>Silence</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Dawn</td>
+            <td>Lauds</td>
+            <td>Breaking</td>
+          </tr>
+          <tr>
+            <td>Third</td>
+            <td>Terce</td>
+            <td>Working</td>
+          </tr>
+          <tr>
+            <td>Ninth</td>
+            <td>None</td>
+            <td>Resting</td>
+          </tr>
+          <tr>
+            <td>Evening</td>
+            <td>Vespers</td>
+            <td>Gathering</td>
+          </tr>
+          <tr>
+            <td>Night</td>
+            <td>Compline</td>
+            <td>Complete</td>
+          </tr>
+        </tbody>
+      </table>
+    `;
+    settingsMenu.classList.remove('open');
+  }
+}
 
 /* ---------- minimal chat loop ---------- */
 const chat=document.getElementById('chat');
@@ -273,21 +402,22 @@ const escapeHtml = (text) => {
 const send=async()=>{
   const val=ta.value.trim();
   if(!val)return;
-  
-  // Add user message to UI
+
+  // Add HR first (marks beginning of exchange pair)
+  // const hr=document.createElement('hr');
+  // chat.appendChild(hr);
+
+  // Add user message
   const div=document.createElement('div');
   div.className='message user';
   div.innerHTML=`<p class="text">${escapeHtml(val)}</p>`;
   chat.appendChild(div);
   maybeCollapse(div.querySelector('p'));
   
-  const hr=document.createElement('hr');
-  chat.appendChild(hr);
-  
   // Clear input immediately for better UX
   ta.value='';
   ta.disabled = true;
-  
+
   try {
     // Send to backend API
     const response = await fetch('/api/chat', {
@@ -297,24 +427,26 @@ const send=async()=>{
       },
       body: JSON.stringify({ message: val })
     });
-    
+
     if (!response.ok) {
       throw new Error(`Server responded with ${response.status}`);
     }
-    
+
     const data = await response.json();
-    
-    // Add server response to UI
+
+    // Add server response to UI (completes the exchange pair)
     const reply=document.createElement('div');
     reply.className='message';
     reply.innerHTML=`<p class="text">${escapeHtml(data.response)}</p>`;
     chat.appendChild(reply);
     maybeCollapse(reply.querySelector('p'));
-    hr.scrollIntoView({behavior:'smooth'});
-    
+
+    // hr.scrollIntoView({behavior:'smooth'});
+    div.scrollIntoView({behavior:'smooth'});
+
   } catch (error) {
     console.error('Chat error:', error);
-    
+
     // Show error message
     const reply=document.createElement('div');
     reply.className='message';
