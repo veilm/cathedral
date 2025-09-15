@@ -151,8 +151,16 @@ textarea::placeholder{
   cursor:pointer;
   opacity:.4;
   transition:opacity .3s;
+  background:transparent;
+  border:0;
+  padding:0;
 }
 #settings:hover{opacity:.7;}
+#settings:focus{
+  outline:1px solid var(--gold);
+  outline-offset:2px;
+  opacity:.6;
+}
 #settings svg{
   width:100%;
   height:100%;
@@ -286,7 +294,7 @@ textarea::placeholder{
   <textarea placeholder="speak into the stone…" rows="1"></textarea>
 </footer>
 
-<div id="settings">
+<button id="settings" aria-label="Settings" role="button">
   <svg viewBox="0 0 24 24">
     <!-- <polygon points="12,7 16.33,14.5 7.67,14.5" fill="none" stroke="#6b635a" stroke-width="0.7" opacity="0.5" style="animation: spin-fast 8s linear infinite; transform-origin: center;"/> -->
 
@@ -294,11 +302,11 @@ textarea::placeholder{
     <!-- <polygon points="12,4 19,16 5,16" fill="none" stroke="#deb887" stroke-width="0.8" opacity="0.8" style="animation: spin-fast 16s linear infinite; transform-origin: center;"/> -->
     <polygon points="12,4 19,16 5,16" fill="none" stroke="#6b635a" stroke-width="0.7" opacity="0.5" style="animation: spin-fast 8s linear infinite; transform-origin: center;"/>
   </svg>
-</div>
+</button>
 
-<div class="settings-menu">
+<nav class="settings-menu" role="navigation" aria-label="Settings menu">
   <button onclick="newConversation()">New Conversation</button>
-</div>
+</nav>
 
 <script>
 /* ---------- expand/collapse ---------- */
