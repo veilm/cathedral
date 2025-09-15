@@ -25,7 +25,8 @@ type Server struct {
 }
 
 type ChatRequest struct {
-	Message string `json:"message"`
+	Message        string `json:"message"`
+	ConversationID string `json:"conversation_id"`
 }
 
 type ChatResponse struct {
@@ -140,11 +141,42 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// For now, return a placeholder response
-	// TODO: Integrate with the actual conversation/memory system
+	if req.ConversationID == "" {
+		http.Error(w, "Conversation ID required", http.StatusBadRequest)
+		return
+	}
+
+	// Save user message using hnt-chat add
+	cmd := exec.Command("hnt-chat", "-c", req.ConversationID, "add", "user")
+	cmd.Stdin = strings.NewReader(req.Message)
+	if err := cmd.Run(); err != nil {
+		if s.verbose {
+			log.Printf("Failed to save user message: %v", err)
+		}
+		http.Error(w, "Failed to save message", http.StatusInternalServerError)
+		return
+	}
+
+	// Generate LLM response using hnt-chat gen
+	// Hardcoded model as requested
+	cmd = exec.Command("hnt-chat", "gen", "-c", req.ConversationID,
+		"--model", "openrouter/google/gemini-2.5-pro", "--write")
+	output, err := cmd.Output()
+	if err != nil {
+		if s.verbose {
+			log.Printf("Failed to generate response: %v", err)
+		}
+		http.Error(w, "Failed to generate response", http.StatusInternalServerError)
+		return
+	}
+
+	// The output is the LLM's response
+	llmResponse := strings.TrimSpace(string(output))
+
 	resp := ChatResponse{
-		Response:  fmt.Sprintf("The stones of cathedral echo: '%s'. In this sacred space, your words are remembered and held in reverence.", req.Message),
+		Response:  llmResponse,
 		Timestamp: time.Now(),
+		SessionID: req.ConversationID,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -231,7 +263,7 @@ func (s *Server) handleConversation(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Parse messages from files
-	var messages []ConversationMessage
+	messages := []ConversationMessage{} // Initialize as empty slice, not nil
 	var messageFiles []string
 
 	// Collect relevant files
