@@ -8,6 +8,11 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Crimson+Text:ital,wght@0,400;0,600;0,700;1,400;1,600;1,700&display=swap" rel="stylesheet">
 
+<link
+	rel="icon"
+	href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🗝️</text></svg>"
+>
+
 <style>
 :root{
   --bg:#1a1816;
@@ -339,56 +344,109 @@ document.addEventListener('click', (e) => {
   }
 });
 
-function newConversation() {
-  if (confirm('Start a new conversation? The current dialogue will be cleared.')) {
+async function newConversation() {
+  try {
+    const response = await fetch('/api/new-conversation', {
+      method: 'POST'
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to create new conversation');
+    }
+
+    const data = await response.json();
+
+    // Redirect to the new conversation
+    window.location.href = data.url;
+  } catch (error) {
+    console.error('Failed to create new conversation:', error);
+    alert('Failed to create new conversation. Please try again.');
+  }
+}
+
+async function loadConversation(conversationId) {
+  try {
+    const response = await fetch(`/api/conversation/${conversationId}`);
+
+    if (!response.ok) {
+      throw new Error('Conversation not found');
+    }
+
+    const data = await response.json();
+    const chat = document.getElementById('chat');
+
+    // Clear current content
+    chat.innerHTML = '';
+
+    // Add messages
+    for (const msg of data.messages) {
+      const div = document.createElement('div');
+      div.className = msg.role === 'user' ? 'message user' : 'message';
+      div.innerHTML = `<p class="text">${escapeHtml(msg.content)}</p>`;
+      chat.appendChild(div);
+      maybeCollapse(div.querySelector('p'));
+    }
+
+    // If no messages, show the default content
+    if (data.messages.length === 0) {
+      chat.innerHTML = `
+        <div class="message">
+          <p class="text">
+            In this quiet hall, words echo differently.
+            Stone remembers what was spoken, and silence holds its own weight.
+            Share what moves through your mind—brief meditation or lengthy contemplation.
+          </p>
+        </div>
+
+        <table class="scripture-table">
+          <thead>
+            <tr>
+              <th>Hour</th>
+              <th>Office</th>
+              <th>Silence</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Dawn</td>
+              <td>Lauds</td>
+              <td>Breaking</td>
+            </tr>
+            <tr>
+              <td>Third</td>
+              <td>Terce</td>
+              <td>Working</td>
+            </tr>
+            <tr>
+              <td>Ninth</td>
+              <td>None</td>
+              <td>Resting</td>
+            </tr>
+            <tr>
+              <td>Evening</td>
+              <td>Vespers</td>
+              <td>Gathering</td>
+            </tr>
+            <tr>
+              <td>Night</td>
+              <td>Compline</td>
+              <td>Complete</td>
+            </tr>
+          </tbody>
+        </table>
+      `;
+    }
+  } catch (error) {
+    console.error('Failed to load conversation:', error);
+    // Show error message
     const chat = document.getElementById('chat');
     chat.innerHTML = `
       <div class="message">
-        <p class="text">
-          In this quiet hall, words echo differently.
-          Stone remembers what was spoken, and silence holds its own weight.
-          Share what moves through your mind—brief meditation or lengthy contemplation.
+        <p class="text" style="color: var(--gold);">
+          The conversation has been lost to time.
         </p>
       </div>
-
-      <table class="scripture-table">
-        <thead>
-          <tr>
-            <th>Hour</th>
-            <th>Office</th>
-            <th>Silence</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>Dawn</td>
-            <td>Lauds</td>
-            <td>Breaking</td>
-          </tr>
-          <tr>
-            <td>Third</td>
-            <td>Terce</td>
-            <td>Working</td>
-          </tr>
-          <tr>
-            <td>Ninth</td>
-            <td>None</td>
-            <td>Resting</td>
-          </tr>
-          <tr>
-            <td>Evening</td>
-            <td>Vespers</td>
-            <td>Gathering</td>
-          </tr>
-          <tr>
-            <td>Night</td>
-            <td>Compline</td>
-            <td>Complete</td>
-          </tr>
-        </tbody>
-      </table>
     `;
-    settingsMenu.classList.remove('open');
   }
 }
 
@@ -471,6 +529,17 @@ const send=async()=>{
 };
 ta.addEventListener('keydown',e=>{
   if(e.key==='Enter' && !e.shiftKey){e.preventDefault();send();}
+});
+
+// Check if we're viewing a specific conversation
+window.addEventListener('DOMContentLoaded', () => {
+  const path = window.location.pathname;
+  if (path.startsWith('/c/')) {
+    const conversationId = path.substring(3); // Remove '/c/' prefix
+    if (conversationId) {
+      loadConversation(conversationId);
+    }
+  }
 });
 </script>
 </body>
