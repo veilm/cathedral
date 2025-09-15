@@ -227,3 +227,64 @@ textarea::placeholder{
   color:var(--accent);
   font-style:italic;
 }
+
+/* Markdown styling */
+.text h1,
+.text h2,
+.text h3,
+.text h4,
+.text h5,
+.text h6{
+  color:var(--gold);
+  margin:1em 0 0.5em 0;
+  font-weight:600;
+  line-height:1.2;
+}
+.text h1{font-size:1.6em;}
+.text h2{font-size:1.4em;}
+.text h3{font-size:1.2em;}
+.text h4{font-size:1.1em;}
+.text h5{font-size:1em;}
+.text h6{font-size:0.95em;}
+.text{
+  white-space:pre-wrap;
+  word-wrap:break-word;
+}
+.text p{
+  margin:0.5em 0;
+}
+.text strong{
+  font-weight:700;
+  color:var(--ink);
+}
+.text em{
+  font-style:italic;
+}
+.text code{
+  background:#ffffff08;
+  padding:0.15em 0.3em;
+  border-radius:2px;
+  font-family:monospace;
+  font-size:0.9em;
+  color:var(--gold);
+}
+.text pre{
+  background:#ffffff06;
+  border-left:2px solid var(--gold);
+  padding:1rem;
+  margin:1rem 0;
+  overflow-x:auto;
+  border-radius:2px;
+}
+.text pre code{
+  background:transparent;
+  padding:0;
+  color:var(--ink);
+  font-size:0.85em;
+  line-height:1.4;
+}
+.text hr{
+  border:0;
+  border-top:1px solid var(--rule);
+  margin:1.5rem 0;
+}
