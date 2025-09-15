@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/oboro/cathedral/pkg/config"
+	"github.com/veilm/cathedral/pkg/config"
 )
 
 // NodeReader reads memory node files

@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/fatih/color"
-	"github.com/oboro/cathedral/pkg/config"
+	"github.com/veilm/cathedral/pkg/config"
 )
 
 // HealthChecker validates memory node files

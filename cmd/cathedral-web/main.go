@@ -8,8 +8,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/oboro/cathedral/pkg/config"
-	"github.com/oboro/cathedral/pkg/server"
+	"github.com/veilm/cathedral/pkg/config"
+	"github.com/veilm/cathedral/pkg/server"
 )
 
 func main() {

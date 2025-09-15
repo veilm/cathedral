@@ -5,10 +5,10 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/oboro/cathedral/pkg/config"
-	"github.com/oboro/cathedral/pkg/memory"
-	"github.com/oboro/cathedral/pkg/session"
-	"github.com/oboro/cathedral/pkg/store"
+	"github.com/veilm/cathedral/pkg/config"
+	"github.com/veilm/cathedral/pkg/memory"
+	"github.com/veilm/cathedral/pkg/session"
+	"github.com/veilm/cathedral/pkg/store"
 	"github.com/spf13/cobra"
 )
 

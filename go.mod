@@ -1,4 +1,4 @@
-module github.com/oboro/cathedral
+module github.com/veilm/cathedral
 
 go 1.23.0
 
