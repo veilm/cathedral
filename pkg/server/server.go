@@ -1,19 +1,21 @@
 package server
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"sort"
 	"strings"
 	"time"
 
 	"github.com/oboro/cathedral/pkg/config"
 	"github.com/oboro/cathedral/pkg/session"
+	"github.com/veilm/hinata/cmd/hnt-chat/pkg/chat"
+	"github.com/veilm/hinata/cmd/hnt-llm/pkg/llm"
 )
 
 type Server struct {
@@ -146,10 +148,20 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Save user message using hnt-chat add
-	cmd := exec.Command("hnt-chat", "-c", req.ConversationID, "add", "user")
-	cmd.Stdin = strings.NewReader(req.Message)
-	if err := cmd.Run(); err != nil {
+	// Get conversation directory
+	baseDir, err := chat.GetConversationsDir()
+	if err != nil {
+		if s.verbose {
+			log.Printf("Failed to get conversations directory: %v", err)
+		}
+		http.Error(w, "Failed to get conversations directory", http.StatusInternalServerError)
+		return
+	}
+	convDir := filepath.Join(baseDir, req.ConversationID)
+
+	// Save user message using hinata package
+	_, err = chat.WriteMessageFile(convDir, chat.RoleUser, req.Message)
+	if err != nil {
 		if s.verbose {
 			log.Printf("Failed to save user message: %v", err)
 		}
@@ -157,24 +169,60 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Generate LLM response using hnt-chat gen
-	// Hardcoded model as requested
-	cmd = exec.Command("hnt-chat", "gen", "-c", req.ConversationID,
-		"--model", "openrouter/google/gemini-2.5-pro", "--write")
-	output, err := cmd.Output()
-	if err != nil {
+	// Generate LLM response using hinata package
+	// Pack the conversation for LLM
+	var buf bytes.Buffer
+	if err := chat.PackConversation(convDir, &buf, true); err != nil {
 		if s.verbose {
-			log.Printf("Failed to generate response: %v", err)
+			log.Printf("Failed to pack conversation: %v", err)
 		}
-		http.Error(w, "Failed to generate response", http.StatusInternalServerError)
+		http.Error(w, "Failed to pack conversation", http.StatusInternalServerError)
 		return
 	}
 
-	// The output is the LLM's response
-	llmResponse := strings.TrimSpace(string(output))
+	// Configure LLM
+	config := llm.Config{
+		Model:            "openrouter/google/gemini-2.5-pro",
+		SystemPrompt:     "",
+		IncludeReasoning: false,
+	}
+
+	// Generate response synchronously
+	ctx := context.Background()
+	eventChan, errChan := llm.StreamLLMResponse(ctx, config, buf.String())
+
+	var llmResponse strings.Builder
+	for {
+		select {
+		case event, ok := <-eventChan:
+			if !ok {
+				goto done
+			}
+			if event.Content != "" {
+				llmResponse.WriteString(event.Content)
+			}
+		case err := <-errChan:
+			if err != nil {
+				if s.verbose {
+					log.Printf("Failed to generate response: %v", err)
+				}
+				http.Error(w, "Failed to generate response", http.StatusInternalServerError)
+				return
+			}
+		}
+	}
+
+done:
+	// Save assistant response
+	_, err = chat.WriteMessageFile(convDir, chat.RoleAssistant, llmResponse.String())
+	if err != nil {
+		if s.verbose {
+			log.Printf("Failed to save assistant message: %v", err)
+		}
+	}
 
 	resp := ChatResponse{
-		Response:  llmResponse,
+		Response:  llmResponse.String(),
 		Timestamp: time.Now(),
 		SessionID: req.ConversationID,
 	}
@@ -255,54 +303,33 @@ func (s *Server) handleConversation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Read conversation files
-	files, err := os.ReadDir(convPath)
+	// Use chat.ListMessages to get messages
+	messageList, err := chat.ListMessages(convPath)
 	if err != nil {
-		http.Error(w, "Failed to read conversation", http.StatusInternalServerError)
+		http.Error(w, "Failed to list messages", http.StatusInternalServerError)
 		return
 	}
 
 	// Parse messages from files
 	messages := []ConversationMessage{} // Initialize as empty slice, not nil
-	var messageFiles []string
-
-	// Collect relevant files
-	for _, file := range files {
-		name := file.Name()
-		if strings.HasSuffix(name, "-user.md") || strings.HasSuffix(name, "-assistant.md") {
-			// Skip assistant-reasoning files
-			if !strings.Contains(name, "-assistant-reasoning") {
-				messageFiles = append(messageFiles, name)
-			}
-		}
-	}
-
-	// Sort files by timestamp (files are named with timestamps)
-	sort.Strings(messageFiles)
 
 	// Read each message file
-	for _, fileName := range messageFiles {
-		filePath := filepath.Join(convPath, fileName)
-		content, err := os.ReadFile(filePath)
+	for _, msg := range messageList {
+		content, err := os.ReadFile(msg.Path)
 		if err != nil {
 			if s.verbose {
-				log.Printf("Failed to read message file %s: %v", fileName, err)
+				log.Printf("Failed to read message file %s: %v", msg.Path, err)
 			}
 			continue
 		}
 
-		// Determine role from filename
-		var role string
-		if strings.HasSuffix(fileName, "-user.md") {
-			role = "user"
-		} else if strings.HasSuffix(fileName, "-assistant.md") {
-			role = "assistant"
-		} else {
+		// Skip assistant-reasoning messages for conversation display
+		if msg.Role == chat.RoleAssistantReasoning {
 			continue
 		}
 
 		messages = append(messages, ConversationMessage{
-			Role:    role,
+			Role:    string(msg.Role),
 			Content: string(content),
 		})
 	}
@@ -323,9 +350,17 @@ func (s *Server) handleNewConversation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Execute hnt-chat new command
-	cmd := exec.Command("hnt-chat", "new")
-	output, err := cmd.Output()
+	// Create new conversation using hinata package
+	baseDir, err := chat.GetConversationsDir()
+	if err != nil {
+		if s.verbose {
+			log.Printf("Failed to get conversations directory: %v", err)
+		}
+		http.Error(w, "Failed to get conversations directory", http.StatusInternalServerError)
+		return
+	}
+
+	convDir, err := chat.CreateNewConversation(baseDir)
 	if err != nil {
 		if s.verbose {
 			log.Printf("Failed to create new conversation: %v", err)
@@ -334,15 +369,13 @@ func (s *Server) handleNewConversation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Extract conversation ID from the output path
-	// Output is like: /home/user/.local/share/hinata/chat/conversations/ID
-	outputPath := strings.TrimSpace(string(output))
-	conversationID := filepath.Base(outputPath)
+	// Extract conversation ID from the path
+	conversationID := filepath.Base(convDir)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"id":   conversationID,
-		"path": outputPath,
+		"path": convDir,
 		"url":  "/c/" + conversationID,
 	})
 }
