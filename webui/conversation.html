@@ -215,6 +215,27 @@ textarea::placeholder{
   color:var(--gold);
 }
 
+/* loading animation */
+.loading{
+  display:inline-block;
+  opacity:0.6;
+  animation:pulse 1.5s ease-in-out infinite;
+}
+.loading::after{
+  content:"···";
+  display:inline-block;
+  animation:dots 1.5s steps(3, end) infinite;
+}
+@keyframes pulse{
+  0%,100%{opacity:0.4;}
+  50%{opacity:0.8;}
+}
+@keyframes dots{
+  0%{content:"·";}
+  33%{content:"··";}
+  66%{content:"···";}
+}
+
 /* cathedral table styling */
 .scripture-table{
   margin:2rem auto;
@@ -453,6 +474,7 @@ async function loadConversation(conversationId) {
 /* ---------- minimal chat loop ---------- */
 const chat=document.getElementById('chat');
 const ta=document.querySelector('textarea');
+let currentConversationId = null;
 
 const escapeHtml = (text) => {
   const map = {
@@ -469,9 +491,19 @@ const send=async()=>{
   const val=ta.value.trim();
   if(!val)return;
 
-  // Add HR first (marks beginning of exchange pair)
-  // const hr=document.createElement('hr');
-  // chat.appendChild(hr);
+  // Ensure we have a conversation ID
+  if(!currentConversationId) {
+    // Create new conversation if none exists
+    try {
+      const response = await fetch('/api/new-conversation', { method: 'POST' });
+      const data = await response.json();
+      currentConversationId = data.id;
+      window.history.pushState({}, '', `/c/${currentConversationId}`);
+    } catch (error) {
+      console.error('Failed to create conversation:', error);
+      return;
+    }
+  }
 
   // Add user message
   const div=document.createElement('div');
@@ -479,19 +511,29 @@ const send=async()=>{
   div.innerHTML=`<p class="text">${escapeHtml(val)}</p>`;
   chat.appendChild(div);
   maybeCollapse(div.querySelector('p'));
-  
+
+  // Add loading indicator
+  const loadingDiv = document.createElement('div');
+  loadingDiv.className = 'message';
+  loadingDiv.innerHTML = '<p class="text"><span class="loading"></span></p>';
+  chat.appendChild(loadingDiv);
+  loadingDiv.scrollIntoView({behavior:'smooth'});
+
   // Clear input immediately for better UX
   ta.value='';
   ta.disabled = true;
 
   try {
-    // Send to backend API
+    // Send to backend API with conversation ID
     const response = await fetch('/api/chat', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ message: val })
+      body: JSON.stringify({
+        message: val,
+        conversation_id: currentConversationId
+      })
     });
 
     if (!response.ok) {
@@ -500,18 +542,22 @@ const send=async()=>{
 
     const data = await response.json();
 
-    // Add server response to UI (completes the exchange pair)
+    // Remove loading indicator
+    loadingDiv.remove();
+
+    // Add server response to UI
     const reply=document.createElement('div');
     reply.className='message';
     reply.innerHTML=`<p class="text">${escapeHtml(data.response)}</p>`;
     chat.appendChild(reply);
     maybeCollapse(reply.querySelector('p'));
-
-    // hr.scrollIntoView({behavior:'smooth'});
-    div.scrollIntoView({behavior:'smooth'});
+    reply.scrollIntoView({behavior:'smooth'});
 
   } catch (error) {
     console.error('Chat error:', error);
+
+    // Remove loading indicator
+    loadingDiv.remove();
 
     // Show error message
     const reply=document.createElement('div');
@@ -521,7 +567,7 @@ const send=async()=>{
       Please try again later.
     </p>`;
     chat.appendChild(reply);
-    hr.scrollIntoView({behavior:'smooth'});
+    reply.scrollIntoView({behavior:'smooth'});
   } finally {
     ta.disabled = false;
     ta.focus();
@@ -537,6 +583,7 @@ window.addEventListener('DOMContentLoaded', () => {
   if (path.startsWith('/c/')) {
     const conversationId = path.substring(3); // Remove '/c/' prefix
     if (conversationId) {
+      currentConversationId = conversationId;
       loadConversation(conversationId);
     }
   }
