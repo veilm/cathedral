@@ -364,6 +364,7 @@ const send=async()=>{
 
   // Clear input immediately for better UX
   ta.value='';
+  ta.style.height = 'auto'; // Reset height after sending
   ta.disabled = true;
 
   try {
@@ -415,8 +416,19 @@ const send=async()=>{
     ta.focus();
   }
 };
+// Auto-resize textarea as user types (max 5 lines)
+ta.addEventListener('input', () => {
+  ta.style.height = 'auto';
+  const maxHeight = parseFloat(getComputedStyle(ta).lineHeight) * 5;
+  ta.style.height = Math.min(ta.scrollHeight, maxHeight) + 'px';
+});
+
+// Handle keyboard shortcuts - Ctrl+Enter to submit
 ta.addEventListener('keydown',e=>{
-  if(e.key==='Enter' && !e.shiftKey){e.preventDefault();send();}
+  if(e.key==='Enter' && (e.ctrlKey || e.metaKey)){
+    e.preventDefault();
+    send();
+  }
 });
 
 // Check if we're viewing a specific conversation

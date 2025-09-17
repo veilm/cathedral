@@ -105,6 +105,8 @@ textarea{
   min-height:2.8rem;
   padding:0.6rem 0.8rem;
   border-radius:3px;
+  overflow-y:auto;
+  transition:height 0.1s ease;
 }
 textarea::placeholder{
   color:var(--accent);
@@ -287,6 +289,16 @@ textarea::placeholder{
   border:0;
   border-top:1px solid var(--rule);
   margin:1.5rem 0;
+}
+
+/* Text selection styling */
+::selection{
+  background:var(--gold);
+  color:var(--bg);
+}
+::-moz-selection{
+  background:var(--gold);
+  color:var(--bg);
 }
 
 /* Custom scrollbar styling */
