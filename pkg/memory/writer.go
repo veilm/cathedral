@@ -106,20 +106,25 @@ func (w *Writer) WriteMemory(sessionID, templatePath, indexPath string, getPromp
 
 // generateMemoryPrompt generates the final prompt by filling in the template
 func (w *Writer) generateMemoryPrompt(indexPath, templatePath, sessionDir string, compression float64) (string, error) {
+	fmt.Printf("[WRITE-MEMORY] Generating prompt for session: %s\n", sessionDir)
+
 	// Read current index
 	currentIndex, err := os.ReadFile(indexPath)
 	if err != nil {
 		return "", fmt.Errorf("failed to read index: %w", err)
 	}
+	fmt.Printf("[WRITE-MEMORY] Current index size: %d bytes\n", len(currentIndex))
 
 	// Read template
 	template, err := os.ReadFile(templatePath)
 	if err != nil {
 		return "", fmt.Errorf("failed to read template: %w", err)
 	}
+	fmt.Printf("[WRITE-MEMORY] Template loaded from: %s\n", templatePath)
 
 	// Read conversation
 	transcript, sessionPath := w.readConversationMessages(sessionDir)
+	fmt.Printf("[WRITE-MEMORY] Read conversation from %s, transcript length: %d bytes\n", sessionPath, len(transcript))
 
 	// Calculate length metrics
 	origChars := len(transcript)
@@ -148,6 +153,8 @@ func (w *Writer) generateMemoryPrompt(indexPath, templatePath, sessionDir string
 
 // readConversationMessages reads all messages from a session directory
 func (w *Writer) readConversationMessages(sessionDir string) (string, string) {
+	fmt.Printf("[WRITE-MEMORY] Reading messages from directory: %s\n", sessionDir)
+
 	// Extract session path (last two parts)
 	parts := strings.Split(sessionDir, string(os.PathSeparator))
 	sessionPath := ""
@@ -156,14 +163,20 @@ func (w *Writer) readConversationMessages(sessionDir string) (string, string) {
 	}
 
 	// Get all message files sorted by number
-	entries, _ := os.ReadDir(sessionDir)
-	var messageFiles []string
+	entries, err := os.ReadDir(sessionDir)
+	if err != nil {
+		fmt.Printf("[WRITE-MEMORY] ERROR: Failed to read session directory %s: %v\n", sessionDir, err)
+		return "", sessionPath
+	}
 
+	var messageFiles []string
 	for _, entry := range entries {
 		if !entry.IsDir() && strings.Contains(entry.Name(), "-") && strings.HasSuffix(entry.Name(), ".md") {
 			messageFiles = append(messageFiles, entry.Name())
 		}
 	}
+
+	fmt.Printf("[WRITE-MEMORY] Found %d message files in session\n", len(messageFiles))
 
 	// Sort numerically by message number
 	// This is simplified - proper numeric sort would be better
@@ -172,14 +185,18 @@ func (w *Writer) readConversationMessages(sessionDir string) (string, string) {
 	for _, filename := range messageFiles {
 		content, err := os.ReadFile(filepath.Join(sessionDir, filename))
 		if err != nil {
+			fmt.Printf("[WRITE-MEMORY] WARNING: Failed to read message file %s: %v\n", filename, err)
 			continue
 		}
 
 		tagName := fmt.Sprintf("%s/%s", sessionPath, filename)
 		messages = append(messages, fmt.Sprintf("<%s>\n%s\n</%s>", tagName, string(content), tagName))
+		fmt.Printf("[WRITE-MEMORY] Added message %s (%d bytes)\n", filename, len(content))
 	}
 
-	return strings.Join(messages, "\n\n"), sessionPath
+	result := strings.Join(messages, "\n\n")
+	fmt.Printf("[WRITE-MEMORY] Total transcript size: %d bytes\n", len(result))
+	return result, sessionPath
 }
 
 // findLatestSession finds the latest session in episodic-raw
@@ -220,6 +237,9 @@ func (w *Writer) findLatestSession(episodicRawDir string) string {
 
 // submitToLLM submits the prompt to LLM and updates index
 func (w *Writer) submitToLLM(prompt, indexPath string) error {
+	fmt.Printf("[WRITE-MEMORY] Starting LLM submission\n")
+	fmt.Printf("[WRITE-MEMORY] Prompt length: %d bytes\n", len(prompt))
+
 	// Create new chat directory
 	cmd := exec.Command("hnt-chat", "new")
 	output, err := cmd.Output()
@@ -227,6 +247,7 @@ func (w *Writer) submitToLLM(prompt, indexPath string) error {
 		return fmt.Errorf("failed to create chat directory: %w", err)
 	}
 	chatDir := strings.TrimSpace(string(output))
+	fmt.Printf("[WRITE-MEMORY] Created chat directory: %s\n", chatDir)
 
 	// Add prompt as user message
 	cmd = exec.Command("hnt-chat", "add", "user", "-c", chatDir)
@@ -234,8 +255,10 @@ func (w *Writer) submitToLLM(prompt, indexPath string) error {
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("failed to add user message: %w", err)
 	}
+	fmt.Printf("[WRITE-MEMORY] Added user message to chat\n")
 
 	// Generate LLM response
+	fmt.Printf("[WRITE-MEMORY] Generating LLM response (this may take a while)...\n")
 	cmd = exec.Command(
 		"hnt-chat", "gen",
 		"--model", "openrouter/google/gemini-2.5-pro",
@@ -246,10 +269,12 @@ func (w *Writer) submitToLLM(prompt, indexPath string) error {
 	)
 	output, err = cmd.Output()
 	if err != nil {
+		fmt.Printf("[WRITE-MEMORY] ERROR: LLM generation failed: %v\n", err)
 		return fmt.Errorf("failed to generate LLM response: %w", err)
 	}
 
 	responseFile := strings.TrimSpace(string(output))
+	fmt.Printf("[WRITE-MEMORY] LLM response written to: %s\n", responseFile)
 
 	// Read the response
 	responsePath := filepath.Join(chatDir, responseFile)
@@ -257,24 +282,35 @@ func (w *Writer) submitToLLM(prompt, indexPath string) error {
 	if err != nil {
 		return fmt.Errorf("failed to read response: %w", err)
 	}
+	fmt.Printf("[WRITE-MEMORY] Read LLM response: %d bytes\n", len(response))
 
 	// Extract updated index content
-	pattern := regexp.MustCompile(`<updated_index\.md>\s*(.*?)\s*</updated_index\.md>`)
+	// Use (?s) flag to make . match newlines
+	pattern := regexp.MustCompile(`(?s)<updated_index\.md>\s*(.*?)\s*</updated_index\.md>`)
 	matches := pattern.FindSubmatch(response)
 	if len(matches) < 2 {
-		fmt.Printf("Error: Could not find <updated_index.md> section in LLM response\n")
-		fmt.Printf("Response saved in: %s\n", chatDir)
+		fmt.Printf("[WRITE-MEMORY] ERROR: Could not find <updated_index.md> section in LLM response\n")
+		fmt.Printf("[WRITE-MEMORY] Response file: %s\n", responsePath)
+		fmt.Printf("[WRITE-MEMORY] Response length: %d bytes\n", len(response))
+		// Log first 500 chars of response for debugging
+		if len(response) > 500 {
+			fmt.Printf("[WRITE-MEMORY] Response preview: %s...\n", string(response[:500]))
+		} else {
+			fmt.Printf("[WRITE-MEMORY] Response: %s\n", string(response))
+		}
+		fmt.Printf("[WRITE-MEMORY] Chat directory: %s\n", chatDir)
 		return fmt.Errorf("invalid LLM response format")
 	}
 
 	updatedIndexContent := string(matches[1])
+	fmt.Printf("[WRITE-MEMORY] Extracted updated index content: %d bytes\n", len(updatedIndexContent))
 
 	// Write the updated content to index.md
 	if err := os.WriteFile(indexPath, []byte(updatedIndexContent+"\n"), 0644); err != nil {
 		return fmt.Errorf("failed to write updated index: %w", err)
 	}
 
-	fmt.Printf("Successfully updated index.md: %s\n", indexPath)
-	fmt.Printf("Chat session saved in: %s\n", chatDir)
+	fmt.Printf("[WRITE-MEMORY] Successfully updated index.md: %s\n", indexPath)
+	fmt.Printf("[WRITE-MEMORY] Chat session saved in: %s\n", chatDir)
 	return nil
 }

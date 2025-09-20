@@ -32,6 +32,66 @@ async function newConversation() {
   }
 }
 
+async function consolidateMemory() {
+  // Check if we have a current conversation
+  if (!currentConversationId) {
+    alert('No active conversation to consolidate. Please start a conversation first.');
+    return;
+  }
+
+  // Close the settings menu
+  settingsMenu.classList.remove('open');
+
+  // Confirm with user
+  const confirmed = confirm('This will save the current conversation to your memory store. Continue?');
+  if (!confirmed) {
+    return;
+  }
+
+  // Show loading state
+  const originalText = document.querySelector('.settings-menu button[onclick="consolidateMemory()"]').textContent;
+  const button = document.querySelector('.settings-menu button[onclick="consolidateMemory()"]');
+  button.textContent = 'Consolidating...';
+  button.disabled = true;
+
+  try {
+    const response = await fetch('/api/consolidate', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        conversation_id: currentConversationId,
+        compression: 0.5 // Default compression ratio
+      })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to consolidate: ${errorText}`);
+    }
+
+    const data = await response.json();
+
+    // Show success message
+    alert(`Memory consolidated successfully!\nEpisode saved at: ${data.episode_path}`);
+
+    // Optionally, create a new conversation after consolidation
+    const startNew = confirm('Would you like to start a new conversation?');
+    if (startNew) {
+      newConversation();
+    }
+
+  } catch (error) {
+    console.error('Failed to consolidate memory:', error);
+    alert(`Failed to consolidate memory: ${error.message}`);
+  } finally {
+    // Restore button state
+    button.textContent = originalText;
+    button.disabled = false;
+  }
+}
+
 async function loadConversation(conversationId) {
   try {
     const response = await fetch(`/api/conversation/${conversationId}`);
