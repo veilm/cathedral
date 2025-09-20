@@ -1,5 +1,6 @@
 - How much direct compression from episodic-raw to index.md is desired? 75%? 50%?
-	TODO Desired default for now 1755462197: 50-75%
+	DONE Desired default for now 1755462197: 50-75%
+		DONE made ~configurable in config.go
 
 	- How much compression in general between layers of abstraction? If index.md
 	is filling up and you shift elsewhere, how big of a gap should there be? You
@@ -120,3 +121,5 @@
 - Should you use a system message or user message for the context/instruction
 	in `write-memory`?
 	see recent 1757485226 ./development_log.md - definitely system for G2.5
+
+	DONE made ~configurable in config.go
