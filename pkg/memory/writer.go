@@ -11,14 +11,6 @@ import (
 	"github.com/veilm/cathedral/pkg/config"
 )
 
-// CompressionProfiles defines standard compression ratios
-var CompressionProfiles = map[string]float64{
-	"default": 0.5,  // Balanced: 50% retention
-	"compact": 0.25, // Aggressive: 25% retention
-	"verbose": 0.75, // Gentle: 75% retention
-	"full":    1.0,  // No compression (for testing)
-}
-
 // Writer handles memory writing operations
 type Writer struct {
 	config *config.Config

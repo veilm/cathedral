@@ -412,7 +412,7 @@ func (s *Server) handleConsolidate(w http.ResponseWriter, r *http.Request) {
 
 	// Default compression if not specified
 	if req.Compression == 0 {
-		req.Compression = 0.5 // Default compression ratio
+		req.Compression = config.CompressionProfiles["default"]
 		if s.verbose {
 			log.Printf("[CONSOLIDATE] Using default compression ratio: %f", req.Compression)
 		}

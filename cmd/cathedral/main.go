@@ -281,7 +281,7 @@ func runWriteMemory(cmd *cobra.Command, args []string) error {
 
 	// Handle compression profile
 	if compressionProfile != "" {
-		if ratio, ok := memory.CompressionProfiles[compressionProfile]; ok {
+		if ratio, ok := config.CompressionProfiles[compressionProfile]; ok {
 			compression = ratio
 		} else {
 			return fmt.Errorf("unknown compression profile: %s", compressionProfile)

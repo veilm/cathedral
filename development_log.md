@@ -83,3 +83,7 @@ save to index.md based on the content of a given conversation
 	now, since that was likely biased towards problems with adherence, since it
 	was user instead of system
 - Added initial `agentic-retrieval.md` grimoire prompts
+- Created initial web app base
+	- Creating conversations (hnt-chat directories), no system prompt
+	- Submitting and reading messages text-only messages
+	- Some UI styling and markdown parsing etc
