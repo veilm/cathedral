@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/veilm/cathedral/pkg/config"
+	"github.com/veilm/cathedral/pkg/memory"
 	"github.com/veilm/cathedral/pkg/session"
 	"github.com/veilm/hinata/cmd/hnt-chat/pkg/chat"
 	"github.com/veilm/hinata/cmd/hnt-llm/pkg/llm"
@@ -43,8 +44,8 @@ type ConversationMessage struct {
 }
 
 type ConversationResponse struct {
-	ID       string                 `json:"id"`
-	Messages []ConversationMessage  `json:"messages"`
+	ID       string                `json:"id"`
+	Messages []ConversationMessage `json:"messages"`
 }
 
 func New(cfg *config.Config, uiPath string, verbose bool) *Server {
@@ -67,6 +68,7 @@ func (s *Server) setupRoutes() {
 	s.mux.HandleFunc("/api/session", s.handleSession)
 	s.mux.HandleFunc("/api/conversation/", s.handleConversation)
 	s.mux.HandleFunc("/api/new-conversation", s.handleNewConversation)
+	s.mux.HandleFunc("/api/consolidate", s.handleConsolidate)
 
 	// Conversation viewer route
 	s.mux.HandleFunc("/c/", s.handleConversationView)
@@ -377,5 +379,142 @@ func (s *Server) handleNewConversation(w http.ResponseWriter, r *http.Request) {
 		"id":   conversationID,
 		"path": convDir,
 		"url":  "/c/" + conversationID,
+	})
+}
+
+func (s *Server) handleConsolidate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Parse request body
+	var req struct {
+		ConversationID string  `json:"conversation_id"`
+		Compression    float64 `json:"compression"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		if s.verbose {
+			log.Printf("[CONSOLIDATE] Failed to decode request body: %v", err)
+		}
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if s.verbose {
+		log.Printf("[CONSOLIDATE] Starting consolidation for conversation: %s, compression: %f", req.ConversationID, req.Compression)
+	}
+
+	if req.ConversationID == "" {
+		http.Error(w, "Conversation ID required", http.StatusBadRequest)
+		return
+	}
+
+	// Default compression if not specified
+	if req.Compression == 0 {
+		req.Compression = 0.5 // Default compression ratio
+		if s.verbose {
+			log.Printf("[CONSOLIDATE] Using default compression ratio: %f", req.Compression)
+		}
+	}
+
+	// Check if we have an active store
+	if s.config.ActiveStore == "" {
+		if s.verbose {
+			log.Printf("[CONSOLIDATE] No active memory store found")
+		}
+		http.Error(w, "No active memory store. Create one first", http.StatusBadRequest)
+		return
+	}
+
+	if s.verbose {
+		log.Printf("[CONSOLIDATE] Active store: %s", s.config.ActiveStore)
+	}
+
+	// Get conversation directory path
+	baseDir, err := chat.GetConversationsDir()
+	if err != nil {
+		if s.verbose {
+			log.Printf("[CONSOLIDATE] Failed to get conversations directory: %v", err)
+		}
+		http.Error(w, "Failed to get conversations directory", http.StatusInternalServerError)
+		return
+	}
+	convDir := filepath.Join(baseDir, req.ConversationID)
+
+	if s.verbose {
+		log.Printf("[CONSOLIDATE] Conversation directory: %s", convDir)
+	}
+
+	// Check if conversation exists
+	if _, err := os.Stat(convDir); os.IsNotExist(err) {
+		if s.verbose {
+			log.Printf("[CONSOLIDATE] Conversation not found: %s", convDir)
+		}
+		http.Error(w, "Conversation not found", http.StatusNotFound)
+		return
+	}
+
+	// Import messages from the conversation
+	importer := session.NewImporter(s.config)
+
+	// Create a new episode for this import
+	mgr := session.NewManager(s.config)
+	episodePath, err := mgr.InitMemoryEpisode("")
+	if err != nil {
+		if s.verbose {
+			log.Printf("[CONSOLIDATE] Failed to create new episode: %v", err)
+		}
+		http.Error(w, "Failed to create memory episode", http.StatusInternalServerError)
+		return
+	}
+
+	if s.verbose {
+		log.Printf("[CONSOLIDATE] Created new episode: %s", episodePath)
+	}
+
+	// Import all messages from the conversation directory INTO the episode we just created
+	// IMPORTANT: Pass the episodePath as sessionID to avoid creating a second episode
+	if err := importer.ImportMessages([]string{convDir}, episodePath); err != nil {
+		if s.verbose {
+			log.Printf("[CONSOLIDATE] Failed to import messages from %s to %s: %v", convDir, episodePath, err)
+		}
+		http.Error(w, "Failed to import messages", http.StatusInternalServerError)
+		return
+	}
+
+	if s.verbose {
+		log.Printf("[CONSOLIDATE] Successfully imported messages to episode: %s", episodePath)
+	}
+
+	// Now run write-memory on the imported session
+	writer := memory.NewWriter(s.config)
+	activeStore := s.config.GetActiveStorePath()
+	indexPath := filepath.Join(activeStore, "index.md")
+
+	if s.verbose {
+		log.Printf("[CONSOLIDATE] Starting write-memory for episode: %s", episodePath)
+		log.Printf("[CONSOLIDATE] Index path: %s", indexPath)
+		log.Printf("[CONSOLIDATE] Compression ratio: %f", req.Compression)
+	}
+
+	// Use the episode we just created as the session ID
+	if err := writer.WriteMemory(episodePath, "", indexPath, false, req.Compression); err != nil {
+		if s.verbose {
+			log.Printf("[CONSOLIDATE] Failed to consolidate memory for episode %s: %v", episodePath, err)
+		}
+		http.Error(w, fmt.Sprintf("Failed to consolidate memory: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	if s.verbose {
+		log.Printf("[CONSOLIDATE] Successfully consolidated memory for episode: %s", episodePath)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success":      true,
+		"episode_path": episodePath,
+		"message":      "Memory consolidated successfully",
 	})
 }
