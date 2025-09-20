@@ -12,6 +12,12 @@ type Config struct {
 	ActiveStore string            `json:"active_store"`
 	Stores      map[string]string `json:"stores"` // name -> path mapping
 
+	// MemoryConsolidationRole specifies which role to use for the memory consolidation prompt
+	// Valid values: "system" (default) or "user"
+	// System role typically provides better adherence to instructions
+	// User role may be necessary for certain LLM provider restrictions
+	MemoryConsolidationRole string `json:"memory_consolidation_role,omitempty"`
+
 	configPath string // Internal: path to config file
 }
 
@@ -30,8 +36,9 @@ func Load(configPath string) (*Config, error) {
 	}
 
 	cfg := &Config{
-		Stores:     make(map[string]string),
-		configPath: configPath,
+		Stores:                  make(map[string]string),
+		MemoryConsolidationRole: "system", // Default to system role
+		configPath:              configPath,
 	}
 
 	// Ensure config directory exists
@@ -52,6 +59,13 @@ func Load(configPath string) (*Config, error) {
 
 	if err := json.Unmarshal(data, cfg); err != nil {
 		return nil, fmt.Errorf("failed to parse config: %w", err)
+	}
+
+	// Ensure MemoryConsolidationRole has a valid value
+	if cfg.MemoryConsolidationRole == "" {
+		cfg.MemoryConsolidationRole = "system"
+	} else if cfg.MemoryConsolidationRole != "system" && cfg.MemoryConsolidationRole != "user" {
+		return nil, fmt.Errorf("invalid memory_consolidation_role '%s': must be 'system' or 'user'", cfg.MemoryConsolidationRole)
 	}
 
 	cfg.configPath = configPath

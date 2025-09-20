@@ -241,13 +241,24 @@ func (w *Writer) submitToLLM(prompt, indexPath string) error {
 	chatDir := strings.TrimSpace(string(output))
 	fmt.Printf("[WRITE-MEMORY] Created chat directory: %s\n", chatDir)
 
-	// Add prompt as user message
-	cmd = exec.Command("hnt-chat", "add", "user", "-c", chatDir)
+	// Determine which role to use based on config
+	promptRole := w.config.MemoryConsolidationRole
+	if promptRole == "" {
+		promptRole = "system" // Default fallback
+	}
+	// Validate role is correct (should already be validated in config, but double-check)
+	if promptRole != "system" && promptRole != "user" {
+		panic(fmt.Sprintf("Invalid memory_consolidation_role '%s': must be 'system' or 'user'", promptRole))
+	}
+	fmt.Printf("[WRITE-MEMORY] Using prompt role: %s\n", promptRole)
+
+	// Add prompt with configured role
+	cmd = exec.Command("hnt-chat", "add", promptRole, "-c", chatDir)
 	cmd.Stdin = strings.NewReader(prompt)
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to add user message: %w", err)
+		return fmt.Errorf("failed to add %s message: %w", promptRole, err)
 	}
-	fmt.Printf("[WRITE-MEMORY] Added user message to chat\n")
+	fmt.Printf("[WRITE-MEMORY] Added %s message to chat\n", promptRole)
 
 	// Generate LLM response
 	fmt.Printf("[WRITE-MEMORY] Generating LLM response (this may take a while)...\n")
