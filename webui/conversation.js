@@ -62,7 +62,7 @@ async function consolidateMemory() {
       },
       body: JSON.stringify({
         conversation_id: currentConversationId,
-        compression: 0.5 // Default compression ratio
+        compression: 0 // Let backend use its default
       })
     });
 
