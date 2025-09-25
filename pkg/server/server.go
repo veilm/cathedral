@@ -68,6 +68,7 @@ func (s *Server) setupRoutes() {
 	s.mux.HandleFunc("/api/session", s.handleSession)
 	s.mux.HandleFunc("/api/conversation/", s.handleConversation)
 	s.mux.HandleFunc("/api/new-conversation", s.handleNewConversation)
+	s.mux.HandleFunc("/api/new-conversation-continued", s.handleNewConversationContinued)
 	s.mux.HandleFunc("/api/consolidate", s.handleConsolidate)
 
 	// Conversation viewer route
@@ -379,6 +380,117 @@ func (s *Server) handleNewConversation(w http.ResponseWriter, r *http.Request) {
 		"id":   conversationID,
 		"path": convDir,
 		"url":  "/c/" + conversationID,
+	})
+}
+
+func (s *Server) handleNewConversationContinued(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Check if we have an active memory store
+	activeStore := s.config.GetActiveStorePath()
+	if activeStore == "" {
+		http.Error(w, "No active memory store. Create one with 'cathedral create-store'", http.StatusBadRequest)
+		return
+	}
+
+	// Get index.md from active store
+	indexPath := filepath.Join(activeStore, "index.md")
+	indexContent, err := os.ReadFile(indexPath)
+	if err != nil {
+		if s.verbose {
+			log.Printf("Failed to read index.md: %v", err)
+		}
+		http.Error(w, "Failed to read memory index", http.StatusInternalServerError)
+		return
+	}
+
+	// Get template for conversation start
+	grimoirePath := config.GetGrimoirePath()
+	templatePath := filepath.Join(grimoirePath, "conv-start-injection.md")
+	templateContent, err := os.ReadFile(templatePath)
+	if err != nil {
+		if s.verbose {
+			log.Printf("Failed to read template: %v", err)
+		}
+		http.Error(w, "Failed to read conversation template", http.StatusInternalServerError)
+		return
+	}
+
+	// Read agentic-retrieval.md if it exists
+	agenticRetrievalContent := ""
+	agenticRetrievalPath := filepath.Join(grimoirePath, "agentic-retrieval.md")
+	if agenticData, err := os.ReadFile(agenticRetrievalPath); err == nil {
+		agenticRetrievalContent = string(agenticData)
+	}
+
+	// Replace placeholders
+	systemPrompt := strings.ReplaceAll(string(templateContent), "__MEMORY_INDEX__", strings.TrimSpace(string(indexContent)))
+	systemPrompt = strings.ReplaceAll(systemPrompt, "__AGENTIC_RETRIEVAL__", strings.TrimSpace(agenticRetrievalContent))
+
+	// Create new conversation using hinata package
+	baseDir, err := chat.GetConversationsDir()
+	if err != nil {
+		if s.verbose {
+			log.Printf("Failed to get conversations directory: %v", err)
+		}
+		http.Error(w, "Failed to get conversations directory", http.StatusInternalServerError)
+		return
+	}
+
+	convDir, err := chat.CreateNewConversation(baseDir)
+	if err != nil {
+		if s.verbose {
+			log.Printf("Failed to create new conversation: %v", err)
+		}
+		http.Error(w, "Failed to create new conversation", http.StatusInternalServerError)
+		return
+	}
+
+	// Add system message to the conversation
+	_, err = chat.WriteMessageFile(convDir, chat.RoleSystem, systemPrompt)
+	if err != nil {
+		if s.verbose {
+			log.Printf("Failed to write system message: %v", err)
+		}
+		http.Error(w, "Failed to initialize conversation with memory", http.StatusInternalServerError)
+		return
+	}
+
+	// Get the memory store name for the title
+	var storeName string
+	for name, path := range s.config.Stores {
+		if path == activeStore {
+			storeName = name
+			break
+		}
+	}
+
+	// Create title.txt file
+	if storeName != "" {
+		titlePath := filepath.Join(convDir, "title.txt")
+		titleContent := fmt.Sprintf("cathedral: %s", storeName)
+		if err := os.WriteFile(titlePath, []byte(titleContent), 0644); err != nil && s.verbose {
+			log.Printf("Failed to write title.txt: %v", err)
+		}
+	}
+
+	// Extract conversation ID from the path
+	conversationID := filepath.Base(convDir)
+
+	if s.verbose {
+		log.Printf("Created continued conversation: %s with memory from store: %s", conversationID, storeName)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"id":        conversationID,
+		"path":      convDir,
+		"url":       "/c/" + conversationID,
+		"continued": true,
+		"store":     storeName,
 	})
 }
 

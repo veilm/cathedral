@@ -32,6 +32,27 @@ async function newConversation() {
   }
 }
 
+async function newConversationContinued() {
+  try {
+    const response = await fetch('/api/new-conversation-continued', {
+      method: 'POST'
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(errorText || 'Failed to create continued conversation');
+    }
+
+    const data = await response.json();
+
+    // Redirect to the new conversation
+    window.location.href = data.url;
+  } catch (error) {
+    console.error('Failed to create continued conversation:', error);
+    alert(`Failed to create continued conversation: ${error.message}`);
+  }
+}
+
 async function consolidateMemory() {
   // Check if we have a current conversation
   if (!currentConversationId) {
