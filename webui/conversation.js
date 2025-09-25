@@ -53,6 +53,18 @@ async function newConversationContinued() {
   }
 }
 
+function sendMessage() {
+  // Close the settings menu
+  settingsMenu.classList.remove('open');
+
+  // Call the send function that handles message submission
+  if (typeof send === 'function') {
+    send();
+  } else {
+    console.error('Send function not available');
+  }
+}
+
 async function consolidateMemory() {
   // Check if we have a current conversation
   if (!currentConversationId) {
