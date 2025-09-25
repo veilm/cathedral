@@ -2,14 +2,14 @@
 (written manually by sucralose)
 
 - Researched and brainstormed initial overview of plaintext memory idea, documented in ./README.md
-- Created cathedral.py with basic commands for creating/switching memory stores (empty initialized memories)
+- Created a cathedral CLI with basic commands for creating/switching memory stores (empty initialized memories)
 	Decided on a simple "You are Cyralynth, ...\n# Episodic Memory\n...\n#
 	Semantic Memory\n..." structure with no content yet
 	=> ./grimoire/index-blank.md
 - Designed a few examples, manually came up with a scenario and some prompts for
 	Gemini to create a hopefully somewhat compelling/nuanced case in
 	./example/roleplay-depression/
-- Added a cathedral.py command to import from [hinata](https://github.com/veilm/hinata)
+- Added a cathedral command to import from [hinata](https://github.com/veilm/hinata)
 - Iterated on prompts for a "catheral write-memory" that will make an initial
 save to index.md based on the content of a given conversation
 	- Got a few generally decent ones with the help of Claude 4.1 Opus
@@ -87,3 +87,4 @@ save to index.md based on the content of a given conversation
 	- Creating conversations (hnt-chat directories), no system prompt
 	- Submitting and reading messages text-only messages
 	- Some UI styling and markdown parsing etc
+	- Submitting a consolidation (write-memory) for an initial conv
