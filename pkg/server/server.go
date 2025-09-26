@@ -133,155 +133,183 @@ func (s *Server) handleUI(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	var req ChatRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		return
-	}
-
-	if req.ConversationID == "" {
-		http.Error(w, "Conversation ID required", http.StatusBadRequest)
-		return
-	}
-
-	// Set up SSE headers
-	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("Connection", "keep-alive")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-
-	// Get conversation directory
-	baseDir, err := chat.GetConversationsDir()
-	if err != nil {
-		if s.verbose {
-			log.Printf("Failed to get conversations directory: %v", err)
-		}
-		http.Error(w, "Failed to get conversations directory", http.StatusInternalServerError)
-		return
-	}
-	convDir := filepath.Join(baseDir, req.ConversationID)
-
-	// Save user message using hinata package
-	_, err = chat.WriteMessageFile(convDir, chat.RoleUser, req.Message)
-	if err != nil {
-		if s.verbose {
-			log.Printf("Failed to save user message: %v", err)
-		}
-		http.Error(w, "Failed to save message", http.StatusInternalServerError)
-		return
-	}
-
-	// Main recall loop - may generate multiple LLM responses
-	for iteration := 0; iteration < 10; iteration++ { // Max 10 iterations to prevent infinite loops
-		// Pack the conversation for LLM
-		var buf bytes.Buffer
-		if err := chat.PackConversation(convDir, &buf, true); err != nil {
-			if s.verbose {
-				log.Printf("Failed to pack conversation: %v", err)
-			}
-			s.sendSSEError(w, "Failed to pack conversation")
+	switch r.Method {
+	case http.MethodPost:
+		// POST: Save the user message and return immediately
+		var req ChatRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Invalid request body", http.StatusBadRequest)
 			return
 		}
 
-		// Configure LLM
-		config := llm.Config{
-			Model:            "openrouter/google/gemini-2.5-pro",
-			IncludeReasoning: false,
+		if req.ConversationID == "" {
+			http.Error(w, "Conversation ID required", http.StatusBadRequest)
+			return
 		}
 
-		// Generate response synchronously
-		ctx := context.Background()
-		eventChan, errChan := llm.StreamLLMResponse(ctx, config, buf.String())
+		// Get conversation directory
+		baseDir, err := chat.GetConversationsDir()
+		if err != nil {
+			if s.verbose {
+				log.Printf("Failed to get conversations directory: %v", err)
+			}
+			http.Error(w, "Failed to get conversations directory", http.StatusInternalServerError)
+			return
+		}
+		convDir := filepath.Join(baseDir, req.ConversationID)
 
-		var llmResponse strings.Builder
-		for {
-			select {
-			case event, ok := <-eventChan:
-				if !ok {
-					goto generationDone
+		// Save user message using hinata package
+		_, err = chat.WriteMessageFile(convDir, chat.RoleUser, req.Message)
+		if err != nil {
+			if s.verbose {
+				log.Printf("Failed to save user message: %v", err)
+			}
+			http.Error(w, "Failed to save message", http.StatusInternalServerError)
+			return
+		}
+
+		// Return success immediately
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": true,
+		})
+		return
+
+	case http.MethodGet:
+		// GET: Stream LLM responses via SSE
+		conversationID := r.URL.Query().Get("conversation_id")
+		if conversationID == "" {
+			http.Error(w, "Conversation ID required", http.StatusBadRequest)
+			return
+		}
+
+		// Set up SSE headers
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.Header().Set("Cache-Control", "no-cache")
+		w.Header().Set("Connection", "keep-alive")
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+
+		// Get conversation directory
+		baseDir, err := chat.GetConversationsDir()
+		if err != nil {
+			if s.verbose {
+				log.Printf("Failed to get conversations directory: %v", err)
+			}
+			s.sendSSEError(w, "Failed to get conversations directory")
+			return
+		}
+		convDir := filepath.Join(baseDir, conversationID)
+
+		// Main recall loop - may generate multiple LLM responses
+		for iteration := 0; iteration < 10; iteration++ { // Max 10 iterations to prevent infinite loops
+			// Pack the conversation for LLM
+			var buf bytes.Buffer
+			if err := chat.PackConversation(convDir, &buf, true); err != nil {
+				if s.verbose {
+					log.Printf("Failed to pack conversation: %v", err)
 				}
-				if event.Content != "" {
-					llmResponse.WriteString(event.Content)
-				}
-			case err := <-errChan:
-				if err != nil {
-					if s.verbose {
-						log.Printf("Failed to generate response: %v", err)
+				s.sendSSEError(w, "Failed to pack conversation")
+				return
+			}
+
+			// Configure LLM
+			config := llm.Config{
+				Model:            "openrouter/google/gemini-2.5-pro",
+				IncludeReasoning: false,
+			}
+
+			// Generate response synchronously
+			ctx := context.Background()
+			eventChan, errChan := llm.StreamLLMResponse(ctx, config, buf.String())
+
+			var llmResponse strings.Builder
+			for {
+				select {
+				case event, ok := <-eventChan:
+					if !ok {
+						goto generationDone
 					}
-					s.sendSSEError(w, "Failed to generate response")
-					return
+					if event.Content != "" {
+						llmResponse.WriteString(event.Content)
+					}
+				case err := <-errChan:
+					if err != nil {
+						if s.verbose {
+							log.Printf("Failed to generate response: %v", err)
+						}
+						s.sendSSEError(w, "Failed to generate response")
+						return
+					}
 				}
 			}
-		}
 
-	generationDone:
-		// Save assistant response
-		_, err = chat.WriteMessageFile(convDir, chat.RoleAssistant, llmResponse.String())
-		if err != nil {
-			if s.verbose {
-				log.Printf("Failed to save assistant message: %v", err)
+		generationDone:
+			// Save assistant response
+			_, err = chat.WriteMessageFile(convDir, chat.RoleAssistant, llmResponse.String())
+			if err != nil {
+				if s.verbose {
+					log.Printf("Failed to save assistant message: %v", err)
+				}
 			}
-		}
 
-		// Check for shell blocks with recall commands
-		shellBlock, hasShell := s.extractShellBlock(llmResponse.String())
+			// Check for shell blocks with recall commands
+			shellBlock, hasShell := s.extractShellBlock(llmResponse.String())
 
-		// Send the response to the client
-		resp := ChatResponse{
-			Response:  llmResponse.String(),
-			Timestamp: time.Now(),
-			SessionID: req.ConversationID,
-		}
-
-		// Add a continues flag to indicate if we're going to process recalls
-		respData := map[string]interface{}{
-			"response":  resp.Response,
-			"timestamp": resp.Timestamp,
-			"session_id": resp.SessionID,
-			"continues": hasShell,
-		}
-
-		if err := s.sendSSEMessage(w, respData); err != nil {
-			if s.verbose {
-				log.Printf("Failed to send SSE message: %v", err)
+			// Send the response to the client
+			resp := ChatResponse{
+				Response:  llmResponse.String(),
+				Timestamp: time.Now(),
+				SessionID: conversationID,
 			}
-			return
-		}
 
-		// If no shell block, we're done
-		if !hasShell {
-			break
-		}
-
-		// Execute the shell block and add result to conversation
-		if s.verbose {
-			log.Printf("Executing shell block: %s", shellBlock)
-		}
-
-		recallOutput, err := s.executeRecall(shellBlock)
-		if err != nil {
-			if s.verbose {
-				log.Printf("Failed to execute recall: %v", err)
+			// Add a continues flag to indicate if we're going to process recalls
+			respData := map[string]interface{}{
+				"response":  resp.Response,
+				"timestamp": resp.Timestamp,
+				"session_id": resp.SessionID,
+				"continues": hasShell,
 			}
-			// Send error but continue conversation
-			recallOutput = fmt.Sprintf("[Error executing recall: %v]", err)
-		}
 
-		// Add recall output as a user message to continue the conversation
-		// (many providers don't support multiple system messages)
-		_, err = chat.WriteMessageFile(convDir, chat.RoleUser, recallOutput)
-		if err != nil {
-			if s.verbose {
-				log.Printf("Failed to save recall result: %v", err)
+			if err := s.sendSSEMessage(w, respData); err != nil {
+				if s.verbose {
+					log.Printf("Failed to send SSE message: %v", err)
+				}
+				return
 			}
+
+			// If no shell block, we're done
+			if !hasShell {
+				break
+			}
+
+			// Execute the shell block and add result to conversation
+			if s.verbose {
+				log.Printf("Executing shell block: %s", shellBlock)
+			}
+
+			recallOutput, err := s.executeRecall(shellBlock)
+			if err != nil {
+				if s.verbose {
+					log.Printf("Failed to execute recall: %v", err)
+				}
+				// Send error but continue conversation
+				recallOutput = fmt.Sprintf("[Error executing recall: %v]", err)
+			}
+
+			// Add recall output as a user message to continue the conversation
+			// (many providers don't support multiple system messages)
+			_, err = chat.WriteMessageFile(convDir, chat.RoleUser, recallOutput)
+			if err != nil {
+				if s.verbose {
+					log.Printf("Failed to save recall result: %v", err)
+				}
+			}
+
+			// Continue loop for next LLM generation with the recall result
 		}
 
-		// Continue loop for next LLM generation with the recall result
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}
 }
 
