@@ -1,3 +1,6 @@
+/* ---------- version info ---------- */
+const CATHEDRAL_VERSION = 'v0.2.0-recall';
+
 /* ---------- settings menu ---------- */
 const settingsBtn = document.getElementById('settings');
 const settingsMenu = document.querySelector('.settings-menu');
@@ -483,6 +486,7 @@ const send=async()=>{
   // Now use EventSource to receive streaming responses
   let firstResponse = true;
   let recallBadge = null;
+  let closedIntentionally = false;
 
   // Create EventSource connection
   const eventSource = new EventSource(`/api/chat?conversation_id=${encodeURIComponent(currentConversationId)}`);
@@ -494,6 +498,7 @@ const send=async()=>{
       if (data.error) {
         console.error('Server error:', data.error);
         loadingDiv.innerHTML = `<p class="text" style="color: var(--gold);">Error: ${data.error}</p>`;
+        closedIntentionally = true;
         eventSource.close();
         ta.disabled = false;
         ta.focus();
@@ -529,7 +534,8 @@ const send=async()=>{
           recallBadge.remove();
           recallBadge = null;
         }
-        // Close the connection when done
+        // Mark as intentional close before closing
+        closedIntentionally = true;
         eventSource.close();
         ta.disabled = false;
         ta.focus();
@@ -544,9 +550,20 @@ const send=async()=>{
   eventSource.onerror = (error) => {
     console.error('EventSource error:', error);
     eventSource.close();
-    if (firstResponse) {
-      loadingDiv.innerHTML = '<p class="text" style="color: var(--gold);">The stones are silent. Connection lost.</p>';
+
+    // Only show error if we didn't close intentionally
+    if (!closedIntentionally) {
+      if (firstResponse) {
+        loadingDiv.innerHTML = '<p class="text" style="color: var(--gold);">The stones are silent. Connection lost.</p>';
+      } else {
+        // Show error inline if we were mid-conversation
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'message';
+        errorDiv.innerHTML = '<p class="text" style="color: var(--gold);"><em>Connection lost during recall.</em></p>';
+        chat.appendChild(errorDiv);
+      }
     }
+
     if (recallBadge) {
       recallBadge.remove();
     }
@@ -571,6 +588,12 @@ ta.addEventListener('keydown',e=>{
 
 // Check if we're viewing a specific conversation
 window.addEventListener('DOMContentLoaded', () => {
+  // Display version
+  const versionDisplay = document.getElementById('version-display');
+  if (versionDisplay) {
+    versionDisplay.textContent = CATHEDRAL_VERSION;
+  }
+
   const path = window.location.pathname;
   if (path.startsWith('/c/')) {
     const conversationId = path.substring(3); // Remove '/c/' prefix
