@@ -1,5 +1,5 @@
 /* ---------- version info ---------- */
-const CATHEDRAL_VERSION = 'v0.2.0-recall';
+const CATHEDRAL_VERSION = 'v0.3.0-unified';
 
 /* ---------- settings menu ---------- */
 const settingsBtn = document.getElementById('settings');
@@ -463,7 +463,10 @@ const send=async()=>{
   ta.style.height = 'auto'; // Reset height after sending
   ta.disabled = true;
 
-  // First, submit the message via POST to save it
+  // Submit the message via POST which will stream SSE responses
+  let firstResponse = true;
+  let recallBadge = null;
+
   try {
     const response = await fetch('/api/chat', {
       method: 'POST',
@@ -475,98 +478,92 @@ const send=async()=>{
         conversation_id: currentConversationId
       })
     });
-  } catch (error) {
-    console.error('Chat submission error:', error);
-    loadingDiv.innerHTML = '<p class="text" style="color: var(--gold);">Error: Unable to submit message</p>';
-    ta.disabled = false;
-    ta.focus();
-    return;
-  }
 
-  // Now use EventSource to receive streaming responses
-  let firstResponse = true;
-  let recallBadge = null;
-  let closedIntentionally = false;
-
-  // Create EventSource connection
-  const eventSource = new EventSource(`/api/chat?conversation_id=${encodeURIComponent(currentConversationId)}`);
-
-  eventSource.onmessage = (event) => {
-    try {
-      const data = JSON.parse(event.data);
-
-      if (data.error) {
-        console.error('Server error:', data.error);
-        loadingDiv.innerHTML = `<p class="text" style="color: var(--gold);">Error: ${data.error}</p>`;
-        closedIntentionally = true;
-        eventSource.close();
-        ta.disabled = false;
-        ta.focus();
-        return;
-      }
-
-      // Remove loading indicator on first response
-      if (firstResponse) {
-        loadingDiv.remove();
-        firstResponse = false;
-      }
-
-      // Add assistant response
-      const respDiv = document.createElement('div');
-      respDiv.className = 'message';
-      respDiv.innerHTML = `<div class="text">${renderMarkdown(data.response)}</div>`;
-      chat.appendChild(respDiv);
-
-      // If this response continues (has recall), show indicator
-      if (data.continues) {
-        // Remove existing recall badge if any
-        if (recallBadge) {
-          recallBadge.remove();
-        }
-        recallBadge = document.createElement('div');
-        recallBadge.className = 'message';
-        recallBadge.innerHTML = '<p class="text" style="opacity: 0.7;"><em>Recalling memory...</em> <span class="loading"></span></p>';
-        chat.appendChild(recallBadge);
-        recallBadge.scrollIntoView({behavior: 'smooth'});
-      } else {
-        // Remove recall badge if it exists
-        if (recallBadge) {
-          recallBadge.remove();
-          recallBadge = null;
-        }
-        // Mark as intentional close before closing
-        closedIntentionally = true;
-        eventSource.close();
-        ta.disabled = false;
-        ta.focus();
-      }
-
-      respDiv.scrollIntoView({behavior: 'smooth'});
-    } catch (error) {
-      console.error('Error processing SSE message:', error);
+    if (!response.ok) {
+      throw new Error(`Server responded with ${response.status}`);
     }
-  };
 
-  eventSource.onerror = (error) => {
-    console.error('EventSource error:', error);
-    eventSource.close();
+    // Read the SSE stream from the response
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
 
-    // Only show error if we didn't close intentionally
-    if (!closedIntentionally) {
-      if (firstResponse) {
-        loadingDiv.innerHTML = '<p class="text" style="color: var(--gold);">The stones are silent. Connection lost.</p>';
-      } else {
-        // Show error inline if we were mid-conversation
-        const errorDiv = document.createElement('div');
-        errorDiv.className = 'message';
-        errorDiv.innerHTML = '<p class="text" style="color: var(--gold);"><em>Connection lost during recall.</em></p>';
-        chat.appendChild(errorDiv);
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop(); // Keep the incomplete line in buffer
+
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          const dataStr = line.slice(6);
+          if (dataStr.trim() === '') continue;
+
+          try {
+            const data = JSON.parse(dataStr);
+
+            if (data.error) {
+              console.error('Server error:', data.error);
+              loadingDiv.innerHTML = `<p class="text" style="color: var(--gold);">Error: ${data.error}</p>`;
+              ta.disabled = false;
+              ta.focus();
+              return;
+            }
+
+            // Remove loading indicator on first response
+            if (firstResponse) {
+              loadingDiv.remove();
+              firstResponse = false;
+            }
+
+            // Add assistant response
+            const respDiv = document.createElement('div');
+            respDiv.className = 'message';
+            respDiv.innerHTML = `<div class="text">${renderMarkdown(data.response)}</div>`;
+            chat.appendChild(respDiv);
+
+            // If this response continues (has recall), show indicator
+            if (data.continues) {
+              // Remove existing recall badge if any
+              if (recallBadge) {
+                recallBadge.remove();
+              }
+              recallBadge = document.createElement('div');
+              recallBadge.className = 'message';
+              recallBadge.innerHTML = '<p class="text" style="opacity: 0.7;"><em>Recalling memory...</em> <span class="loading"></span></p>';
+              chat.appendChild(recallBadge);
+              recallBadge.scrollIntoView({behavior: 'smooth'});
+            } else {
+              // Remove recall badge if it exists
+              if (recallBadge) {
+                recallBadge.remove();
+                recallBadge = null;
+              }
+              // All done, re-enable input
+              ta.disabled = false;
+              ta.focus();
+            }
+
+            respDiv.scrollIntoView({behavior: 'smooth'});
+          } catch (parseError) {
+            console.error('Error parsing SSE data:', parseError);
+          }
+        }
       }
     }
 
+    // Final cleanup
     if (recallBadge) {
       recallBadge.remove();
     }
+    ta.disabled = false;
+    ta.focus();
+
+  } catch (error) {
+    console.error('Chat error:', error);
+    loadingDiv.innerHTML = '<p class="text" style="color: var(--gold);">The stones are silent. Connection lost.</p>';
     ta.disabled = false;
     ta.focus();
   }
