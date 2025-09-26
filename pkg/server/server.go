@@ -721,8 +721,8 @@ func (s *Server) extractShellBlock(text string) (string, bool) {
 
 // executeRecall executes a shell block with recall commands
 func (s *Server) executeRecall(shellContent string) (string, error) {
-	// Create the shell script with alias and content
-	shellScript := fmt.Sprintf(`alias recall="cathedral read-node" ; %s`, shellContent)
+	// Create the shell script with alias and content (newline required after alias)
+	shellScript := fmt.Sprintf("alias recall=\"cathedral read-node\"\n%s", shellContent)
 
 	// Execute the shell block using shell-exec from PATH
 	cmd := exec.Command("shell-exec")
