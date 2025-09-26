@@ -22,10 +22,8 @@ import (
 )
 
 type Server struct {
-	config  *config.Config
 	uiPath  string
 	verbose bool
-	sessMgr *session.Manager
 	mux     *http.ServeMux
 }
 
@@ -52,10 +50,8 @@ type ConversationResponse struct {
 
 func New(cfg *config.Config, uiPath string, verbose bool) *Server {
 	s := &Server{
-		config:  cfg,
 		uiPath:  uiPath,
 		verbose: verbose,
-		sessMgr: session.NewManager(cfg),
 		mux:     http.NewServeMux(),
 	}
 
@@ -290,27 +286,49 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
+	// Load config to get current active store
+	cfg, err := config.Load("")
+	activeStore := ""
+	if err == nil {
+		activeStore = cfg.ActiveStore
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"status": "healthy",
 		"time":   time.Now(),
-		"store":  s.config.ActiveStore,
+		"store":  activeStore,
 	})
 }
 
 func (s *Server) handleSession(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
+		// Load config to get current session info
+		cfg, err := config.Load("")
+		if err != nil {
+			http.Error(w, "Failed to load configuration", http.StatusInternalServerError)
+			return
+		}
+
 		// Return current session info
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]interface{}{
-			"active_store": s.config.ActiveStore,
-			"stores":       s.config.Stores,
+			"active_store": cfg.ActiveStore,
+			"stores":       cfg.Stores,
 		})
 
 	case http.MethodPost:
+		// Load config for session creation
+		cfg, err := config.Load("")
+		if err != nil {
+			http.Error(w, "Failed to load configuration", http.StatusInternalServerError)
+			return
+		}
+
 		// Create new session
-		episodePath, err := s.sessMgr.InitMemoryEpisode("")
+		sessMgr := session.NewManager(cfg)
+		episodePath, err := sessMgr.InitMemoryEpisode("")
 		if err != nil {
 			http.Error(w, fmt.Sprintf("Failed to create session: %v", err), http.StatusInternalServerError)
 			return
@@ -440,8 +458,18 @@ func (s *Server) handleNewConversationContinued(w http.ResponseWriter, r *http.R
 		return
 	}
 
+	// Load config to get active store
+	cfg, err := config.Load("")
+	if err != nil {
+		if s.verbose {
+			log.Printf("Failed to load config: %v", err)
+		}
+		http.Error(w, "Failed to load configuration", http.StatusInternalServerError)
+		return
+	}
+
 	// Check if we have an active memory store
-	activeStore := s.config.GetActiveStorePath()
+	activeStore := cfg.GetActiveStorePath()
 	if activeStore == "" {
 		http.Error(w, "No active memory store. Create one with 'cathedral create-store'", http.StatusBadRequest)
 		return
@@ -512,7 +540,7 @@ func (s *Server) handleNewConversationContinued(w http.ResponseWriter, r *http.R
 
 	// Get the memory store name for the title
 	var storeName string
-	for name, path := range s.config.Stores {
+	for name, path := range cfg.Stores {
 		if path == activeStore {
 			storeName = name
 			break
@@ -581,8 +609,18 @@ func (s *Server) handleConsolidate(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Load config to get active store
+	cfg, err := config.Load("")
+	if err != nil {
+		if s.verbose {
+			log.Printf("[CONSOLIDATE] Failed to load config: %v", err)
+		}
+		http.Error(w, "Failed to load configuration", http.StatusInternalServerError)
+		return
+	}
+
 	// Check if we have an active store
-	if s.config.ActiveStore == "" {
+	if cfg.ActiveStore == "" {
 		if s.verbose {
 			log.Printf("[CONSOLIDATE] No active memory store found")
 		}
@@ -591,7 +629,7 @@ func (s *Server) handleConsolidate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if s.verbose {
-		log.Printf("[CONSOLIDATE] Active store: %s", s.config.ActiveStore)
+		log.Printf("[CONSOLIDATE] Active store: %s", cfg.ActiveStore)
 	}
 
 	// Get conversation directory path
@@ -619,10 +657,10 @@ func (s *Server) handleConsolidate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Import messages from the conversation
-	importer := session.NewImporter(s.config)
+	importer := session.NewImporter(cfg)
 
 	// Create a new episode for this import
-	mgr := session.NewManager(s.config)
+	mgr := session.NewManager(cfg)
 	episodePath, err := mgr.InitMemoryEpisode("")
 	if err != nil {
 		if s.verbose {
@@ -651,8 +689,8 @@ func (s *Server) handleConsolidate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Now run write-memory on the imported session
-	writer := memory.NewWriter(s.config)
-	activeStore := s.config.GetActiveStorePath()
+	writer := memory.NewWriter(cfg)
+	activeStore := cfg.GetActiveStorePath()
 	indexPath := filepath.Join(activeStore, "index.md")
 
 	if s.verbose {
