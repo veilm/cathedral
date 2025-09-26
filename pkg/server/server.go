@@ -8,7 +8,9 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -151,6 +153,12 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Set up SSE headers
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
 	// Get conversation directory
 	baseDir, err := chat.GetConversationsDir()
 	if err != nil {
@@ -172,69 +180,112 @@ func (s *Server) handleChat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Generate LLM response using hinata package
-	// Pack the conversation for LLM
-	var buf bytes.Buffer
-	if err := chat.PackConversation(convDir, &buf, true); err != nil {
-		if s.verbose {
-			log.Printf("Failed to pack conversation: %v", err)
+	// Main recall loop - may generate multiple LLM responses
+	for iteration := 0; iteration < 10; iteration++ { // Max 10 iterations to prevent infinite loops
+		// Pack the conversation for LLM
+		var buf bytes.Buffer
+		if err := chat.PackConversation(convDir, &buf, true); err != nil {
+			if s.verbose {
+				log.Printf("Failed to pack conversation: %v", err)
+			}
+			s.sendSSEError(w, "Failed to pack conversation")
+			return
 		}
-		http.Error(w, "Failed to pack conversation", http.StatusInternalServerError)
-		return
-	}
 
-	// Configure LLM
-	config := llm.Config{
-		Model:            "openrouter/google/gemini-2.5-pro",
-		SystemPrompt:     "",
-		IncludeReasoning: false,
-	}
+		// Configure LLM
+		config := llm.Config{
+			Model:            "openrouter/google/gemini-2.5-pro",
+			IncludeReasoning: false,
+		}
 
-	// Generate response synchronously
-	ctx := context.Background()
-	eventChan, errChan := llm.StreamLLMResponse(ctx, config, buf.String())
+		// Generate response synchronously
+		ctx := context.Background()
+		eventChan, errChan := llm.StreamLLMResponse(ctx, config, buf.String())
 
-	var llmResponse strings.Builder
-	for {
-		select {
-		case event, ok := <-eventChan:
-			if !ok {
-				goto done
-			}
-			if event.Content != "" {
-				llmResponse.WriteString(event.Content)
-			}
-		case err := <-errChan:
-			if err != nil {
-				if s.verbose {
-					log.Printf("Failed to generate response: %v", err)
+		var llmResponse strings.Builder
+		for {
+			select {
+			case event, ok := <-eventChan:
+				if !ok {
+					goto generationDone
 				}
-				http.Error(w, "Failed to generate response", http.StatusInternalServerError)
-				return
+				if event.Content != "" {
+					llmResponse.WriteString(event.Content)
+				}
+			case err := <-errChan:
+				if err != nil {
+					if s.verbose {
+						log.Printf("Failed to generate response: %v", err)
+					}
+					s.sendSSEError(w, "Failed to generate response")
+					return
+				}
 			}
 		}
-	}
 
-done:
-	// Save assistant response
-	_, err = chat.WriteMessageFile(convDir, chat.RoleAssistant, llmResponse.String())
-	if err != nil {
-		if s.verbose {
-			log.Printf("Failed to save assistant message: %v", err)
+	generationDone:
+		// Save assistant response
+		_, err = chat.WriteMessageFile(convDir, chat.RoleAssistant, llmResponse.String())
+		if err != nil {
+			if s.verbose {
+				log.Printf("Failed to save assistant message: %v", err)
+			}
 		}
-	}
 
-	resp := ChatResponse{
-		Response:  llmResponse.String(),
-		Timestamp: time.Now(),
-		SessionID: req.ConversationID,
-	}
+		// Check for shell blocks with recall commands
+		shellBlock, hasShell := s.extractShellBlock(llmResponse.String())
 
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(resp); err != nil {
-		if s.verbose {
-			log.Printf("Error encoding response: %v", err)
+		// Send the response to the client
+		resp := ChatResponse{
+			Response:  llmResponse.String(),
+			Timestamp: time.Now(),
+			SessionID: req.ConversationID,
 		}
+
+		// Add a continues flag to indicate if we're going to process recalls
+		respData := map[string]interface{}{
+			"response":  resp.Response,
+			"timestamp": resp.Timestamp,
+			"session_id": resp.SessionID,
+			"continues": hasShell,
+		}
+
+		if err := s.sendSSEMessage(w, respData); err != nil {
+			if s.verbose {
+				log.Printf("Failed to send SSE message: %v", err)
+			}
+			return
+		}
+
+		// If no shell block, we're done
+		if !hasShell {
+			break
+		}
+
+		// Execute the shell block and add result to conversation
+		if s.verbose {
+			log.Printf("Executing shell block: %s", shellBlock)
+		}
+
+		recallOutput, err := s.executeRecall(shellBlock)
+		if err != nil {
+			if s.verbose {
+				log.Printf("Failed to execute recall: %v", err)
+			}
+			// Send error but continue conversation
+			recallOutput = fmt.Sprintf("[Error executing recall: %v]", err)
+		}
+
+		// Add recall output as a user message to continue the conversation
+		// (many providers don't support multiple system messages)
+		_, err = chat.WriteMessageFile(convDir, chat.RoleUser, recallOutput)
+		if err != nil {
+			if s.verbose {
+				log.Printf("Failed to save recall result: %v", err)
+			}
+		}
+
+		// Continue loop for next LLM generation with the recall result
 	}
 }
 
@@ -629,4 +680,62 @@ func (s *Server) handleConsolidate(w http.ResponseWriter, r *http.Request) {
 		"episode_path": episodePath,
 		"message":      "Memory consolidated successfully",
 	})
+}
+
+// sendSSEMessage sends a message to the client via Server-Sent Events
+func (s *Server) sendSSEMessage(w http.ResponseWriter, data interface{}) error {
+	jsonData, err := json.Marshal(data)
+	if err != nil {
+		return err
+	}
+
+	_, err = fmt.Fprintf(w, "data: %s\n\n", jsonData)
+	if err != nil {
+		return err
+	}
+
+	// Flush the data immediately
+	if flusher, ok := w.(http.Flusher); ok {
+		flusher.Flush()
+	}
+
+	return nil
+}
+
+// sendSSEError sends an error message via SSE
+func (s *Server) sendSSEError(w http.ResponseWriter, errMsg string) {
+	s.sendSSEMessage(w, map[string]interface{}{
+		"error": errMsg,
+	})
+}
+
+// extractShellBlock extracts the first <shell>...</shell> block from the text
+func (s *Server) extractShellBlock(text string) (string, bool) {
+	re := regexp.MustCompile(`(?s)<shell>\n(.*?)\n</shell>`)
+	matches := re.FindStringSubmatch(text)
+	if len(matches) > 1 {
+		return matches[1], true
+	}
+	return "", false
+}
+
+// executeRecall executes a shell block with recall commands
+func (s *Server) executeRecall(shellContent string) (string, error) {
+	// Create the shell script with alias and content
+	shellScript := fmt.Sprintf(`alias recall="cathedral read-node" ; %s`, shellContent)
+
+	// Execute the shell block using shell-exec from PATH
+	cmd := exec.Command("shell-exec")
+	cmd.Stdin = strings.NewReader(shellScript)
+
+	output, err := cmd.Output()
+	if err != nil {
+		// Try to get stderr for better error messages
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			return "", fmt.Errorf("shell execution failed: %s", string(exitErr.Stderr))
+		}
+		return "", err
+	}
+
+	return string(output), nil
 }

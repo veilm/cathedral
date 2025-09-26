@@ -460,8 +460,8 @@ const send=async()=>{
   ta.style.height = 'auto'; // Reset height after sending
   ta.disabled = true;
 
+  // First, submit the message via POST to save it
   try {
-    // Send to backend API with conversation ID
     const response = await fetch('/api/chat', {
       method: 'POST',
       headers: {
@@ -472,39 +472,84 @@ const send=async()=>{
         conversation_id: currentConversationId
       })
     });
-
-    if (!response.ok) {
-      throw new Error(`Server responded with ${response.status}`);
-    }
-
-    const data = await response.json();
-
-    // Remove loading indicator
-    loadingDiv.remove();
-
-    // Add server response to UI
-    const reply=document.createElement('div');
-    reply.className='message';
-    reply.innerHTML=`<div class="text">${renderMarkdown(data.response)}</div>`;
-    chat.appendChild(reply);
-    reply.scrollIntoView({behavior:'smooth'});
-
   } catch (error) {
-    console.error('Chat error:', error);
+    console.error('Chat submission error:', error);
+    loadingDiv.innerHTML = '<p class="text" style="color: var(--gold);">Error: Unable to submit message</p>';
+    ta.disabled = false;
+    ta.focus();
+    return;
+  }
 
-    // Remove loading indicator
-    loadingDiv.remove();
+  // Now use EventSource to receive streaming responses
+  let firstResponse = true;
+  let recallBadge = null;
 
-    // Show error message
-    const reply=document.createElement('div');
-    reply.className='message';
-    reply.innerHTML=`<p class="text" style="color: var(--gold);">
-      The stones are silent. The connection to cathedral has been lost.
-      Please try again later.
-    </p>`;
-    chat.appendChild(reply);
-    reply.scrollIntoView({behavior:'smooth'});
-  } finally {
+  // Create EventSource connection
+  const eventSource = new EventSource(`/api/chat?conversation_id=${encodeURIComponent(currentConversationId)}`);
+
+  eventSource.onmessage = (event) => {
+    try {
+      const data = JSON.parse(event.data);
+
+      if (data.error) {
+        console.error('Server error:', data.error);
+        loadingDiv.innerHTML = `<p class="text" style="color: var(--gold);">Error: ${data.error}</p>`;
+        eventSource.close();
+        ta.disabled = false;
+        ta.focus();
+        return;
+      }
+
+      // Remove loading indicator on first response
+      if (firstResponse) {
+        loadingDiv.remove();
+        firstResponse = false;
+      }
+
+      // Add assistant response
+      const respDiv = document.createElement('div');
+      respDiv.className = 'message';
+      respDiv.innerHTML = `<div class="text">${renderMarkdown(data.response)}</div>`;
+      chat.appendChild(respDiv);
+
+      // If this response continues (has recall), show indicator
+      if (data.continues) {
+        // Remove existing recall badge if any
+        if (recallBadge) {
+          recallBadge.remove();
+        }
+        recallBadge = document.createElement('div');
+        recallBadge.className = 'message';
+        recallBadge.innerHTML = '<p class="text" style="opacity: 0.7;"><em>Recalling memory...</em> <span class="loading"></span></p>';
+        chat.appendChild(recallBadge);
+        recallBadge.scrollIntoView({behavior: 'smooth'});
+      } else {
+        // Remove recall badge if it exists
+        if (recallBadge) {
+          recallBadge.remove();
+          recallBadge = null;
+        }
+        // Close the connection when done
+        eventSource.close();
+        ta.disabled = false;
+        ta.focus();
+      }
+
+      respDiv.scrollIntoView({behavior: 'smooth'});
+    } catch (error) {
+      console.error('Error processing SSE message:', error);
+    }
+  };
+
+  eventSource.onerror = (error) => {
+    console.error('EventSource error:', error);
+    eventSource.close();
+    if (firstResponse) {
+      loadingDiv.innerHTML = '<p class="text" style="color: var(--gold);">The stones are silent. Connection lost.</p>';
+    }
+    if (recallBadge) {
+      recallBadge.remove();
+    }
     ta.disabled = false;
     ta.focus();
   }
