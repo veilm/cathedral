@@ -24,28 +24,16 @@ What does your mind feel like it wishes to capture from this experience?
 
 ### 2. Explore Your Existing Memory
 
-You have access to your memory through `<shell>` tags. To read a memory node:
-
-<shell>
-recall semantic/cathedral-architecture.md
-</shell>
-
-After you write a shell block, pause your message there. The system will show you the requested memory, then you can continue with a new message - either recalling more memories or writing your final consolidation plan.
-
-You can use multiple `recall` commands in one shell block to efficiently read several nodes at once:
-
-<shell>
-recall episodic/2025-September.md
-recall semantic/memory-systems.md
-</shell>
-
-Use these tools to:
+You have access to your memory reading tools (`recall` to read a memory node, `shell` to run navigation commands). Use them to:
+	TODO this should explain the specific format
 - Understand your current memory topology (what time periods have episodic articles? what semantic topics exist?)
 - Read nodes that seem relevant to this experience's topics
 - Identify what already exists vs what needs to be created
 - Notice current linking patterns
 
 Think like a Wikipedia editor: before adding new content, look around to understand where it fits. Think like a human: before you can create new memories, you must know which existing topics they connect and build on top of.
+
+You can use multiple `recall` commands in one shell block to efficiently read several nodes at once.
 
 ### 3. Design the Consolidation
 

@@ -14,6 +14,29 @@ __CURRENT_INDEX__
 ## The Conversation to Consolidate
 	TODO maybe switch the order so this is at the bottom, since it has the most content and is lower-ROI than the actual instructions
 		then Memories Retrieved During Conversation is probably even lower imo
+
+		1760495835 actually maybe Memories Retrieved isn't super important as a dedicated
+		section. because in our conversation transcript we can just include some notes like
+		[recalled foo.md]
+		at the place where the LLM recalls it. but without providing the user message
+		of the memory file there - we can just treat that entire local loop of
+		memory recals as one self message, since that's what it is conceptually
+
+		like
+		world: hi do you remember what we talked about with XYZ
+		self: of course. it was ABC. let me remember
+			[recalled foo.md]
+			oh yes, but there was also bar
+			[recalled bar.md]
+			okay yeah (main response)
+		world: oh okay thanks
+
+		or whatever. then the planner agent sees foo.md and bar.md as filenames,
+		and it should be able to just choose to recall them if it feels like it.
+		so we might explicitly hint that it's okay to use multiple `recall` s in one
+		shell block, so it might
+		read some from the conversation directly while also exploring some links
+
 	TODO maybe don't use the word "conversation" since there might be non-conversation experiences
 
 Session: __SESSION_PATH__

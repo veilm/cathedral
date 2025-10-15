@@ -88,3 +88,25 @@ save to index.md based on the content of a given conversation
 	- Submitting and reading messages text-only messages
 	- Some UI styling and markdown parsing etc
 	- Submitting a consolidation (write-memory) for an initial conv
+- Reconsidered my original proposed {append to index.md --> later split} architecture
+	Verdict: it's regarded
+	Primarily because the append fails easily if the input conversation is too long
+	LLMs (clearly including G2.5) are RLHFd to output like 2-3k tokens max at a
+	time and are really reluctant to go beyond that. So trying to consolidate a
+	50k token convo at 50% would mean outputting 25k tokens at once which is
+	zettai muri
+
+	So instead the key is that for all consolidations where we're adding
+	information, we have to
+	1. Make a plan for what files we want to create or update, where each file
+	or update operation is reasonable at <= 2-3k tk
+		Since our actual stable on-disk memory files should already always be ~2-3k tk,
+		it just means we shoudl plan for the final form immediately
+	2. Go in a loop and make a separate LLM call for each create or update
+- Did a few minor tests with G2.5 and it looks like it's pretty good at writing
+	with a specific target word count, as long as it's not above its normal limit
+
+	Actually I think it's around 2k tokens before it starts to go kind of exponential
+	of subjective experience being higher and higher tokens with reailty being linear
+- Made some initial armchair prompts for consolidation-planner.md - like
+	write-memory but with our new plan system
