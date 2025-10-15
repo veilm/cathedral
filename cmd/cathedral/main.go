@@ -120,6 +120,20 @@ and knowledge bases with episodic and semantic memory structures.`,
 	writeMemoryCmd.Flags().Float64Var(&compression, "compression", 0.5, "Compression ratio (0.0-1.0)")
 	writeMemoryCmd.Flags().StringVar(&compressionProfile, "compression-profile", "", "Use predefined compression profile")
 
+	// Consolidation planning command
+	planConsolidationCmd := &cobra.Command{
+		Use:   "plan-consolidation",
+		Short: "Generate consolidation planning prompt for a session",
+		Args:  cobra.NoArgs,
+		RunE:  runPlanConsolidation,
+	}
+	planConsolidationCmd.Flags().StringVar(&sessionID, "session", "", "Session to process (default: latest)")
+	planConsolidationCmd.Flags().StringVar(&templatePath, "template", "", "Template file to use")
+	planConsolidationCmd.Flags().StringVar(&indexPath, "index", "", "Index file to use")
+	planConsolidationCmd.Flags().BoolVar(&getPromptOnly, "get-prompt", false, "Only output the prompt without submitting to LLM")
+	planConsolidationCmd.Flags().Float64Var(&compression, "compression", 0.5, "Compression ratio (0.0-1.0)")
+	planConsolidationCmd.Flags().StringVar(&compressionProfile, "compression-profile", "", "Use predefined compression profile")
+
 	// Conversation start command
 	startConvCmd := &cobra.Command{
 		Use:   "start-conversation",
@@ -159,6 +173,7 @@ and knowledge bases with episodic and semantic memory structures.`,
 		initMemoryEpisodeCmd,
 		importCmd,
 		writeMemoryCmd,
+		planConsolidationCmd,
 		startConvCmd,
 		healthCmd,
 		readCmd,
@@ -320,4 +335,23 @@ func runReadNode(cmd *cobra.Command, args []string) error {
 
 	reader := memory.NewNodeReader(cfg)
 	return reader.ReadNodes(args, noTags)
+}
+
+func runPlanConsolidation(cmd *cobra.Command, args []string) error {
+	cfg, err := config.Load(configPath)
+	if err != nil {
+		return err
+	}
+
+	// Handle compression profile
+	if compressionProfile != "" {
+		if ratio, ok := config.CompressionProfiles[compressionProfile]; ok {
+			compression = ratio
+		} else {
+			return fmt.Errorf("unknown compression profile: %s", compressionProfile)
+		}
+	}
+
+	planner := memory.NewPlanner(cfg)
+	return planner.PlanConsolidation(sessionID, templatePath, indexPath, getPromptOnly, compression)
 }
