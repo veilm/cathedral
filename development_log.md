@@ -110,3 +110,6 @@ save to index.md based on the content of a given conversation
 	of subjective experience being higher and higher tokens with reailty being linear
 - Made some initial armchair prompts for consolidation-planner.md - like
 	write-memory but with our new plan system
+
+	Wrote an alternate consolidation-planner-empty.md for the case where no
+	existing navigation is required, because only index.md exists for now
