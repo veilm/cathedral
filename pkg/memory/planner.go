@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/veilm/cathedral/pkg/config"
@@ -76,7 +77,23 @@ func (p *Planner) PlanConsolidation(sessionID, templatePath, indexPath string, g
 	// Resolve template path
 	if templatePath == "" {
 		grimoirePath := config.GetGrimoirePath()
-		templatePath = filepath.Join(grimoirePath, "consolidation-planner.md")
+
+		// Check if index.md has any [[links]] to determine if this is first consolidation
+		indexContent, err := os.ReadFile(indexPath)
+		if err != nil {
+			return fmt.Errorf("failed to read index: %w", err)
+		}
+
+		linkPattern := regexp.MustCompile(`\[\[.+?\]\]`)
+		hasLinks := linkPattern.Match(indexContent)
+
+		if hasLinks {
+			templatePath = filepath.Join(grimoirePath, "consolidation-planner.md")
+			fmt.Printf("Using standard consolidation planner (existing memory structure detected)\n")
+		} else {
+			templatePath = filepath.Join(grimoirePath, "consolidation-planner-empty.md")
+			fmt.Printf("Using first-time consolidation planner (no existing structure detected)\n")
+		}
 	}
 
 	// Generate prompt
