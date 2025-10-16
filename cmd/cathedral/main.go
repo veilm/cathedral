@@ -130,7 +130,7 @@ and knowledge bases with episodic and semantic memory structures.`,
 	planConsolidationCmd.Flags().StringVar(&sessionID, "session", "", "Session to process (default: latest)")
 	planConsolidationCmd.Flags().StringVar(&templatePath, "template", "", "Template file to use")
 	planConsolidationCmd.Flags().StringVar(&indexPath, "index", "", "Index file to use")
-	planConsolidationCmd.Flags().BoolVar(&getPromptOnly, "get-prompt", false, "Only output the prompt without submitting to LLM")
+	planConsolidationCmd.Flags().BoolVar(&getPromptOnly, "prepare-only", false, "Only prepare the conversation without running agent loop")
 	planConsolidationCmd.Flags().Float64Var(&compression, "compression", 0.5, "Compression ratio (0.0-1.0)")
 	planConsolidationCmd.Flags().StringVar(&compressionProfile, "compression-profile", "", "Use predefined compression profile")
 

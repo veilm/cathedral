@@ -123,3 +123,19 @@
 	see recent 1757485226 ./development_log.md - definitely system for G2.5
 
 	DONE made ~configurable in config.go
+
+- Should you have the consolidation agent prompt be a user message at the end of
+	the conversation, or should the conversation be packed into one system message
+	template?
+
+	Looks like G2.5 really finds Google's assistant/user boundary tokens
+	reassuring and real; immersion and direct style adherence was way higher with it
+
+	Is there any real reason not to? I guess it might assume maybe that the
+	final user message is from the same user it has been speaking to, but you
+	can mitigate it by having it have a distinct formal writing style, and using
+	the <self>/<world>/<system> tags
+
+	Maybe if it's like a lazy conversation, it won't be able to switch into
+	"this is important I need to complete a definite task" mode? but it seemed
+	pretty fine in initial testing
