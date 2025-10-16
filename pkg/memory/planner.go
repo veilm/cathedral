@@ -3,6 +3,7 @@ package memory
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -20,8 +21,8 @@ func NewPlanner(cfg *config.Config) *Planner {
 	return &Planner{config: cfg}
 }
 
-// PlanConsolidation generates a consolidation planning prompt for a session
-func (p *Planner) PlanConsolidation(sessionID, templatePath, indexPath string, getPromptOnly bool, compression float64) error {
+// PlanConsolidation generates a consolidation planning conversation for a session
+func (p *Planner) PlanConsolidation(sessionID, templatePath, indexPath string, prepareOnly bool, compression float64) error {
 	activeStore := p.config.GetActiveStorePath()
 
 	// Resolve session directory
@@ -96,19 +97,100 @@ func (p *Planner) PlanConsolidation(sessionID, templatePath, indexPath string, g
 		}
 	}
 
-	// Generate prompt
-	prompt, err := p.generatePlanningPrompt(indexPath, templatePath, sessionDir, compression)
+	// Create hinata conversation
+	chatDir, err := p.createConsolidationConversation(indexPath, templatePath, sessionDir, compression)
 	if err != nil {
-		return fmt.Errorf("failed to generate prompt: %w", err)
+		return fmt.Errorf("failed to create consolidation conversation: %w", err)
 	}
 
-	if getPromptOnly {
-		fmt.Print(prompt)
+	fmt.Printf("Consolidation conversation created: %s\n", chatDir)
+
+	if prepareOnly {
 		return nil
 	}
 
-	// For now, just exit with TODO
+	// For now, just exit with TODO for agent loop
 	return fmt.Errorf("TODO: implement agentic loop for consolidation planning")
+}
+
+// createConsolidationConversation creates a hinata conversation with session messages and planning prompt
+func (p *Planner) createConsolidationConversation(indexPath, templatePath, sessionDir string, compression float64) (string, error) {
+	fmt.Printf("[PLAN-CONSOLIDATION] Creating conversation for session: %s\n", sessionDir)
+
+	// Create new hnt-chat session
+	cmd := exec.Command("hnt-chat", "new")
+	output, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("failed to create hnt-chat session: %w", err)
+	}
+	chatDir := strings.TrimSpace(string(output))
+	fmt.Printf("[PLAN-CONSOLIDATION] Created conversation: %s\n", chatDir)
+
+	// Read messages from session directory
+	entries, err := os.ReadDir(sessionDir)
+	if err != nil {
+		return "", fmt.Errorf("failed to read session directory: %w", err)
+	}
+
+	// Sort and add each message
+	var messageFiles []string
+	for _, entry := range entries {
+		if !entry.IsDir() && strings.Contains(entry.Name(), "-") && strings.HasSuffix(entry.Name(), ".md") {
+			messageFiles = append(messageFiles, entry.Name())
+		}
+	}
+
+	fmt.Printf("[PLAN-CONSOLIDATION] Found %d messages to add\n", len(messageFiles))
+
+	for _, filename := range messageFiles {
+		content, err := os.ReadFile(filepath.Join(sessionDir, filename))
+		if err != nil {
+			fmt.Printf("[PLAN-CONSOLIDATION] WARNING: Failed to read %s: %v\n", filename, err)
+			continue
+		}
+
+		// Determine role from filename (N-world.md or N-self.md)
+		var role string
+		var tagName string
+		if strings.HasSuffix(filename, "-world.md") {
+			role = "user"
+			tagName = "world"
+		} else if strings.HasSuffix(filename, "-self.md") {
+			role = "assistant"
+			tagName = "self"
+		} else {
+			fmt.Printf("[PLAN-CONSOLIDATION] WARNING: Unknown role in filename %s, skipping\n", filename)
+			continue
+		}
+
+		// Wrap content in tags
+		wrappedContent := fmt.Sprintf("<%s>\n%s\n</%s>", tagName, string(content), tagName)
+
+		// Add message to conversation
+		cmd = exec.Command("hnt-chat", "add", role, "-c", chatDir)
+		cmd.Stdin = strings.NewReader(wrappedContent)
+		if err := cmd.Run(); err != nil {
+			return "", fmt.Errorf("failed to add %s message %s: %w", role, filename, err)
+		}
+		fmt.Printf("[PLAN-CONSOLIDATION] Added %s message: %s\n", role, filename)
+	}
+
+	// Generate planning prompt
+	prompt, err := p.generatePlanningPrompt(indexPath, templatePath, sessionDir, compression)
+	if err != nil {
+		return "", fmt.Errorf("failed to generate planning prompt: %w", err)
+	}
+
+	// Wrap prompt in <system> tags and add as user message
+	systemMessage := fmt.Sprintf("<system>\n%s\n</system>", prompt)
+	cmd = exec.Command("hnt-chat", "add", "user", "-c", chatDir)
+	cmd.Stdin = strings.NewReader(systemMessage)
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("failed to add system planning prompt: %w", err)
+	}
+	fmt.Printf("[PLAN-CONSOLIDATION] Added planning prompt as user message with <system> tags\n")
+
+	return chatDir, nil
 }
 
 // generatePlanningPrompt generates the final prompt by filling in the template
@@ -151,7 +233,6 @@ func (p *Planner) generatePlanningPrompt(indexPath, templatePath, sessionDir str
 	prompt := string(template)
 	prompt = strings.ReplaceAll(prompt, "__CURRENT_INDEX__", strings.TrimSpace(string(currentIndex)))
 	prompt = strings.ReplaceAll(prompt, "__SESSION_PATH__", sessionPath)
-	prompt = strings.ReplaceAll(prompt, "__CONVERSATION_TRANSCRIPT__", transcript)
 	prompt = strings.ReplaceAll(prompt, "__ORIG_WORDS__", fmt.Sprintf("%d", origWords))
 	prompt = strings.ReplaceAll(prompt, "__TARGET_WORDS__", fmt.Sprintf("%d", targetWords))
 	prompt = strings.ReplaceAll(prompt, "__EPISODIC_WORDS__", fmt.Sprintf("%d", episodicWords))
