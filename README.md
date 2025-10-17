@@ -80,6 +80,8 @@ further:
 - continue splitting accordingly, with summaries
 - conduct reflections for better linking and clarity etc.
 
+TODO update this, it's outdated now. we've shifted away from append->split to instead plan-structure->write-nodes. see development_log
+
 ### v4: concrete episodic-raw naming
 - YYYYMMDD/SESSIONID/msgnum-sourcerole.md
 - YYYYMMDD/SESSIONID/ would be the session store

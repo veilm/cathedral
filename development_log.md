@@ -113,3 +113,7 @@ save to index.md based on the content of a given conversation
 
 	Wrote an alternate consolidation-planner-empty.md for the case where no
 	existing navigation is required, because only index.md exists for now
+
+	Did some testing of various conversations up to ~20k input tokens, and on
+	the whole 26-consolidation-planner-empty did quite well, in terms of
+	producing a reasonable plan
