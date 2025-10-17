@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/veilm/cathedral/pkg/config"
 )
@@ -117,6 +118,27 @@ func (p *Planner) PlanConsolidation(sessionID, templatePath, indexPath string, p
 func (p *Planner) createConsolidationConversation(indexPath, templatePath, sessionDir string, compression float64) (string, error) {
 	fmt.Printf("[PLAN-CONSOLIDATION] Creating conversation for session: %s\n", sessionDir)
 
+	// Get active store path for sleep directory creation
+	activeStore := p.config.GetActiveStorePath()
+	if activeStore == "" {
+		return "", fmt.Errorf("no active memory store")
+	}
+
+	// Create sleep/ directory if it doesn't exist
+	sleepDir := filepath.Join(activeStore, "sleep")
+	if err := os.MkdirAll(sleepDir, 0755); err != nil {
+		return "", fmt.Errorf("failed to create sleep directory: %w", err)
+	}
+	fmt.Printf("[PLAN-CONSOLIDATION] Ensured sleep directory exists: %s\n", sleepDir)
+
+	// Create timestamped subdirectory inside sleep/
+	timestamp := time.Now().UnixNano()
+	sleepSessionDir := filepath.Join(sleepDir, fmt.Sprintf("%d", timestamp))
+	if err := os.MkdirAll(sleepSessionDir, 0755); err != nil {
+		return "", fmt.Errorf("failed to create sleep session directory: %w", err)
+	}
+	fmt.Printf("[PLAN-CONSOLIDATION] Created sleep session directory: %s\n", sleepSessionDir)
+
 	// Create new hnt-chat session
 	cmd := exec.Command("hnt-chat", "new")
 	output, err := cmd.Output()
@@ -141,6 +163,9 @@ func (p *Planner) createConsolidationConversation(indexPath, templatePath, sessi
 	}
 
 	fmt.Printf("[PLAN-CONSOLIDATION] Found %d messages to add\n", len(messageFiles))
+
+	// Track successfully added messages for logging
+	var addedMessages []string
 
 	for _, filename := range messageFiles {
 		content, err := os.ReadFile(filepath.Join(sessionDir, filename))
@@ -173,6 +198,7 @@ func (p *Planner) createConsolidationConversation(indexPath, templatePath, sessi
 			return "", fmt.Errorf("failed to add %s message %s: %w", role, filename, err)
 		}
 		fmt.Printf("[PLAN-CONSOLIDATION] Added %s message: %s\n", role, filename)
+		addedMessages = append(addedMessages, filename)
 	}
 
 	// Generate planning prompt
@@ -189,6 +215,31 @@ func (p *Planner) createConsolidationConversation(indexPath, templatePath, sessi
 		return "", fmt.Errorf("failed to add system planning prompt: %w", err)
 	}
 	fmt.Printf("[PLAN-CONSOLIDATION] Added planning prompt as user message with <system> tags\n")
+
+	// Write log.txt with session information
+	logContent := fmt.Sprintf("Plan-Consolidation Sleep Session Log\n")
+	logContent += fmt.Sprintf("====================================\n\n")
+	logContent += fmt.Sprintf("Timestamp: %d\n", timestamp)
+	logContent += fmt.Sprintf("Created: %s\n\n", time.Unix(0, timestamp).Format(time.RFC3339))
+	logContent += fmt.Sprintf("Based on chat session: %s\n\n", sessionDir)
+	logContent += fmt.Sprintf("HNT-Chat conversation directory: %s\n\n", chatDir)
+	logContent += fmt.Sprintf("Messages parsed and added (%d total):\n", len(addedMessages))
+	for _, msg := range addedMessages {
+		logContent += fmt.Sprintf("  - %s\n", msg)
+	}
+
+	logPath := filepath.Join(sleepSessionDir, "log.txt")
+	if err := os.WriteFile(logPath, []byte(logContent), 0644); err != nil {
+		return "", fmt.Errorf("failed to write log.txt: %w", err)
+	}
+	fmt.Printf("[PLAN-CONSOLIDATION] Created log: %s\n", logPath)
+
+	// Copy the planning prompt to plan-consolidation-system.md for reference
+	systemPromptPath := filepath.Join(sleepSessionDir, "plan-consolidation-system.md")
+	if err := os.WriteFile(systemPromptPath, []byte(prompt), 0644); err != nil {
+		return "", fmt.Errorf("failed to write plan-consolidation-system.md: %w", err)
+	}
+	fmt.Printf("[PLAN-CONSOLIDATION] Saved system prompt: %s\n", systemPromptPath)
 
 	return chatDir, nil
 }
