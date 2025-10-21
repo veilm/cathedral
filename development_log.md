@@ -121,3 +121,11 @@ save to index.md based on the content of a given conversation
 	Looks like not putting the fake <self> tags for its own responses, made it
 	less immersed? We can rely on them but it's unideal because it seems highly
 	model-specific. Even if we lock in Gemini, we want future Geminis too
+- Implementing cathedral CLI consolidation
+	TODO step 0. allow navigation (for consolidation plans built on existing wikis)
+	DONE 1. Submitted conv to LLM and received a plan
+	DONE 2. Submitted plan to XML formatter LLM
+	DONE 3. Parsed XML from formatter
+	TODO 4. Iterate through each operation and submit to executor LLM
+		TODO Create
+		TODO Update

@@ -27,8 +27,9 @@ Please parse each operation and extract:
 2. Operation type (usually Create or Update)
 3. Node type (usually Index, Episodic, or Semantic)
 4. Filename
-5. Links to other files (extract just the filename, handling both `[[file.md]]` and `[[text|file.md]]` formats)
-6. Links from other files (same extraction rules)
+5. Estimated size in words (extract the number from "**Estimated size**: ~X words")
+6. Links to other files (extract just the filename, handling both `[[file.md]]` and `[[text|file.md]]` formats)
+7. Links from other files (same extraction rules)
 
 ## Output Format
 
@@ -41,6 +42,7 @@ Output structured XML in this format:
     <op_type>Update</op_type>
     <node_type>Index</node_type>
     <name>index.md</name>
+    <words>450</words>
     <links_to>
       <link>foo.md</link>
       <link>bar.md</link>
@@ -54,6 +56,7 @@ Output structured XML in this format:
     <op_type>Create</op_type>
     <node_type>Episodic</node_type>
     <name>2025-10-21-session.md</name>
+    <words>1050</words>
     <links_to>
       <link>topic.md</link>
     </links_to>
