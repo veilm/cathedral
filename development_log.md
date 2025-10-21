@@ -117,3 +117,7 @@ save to index.md based on the content of a given conversation
 	Did some testing of various conversations up to ~20k input tokens, and on
 	the whole 26-consolidation-planner-empty did quite well, in terms of
 	producing a reasonable plan
+
+	Looks like not putting the fake <self> tags for its own responses, made it
+	less immersed? We can rely on them but it's unideal because it seems highly
+	model-specific. Even if we lock in Gemini, we want future Geminis too
