@@ -1,6 +1,7 @@
 package memory
 
 import (
+	"encoding/xml"
 	"fmt"
 	"os"
 	"os/exec"
@@ -15,6 +16,23 @@ import (
 // Planner handles consolidation planning operations
 type Planner struct {
 	config *config.Config
+}
+
+// StructuredPlan represents the parsed XML structure of a consolidation plan
+type StructuredPlan struct {
+	XMLName    xml.Name    `xml:"structured_plan"`
+	Operations []Operation `xml:"operation"`
+}
+
+// Operation represents a single memory consolidation operation
+type Operation struct {
+	Number    int      `xml:"number"`
+	OpType    string   `xml:"op_type"`
+	NodeType  string   `xml:"node_type"`
+	Name      string   `xml:"name"`
+	Words     int      `xml:"words"`
+	LinksTo   []string `xml:"links_to>link"`
+	LinksFrom []string `xml:"links_from>link"`
 }
 
 // NewPlanner creates a new consolidation planner
@@ -445,6 +463,19 @@ func extractConsolidationPlan(content string) (string, error) {
 	return strings.TrimSpace(matches[1]), nil
 }
 
+// extractStructuredPlan extracts content between <structured_plan> tags
+func extractStructuredPlan(content string) (string, error) {
+	pattern := regexp.MustCompile(`(?s)<structured_plan>(.*)</structured_plan>`)
+	matches := pattern.FindStringSubmatch(content)
+
+	if len(matches) < 2 {
+		return "", fmt.Errorf("no <structured_plan> tags found in output")
+	}
+
+	// Include the tags in the output since we need them for XML parsing
+	return "<structured_plan>" + strings.TrimSpace(matches[1]) + "</structured_plan>", nil
+}
+
 // ParseConsolidationPlan creates a parser conversation and generates structured XML from a consolidation plan
 // Returns the path to the generated structured-plan.xml file
 func (p *Planner) ParseConsolidationPlan(planContent, sleepSessionDir string) (string, error) {
@@ -492,17 +523,61 @@ func (p *Planner) ParseConsolidationPlan(planContent, sleepSessionDir string) (s
 	fmt.Printf("[PARSE-PLAN] Generated parser output: %s\n", parserOutputPath)
 
 	// Read the generated structured XML
-	structuredXML, err := os.ReadFile(parserOutputPath)
+	rawOutput, err := os.ReadFile(parserOutputPath)
 	if err != nil {
 		return "", fmt.Errorf("failed to read structured plan: %w", err)
 	}
 
+	// Extract content between <structured_plan> tags
+	structuredXML, err := extractStructuredPlan(string(rawOutput))
+	if err != nil {
+		return "", fmt.Errorf("failed to extract structured plan: %w", err)
+	}
+
 	// Save to structured-plan.xml in sleep session directory
 	structuredPlanPath := filepath.Join(sleepSessionDir, "structured-plan.xml")
-	if err := os.WriteFile(structuredPlanPath, structuredXML, 0644); err != nil {
+	if err := os.WriteFile(structuredPlanPath, []byte(structuredXML), 0644); err != nil {
 		return "", fmt.Errorf("failed to write structured-plan.xml: %w", err)
 	}
 	fmt.Printf("[PARSE-PLAN] Saved structured plan to: %s\n", structuredPlanPath)
+
+	// Parse the XML into Go structs
+	var plan StructuredPlan
+	if err := xml.Unmarshal([]byte(structuredXML), &plan); err != nil {
+		return "", fmt.Errorf("failed to parse XML: %w", err)
+	}
+	fmt.Printf("[PARSE-PLAN] Successfully parsed %d operations\n", len(plan.Operations))
+
+	// Generate human-readable log of parsed plan
+	logContent := fmt.Sprintf("\n\n=== Parsed Structured Plan ===\n")
+	logContent += fmt.Sprintf("Total operations: %d\n\n", len(plan.Operations))
+	for _, op := range plan.Operations {
+		logContent += fmt.Sprintf("Operation %d:\n", op.Number)
+		logContent += fmt.Sprintf("  Type: %s\n", op.OpType)
+		logContent += fmt.Sprintf("  Node Type: %s\n", op.NodeType)
+		logContent += fmt.Sprintf("  Name: %s\n", op.Name)
+		logContent += fmt.Sprintf("  Estimated Words: %d\n", op.Words)
+		if len(op.LinksTo) > 0 {
+			logContent += fmt.Sprintf("  Links To: %v\n", op.LinksTo)
+		}
+		if len(op.LinksFrom) > 0 {
+			logContent += fmt.Sprintf("  Links From: %v\n", op.LinksFrom)
+		}
+		logContent += "\n"
+	}
+
+	// Append parsed plan to log
+	logPath := filepath.Join(sleepSessionDir, "log.txt")
+	logFile, err := os.OpenFile(logPath, os.O_APPEND|os.O_WRONLY, 0644)
+	if err != nil {
+		return "", fmt.Errorf("failed to open log for appending parsed plan: %w", err)
+	}
+	defer logFile.Close()
+
+	if _, err := logFile.WriteString(logContent); err != nil {
+		return "", fmt.Errorf("failed to append parsed plan to log: %w", err)
+	}
+	fmt.Printf("[PARSE-PLAN] Appended parsed plan to log\n")
 
 	return structuredPlanPath, nil
 }
