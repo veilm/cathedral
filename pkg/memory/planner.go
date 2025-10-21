@@ -128,17 +128,31 @@ func (p *Planner) PlanConsolidation(sessionID, templatePath, indexPath string, p
 		return fmt.Errorf("failed to read generated plan: %w", err)
 	}
 
-	// Copy plan to consolidation-plan.md in sleep session directory
+	// Extract content between <consolidation_plan> tags
+	extractedPlan, err := extractConsolidationPlan(string(planContent))
+	if err != nil {
+		return fmt.Errorf("failed to extract consolidation plan: %w", err)
+	}
+
+	// Save extracted plan to consolidation-plan.md in sleep session directory
 	consolidationPlanPath := filepath.Join(sleepSessionDir, "consolidation-plan.md")
-	if err := os.WriteFile(consolidationPlanPath, planContent, 0644); err != nil {
+	if err := os.WriteFile(consolidationPlanPath, []byte(extractedPlan), 0644); err != nil {
 		return fmt.Errorf("failed to write consolidation-plan.md: %w", err)
 	}
 	fmt.Printf("[PLAN-CONSOLIDATION] Saved plan to: %s\n", consolidationPlanPath)
+
+	// Parse the consolidation plan into structured XML
+	structuredPlanPath, err := p.ParseConsolidationPlan(extractedPlan, sleepSessionDir)
+	if err != nil {
+		return fmt.Errorf("failed to parse consolidation plan: %w", err)
+	}
+	fmt.Printf("[PLAN-CONSOLIDATION] Generated structured plan: %s\n", structuredPlanPath)
 
 	// Append to log file
 	logPath := filepath.Join(sleepSessionDir, "log.txt")
 	logAddition := fmt.Sprintf("\nGenerated plan output file: %s\n", planPath)
 	logAddition += fmt.Sprintf("Plan copied to: %s\n", consolidationPlanPath)
+	logAddition += fmt.Sprintf("Structured plan created: %s\n", structuredPlanPath)
 
 	logFile, err := os.OpenFile(logPath, os.O_APPEND|os.O_WRONLY, 0644)
 	if err != nil {
@@ -417,4 +431,78 @@ func (p *Planner) findLatestSession(episodicRawDir string) string {
 	}
 
 	return ""
+}
+
+// extractConsolidationPlan extracts content between <consolidation_plan> tags
+func extractConsolidationPlan(content string) (string, error) {
+	pattern := regexp.MustCompile(`(?s)<consolidation_plan>(.*)</consolidation_plan>`)
+	matches := pattern.FindStringSubmatch(content)
+
+	if len(matches) < 2 {
+		return "", fmt.Errorf("no <consolidation_plan> tags found in output")
+	}
+
+	return strings.TrimSpace(matches[1]), nil
+}
+
+// ParseConsolidationPlan creates a parser conversation and generates structured XML from a consolidation plan
+// Returns the path to the generated structured-plan.xml file
+func (p *Planner) ParseConsolidationPlan(planContent, sleepSessionDir string) (string, error) {
+	fmt.Printf("[PARSE-PLAN] Creating parser conversation...\n")
+
+	// Create new hnt-chat session
+	cmd := exec.Command("hnt-chat", "new")
+	output, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("failed to create hnt-chat session: %w", err)
+	}
+	chatDir := strings.TrimSpace(string(output))
+	fmt.Printf("[PARSE-PLAN] Created conversation: %s\n", chatDir)
+
+	// Load consolidation-parser template
+	grimoirePath := config.GetGrimoirePath()
+	parserTemplatePath := filepath.Join(grimoirePath, "consolidation-parser.md")
+	parserTemplate, err := os.ReadFile(parserTemplatePath)
+	if err != nil {
+		return "", fmt.Errorf("failed to read parser template: %w", err)
+	}
+	fmt.Printf("[PARSE-PLAN] Loaded parser template from: %s\n", parserTemplatePath)
+
+	// Replace __CONSOLIDATION_PLAN__ with the actual plan content
+	parserPrompt := strings.ReplaceAll(string(parserTemplate), "__CONSOLIDATION_PLAN__", planContent)
+
+	// Add parser prompt as user message
+	cmd = exec.Command("hnt-chat", "add", "user", "-c", chatDir)
+	cmd.Stdin = strings.NewReader(parserPrompt)
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("failed to add parser prompt: %w", err)
+	}
+	fmt.Printf("[PARSE-PLAN] Added parser prompt\n")
+
+	// Generate the structured plan
+	fmt.Printf("[PARSE-PLAN] Generating structured XML...\n")
+	cmd = exec.Command("hnt-chat", "gen", "--model", "openrouter/google/gemini-2.5-pro", "--output-filename", "-c", chatDir)
+	outputFilename, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("failed to generate structured plan: %w", err)
+	}
+
+	outputFile := strings.TrimSpace(string(outputFilename))
+	parserOutputPath := filepath.Join(chatDir, outputFile)
+	fmt.Printf("[PARSE-PLAN] Generated parser output: %s\n", parserOutputPath)
+
+	// Read the generated structured XML
+	structuredXML, err := os.ReadFile(parserOutputPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to read structured plan: %w", err)
+	}
+
+	// Save to structured-plan.xml in sleep session directory
+	structuredPlanPath := filepath.Join(sleepSessionDir, "structured-plan.xml")
+	if err := os.WriteFile(structuredPlanPath, structuredXML, 0644); err != nil {
+		return "", fmt.Errorf("failed to write structured-plan.xml: %w", err)
+	}
+	fmt.Printf("[PARSE-PLAN] Saved structured plan to: %s\n", structuredPlanPath)
+
+	return structuredPlanPath, nil
 }
