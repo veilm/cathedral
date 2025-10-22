@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/veilm/cathedral/pkg/config"
-	"github.com/veilm/cathedral/pkg/memory"
 	"github.com/veilm/cathedral/pkg/session"
 	"github.com/veilm/hinata/cmd/hnt-chat/pkg/chat"
 	"github.com/veilm/hinata/cmd/hnt-llm/pkg/llm"
@@ -689,28 +688,9 @@ func (s *Server) handleConsolidate(w http.ResponseWriter, r *http.Request) {
 		log.Printf("[CONSOLIDATE] Successfully imported messages to episode: %s", episodePath)
 	}
 
-	// Now run write-memory on the imported session
-	writer := memory.NewWriter(cfg)
-	activeStore := cfg.GetActiveStorePath()
-	indexPath := filepath.Join(activeStore, "index.md")
-
+	// Memory consolidation has been removed - using new plan-consolidation system instead
 	if s.verbose {
-		log.Printf("[CONSOLIDATE] Starting write-memory for episode: %s", episodePath)
-		log.Printf("[CONSOLIDATE] Index path: %s", indexPath)
-		log.Printf("[CONSOLIDATE] Compression ratio: %f", req.Compression)
-	}
-
-	// Use the episode we just created as the session ID
-	if err := writer.WriteMemory(episodePath, "", indexPath, false, req.Compression); err != nil {
-		if s.verbose {
-			log.Printf("[CONSOLIDATE] Failed to consolidate memory for episode %s: %v", episodePath, err)
-		}
-		http.Error(w, fmt.Sprintf("Failed to consolidate memory: %v", err), http.StatusInternalServerError)
-		return
-	}
-
-	if s.verbose {
-		log.Printf("[CONSOLIDATE] Successfully consolidated memory for episode: %s", episodePath)
+		log.Printf("[CONSOLIDATE] Memory consolidation skipped - write-memory deprecated in favor of plan-consolidation")
 	}
 
 	w.Header().Set("Content-Type", "application/json")

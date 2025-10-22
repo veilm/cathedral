@@ -106,20 +106,6 @@ and knowledge bases with episodic and semantic memory structures.`,
 	}
 	importCmd.Flags().StringVar(&sessionID, "session", "", "Existing session to append to (format: YYYYMMDD/SESSION_ID)")
 
-	// Memory writing command
-	writeMemoryCmd := &cobra.Command{
-		Use:   "write-memory",
-		Short: "Generate memory writing prompt for a session",
-		Args:  cobra.NoArgs,
-		RunE:  runWriteMemory,
-	}
-	writeMemoryCmd.Flags().StringVar(&sessionID, "session", "", "Session to process (default: latest)")
-	writeMemoryCmd.Flags().StringVar(&templatePath, "template", "", "Template file to use")
-	writeMemoryCmd.Flags().StringVar(&indexPath, "index", "", "Index file to use")
-	writeMemoryCmd.Flags().BoolVar(&getPromptOnly, "get-prompt", false, "Only output the prompt without submitting to LLM")
-	writeMemoryCmd.Flags().Float64Var(&compression, "compression", 0.5, "Compression ratio (0.0-1.0)")
-	writeMemoryCmd.Flags().StringVar(&compressionProfile, "compression-profile", "", "Use predefined compression profile")
-
 	// Consolidation planning command
 	planConsolidationCmd := &cobra.Command{
 		Use:   "plan-consolidation",
@@ -172,7 +158,6 @@ and knowledge bases with episodic and semantic memory structures.`,
 		showActiveCmd,
 		initMemoryEpisodeCmd,
 		importCmd,
-		writeMemoryCmd,
 		planConsolidationCmd,
 		startConvCmd,
 		healthCmd,
@@ -286,25 +271,6 @@ func runImportMessages(cmd *cobra.Command, args []string) error {
 
 	importer := session.NewImporter(cfg)
 	return importer.ImportMessages(args, sessionID)
-}
-
-func runWriteMemory(cmd *cobra.Command, args []string) error {
-	cfg, err := config.Load(configPath)
-	if err != nil {
-		return err
-	}
-
-	// Handle compression profile
-	if compressionProfile != "" {
-		if ratio, ok := config.CompressionProfiles[compressionProfile]; ok {
-			compression = ratio
-		} else {
-			return fmt.Errorf("unknown compression profile: %s", compressionProfile)
-		}
-	}
-
-	writer := memory.NewWriter(cfg)
-	return writer.WriteMemory(sessionID, templatePath, indexPath, getPromptOnly, compression)
 }
 
 func runStartConversation(cmd *cobra.Command, args []string) error {
