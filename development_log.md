@@ -129,3 +129,6 @@ save to index.md based on the content of a given conversation
 	TODO 4. Iterate through each operation and submit to executor LLM
 		TODO Create
 		TODO Update
+			DONE initial prompt
+				TODO iterate prompt a bit
+			TODO iterate on implementation a bit
