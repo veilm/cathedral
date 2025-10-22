@@ -28,6 +28,7 @@ var (
 	compression        float64
 	compressionProfile string
 	dateInput          string
+	sleepSessionDir    string
 )
 
 func main() {
@@ -120,6 +121,19 @@ and knowledge bases with episodic and semantic memory structures.`,
 	planConsolidationCmd.Flags().Float64Var(&compression, "compression", 0.5, "Compression ratio (0.0-1.0)")
 	planConsolidationCmd.Flags().StringVar(&compressionProfile, "compression-profile", "", "Use predefined compression profile")
 
+	// Consolidation execution command
+	executeConsolidationCmd := &cobra.Command{
+		Use:   "execute-consolidation [SLEEP_SESSION]",
+		Short: "Execute a consolidation plan from a sleep session",
+		Long: `Execute all operations from a consolidation plan.
+SLEEP_SESSION can be:
+  - A full path to a sleep session directory
+  - A unix timestamp (will look in sleep/TIMESTAMP)
+  - Omitted (will use the latest sleep session)`,
+		Args: cobra.MaximumNArgs(1),
+		RunE: runExecuteConsolidation,
+	}
+
 	// Conversation start command
 	startConvCmd := &cobra.Command{
 		Use:   "start-conversation",
@@ -159,6 +173,7 @@ and knowledge bases with episodic and semantic memory structures.`,
 		initMemoryEpisodeCmd,
 		importCmd,
 		planConsolidationCmd,
+		executeConsolidationCmd,
 		startConvCmd,
 		healthCmd,
 		readCmd,
@@ -320,4 +335,61 @@ func runPlanConsolidation(cmd *cobra.Command, args []string) error {
 
 	planner := memory.NewPlanner(cfg)
 	return planner.PlanConsolidation(sessionID, templatePath, indexPath, getPromptOnly, compression)
+}
+
+func runExecuteConsolidation(cmd *cobra.Command, args []string) error {
+	cfg, err := config.Load(configPath)
+	if err != nil {
+		return err
+	}
+
+	activeStore := cfg.GetActiveStorePath()
+	if activeStore == "" {
+		return fmt.Errorf("no active memory store. Create one with 'cathedral create-store <name>'")
+	}
+
+	sleepDir := filepath.Join(activeStore, "sleep")
+
+	// Resolve sleep session directory
+	var sleepSessionPath string
+	if len(args) > 0 {
+		input := args[0]
+
+		// Check if it's a full path
+		if filepath.IsAbs(input) {
+			sleepSessionPath = input
+		} else {
+			// Assume it's a timestamp
+			sleepSessionPath = filepath.Join(sleepDir, input)
+		}
+	} else {
+		// Find latest sleep session
+		entries, err := os.ReadDir(sleepDir)
+		if err != nil {
+			return fmt.Errorf("failed to read sleep directory: %w", err)
+		}
+
+		// Find the most recent directory (highest timestamp)
+		var latestTimestamp string
+		for _, entry := range entries {
+			if entry.IsDir() && entry.Name() > latestTimestamp {
+				latestTimestamp = entry.Name()
+			}
+		}
+
+		if latestTimestamp == "" {
+			return fmt.Errorf("no sleep sessions found in %s", sleepDir)
+		}
+
+		sleepSessionPath = filepath.Join(sleepDir, latestTimestamp)
+		fmt.Printf("Using latest sleep session: %s\n", latestTimestamp)
+	}
+
+	// Verify the directory exists
+	if _, err := os.Stat(sleepSessionPath); os.IsNotExist(err) {
+		return fmt.Errorf("sleep session directory not found: %s", sleepSessionPath)
+	}
+
+	executor := memory.NewExecutor(cfg)
+	return executor.ExecuteConsolidation(sleepSessionPath)
 }

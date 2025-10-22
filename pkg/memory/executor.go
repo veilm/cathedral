@@ -22,12 +22,85 @@ func NewExecutor(cfg *config.Config) *Executor {
 	return &Executor{config: cfg}
 }
 
+// ExecuteConsolidation executes all operations from a consolidation plan
+func (e *Executor) ExecuteConsolidation(sleepSessionDir string) error {
+	fmt.Printf("[EXECUTE-CONSOLIDATION] Starting execution for sleep session: %s\n", sleepSessionDir)
+
+	// Read structured plan
+	structuredPlanPath := filepath.Join(sleepSessionDir, "structured-plan.xml")
+	structuredPlanContent, err := os.ReadFile(structuredPlanPath)
+	if err != nil {
+		return fmt.Errorf("failed to read structured-plan.xml: %w", err)
+	}
+
+	var plan StructuredPlan
+	if err := xml.Unmarshal(structuredPlanContent, &plan); err != nil {
+		return fmt.Errorf("failed to parse structured plan: %w", err)
+	}
+	fmt.Printf("[EXECUTE-CONSOLIDATION] Loaded plan with %d operations\n", len(plan.Operations))
+
+	// Read natural language plan for context
+	planPath := filepath.Join(sleepSessionDir, "consolidation-plan.md")
+	planContent, err := os.ReadFile(planPath)
+	if err != nil {
+		return fmt.Errorf("failed to read consolidation-plan.md: %w", err)
+	}
+
+	// Extract session directory from log
+	logPath := filepath.Join(sleepSessionDir, "log.txt")
+	logContent, err := os.ReadFile(logPath)
+	if err != nil {
+		return fmt.Errorf("failed to read log.txt: %w", err)
+	}
+
+	// Parse session directory from log (format: "Based on chat session: /path/to/session")
+	sessionDirPattern := regexp.MustCompile(`Based on chat session: (.+)`)
+	matches := sessionDirPattern.FindStringSubmatch(string(logContent))
+	if len(matches) < 2 {
+		return fmt.Errorf("could not find session directory in log.txt")
+	}
+	sessionDir := strings.TrimSpace(matches[1])
+	fmt.Printf("[EXECUTE-CONSOLIDATION] Session directory: %s\n", sessionDir)
+
+	// Execute each operation
+	for i, op := range plan.Operations {
+		fmt.Printf("\n[EXECUTE-CONSOLIDATION] ========== Operation %d/%d ==========\n", i+1, len(plan.Operations))
+		fmt.Printf("[EXECUTE-CONSOLIDATION] Type: %s, Node: %s (%s)\n", op.OpType, op.Name, op.NodeType)
+
+		switch op.OpType {
+		case "Update":
+			if err := e.ExecuteUpdateOperation(op, sessionDir, sleepSessionDir, string(planContent)); err != nil {
+				return fmt.Errorf("failed to execute operation %d: %w", op.Number, err)
+			}
+
+		case "Create":
+			fmt.Printf("[EXECUTE-CONSOLIDATION] ⚠️  WARNING: Create operations are not yet implemented!\n")
+			fmt.Printf("[EXECUTE-CONSOLIDATION] ⚠️  Skipping Operation %d: Create %s\n", op.Number, op.Name)
+
+		default:
+			return fmt.Errorf("unknown operation type: %s", op.OpType)
+		}
+	}
+
+	fmt.Printf("\n[EXECUTE-CONSOLIDATION] ========================================\n")
+	fmt.Printf("[EXECUTE-CONSOLIDATION] Consolidation execution complete!\n")
+	fmt.Printf("[EXECUTE-CONSOLIDATION] Sleep session: %s\n", sleepSessionDir)
+
+	return nil
+}
+
 // Edits represents the parsed XML structure of edit operations
 type Edits struct {
-	XMLName         xml.Name          `xml:"edits"`
-	EditStrings     []EditString      `xml:"edit_string"`
-	ReplaceSections []ReplaceSection  `xml:"replace_section"`
-	ReplaceFile     *ReplaceFile      `xml:"replace_file"`
+	XMLName  xml.Name `xml:"edits"`
+	Children []EditOperation
+}
+
+// EditOperation represents any type of edit operation
+type EditOperation struct {
+	Type           string // "edit_string", "replace_section", "replace_file"
+	EditString     *EditString
+	ReplaceSection *ReplaceSection
+	ReplaceFile    *ReplaceFile
 }
 
 // EditString represents a string replacement edit
@@ -45,6 +118,56 @@ type ReplaceSection struct {
 // ReplaceFile represents a full file replacement
 type ReplaceFile struct {
 	Content string `xml:",innerxml"`
+}
+
+// UnmarshalXML custom unmarshaler to preserve order of edit operations
+func (e *Edits) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
+	e.Children = []EditOperation{}
+
+	for {
+		token, err := d.Token()
+		if err != nil {
+			return err
+		}
+
+		switch el := token.(type) {
+		case xml.StartElement:
+			var op EditOperation
+			switch el.Name.Local {
+			case "edit_string":
+				op.Type = "edit_string"
+				var es EditString
+				if err := d.DecodeElement(&es, &el); err != nil {
+					return err
+				}
+				op.EditString = &es
+				e.Children = append(e.Children, op)
+
+			case "replace_section":
+				op.Type = "replace_section"
+				var rs ReplaceSection
+				if err := d.DecodeElement(&rs, &el); err != nil {
+					return err
+				}
+				op.ReplaceSection = &rs
+				e.Children = append(e.Children, op)
+
+			case "replace_file":
+				op.Type = "replace_file"
+				var rf ReplaceFile
+				if err := d.DecodeElement(&rf, &el); err != nil {
+					return err
+				}
+				op.ReplaceFile = &rf
+				e.Children = append(e.Children, op)
+			}
+
+		case xml.EndElement:
+			if el.Name.Local == "edits" {
+				return nil
+			}
+		}
+	}
 }
 
 // ExecuteUpdateOperation executes a single Update operation from the consolidation plan
@@ -126,54 +249,41 @@ func (e *Executor) ExecuteUpdateOperation(op Operation, sessionDir, sleepSession
 	if err := xml.Unmarshal([]byte(extractedEdits), &edits); err != nil {
 		return fmt.Errorf("failed to parse edits XML: %w", err)
 	}
-	fmt.Printf("[EXECUTE-UPDATE] Parsed %d edit_string, %d replace_section, has replace_file: %v\n",
-		len(edits.EditStrings), len(edits.ReplaceSections), edits.ReplaceFile != nil)
+	fmt.Printf("[EXECUTE-UPDATE] Parsed %d edit operations\n", len(edits.Children))
 
-	// Apply edits incrementally
+	// Apply edits incrementally in the order the LLM specified
 	currentResult := string(currentContent)
-	editNum := 1
 
-	// Apply replace_file if present (takes precedence)
-	if edits.ReplaceFile != nil {
-		fmt.Printf("[EXECUTE-UPDATE] Applying replace_file\n")
-		currentResult = strings.TrimSpace(edits.ReplaceFile.Content)
+	for i, editOp := range edits.Children {
+		var result string
+		var err error
+		var opDesc string
 
-		versionPath := filepath.Join(opDir, fmt.Sprintf("%d-after-replace-file.md", editNum))
+		switch editOp.Type {
+		case "edit_string":
+			opDesc = "edit_string"
+			result, err = applyEditString(currentResult, *editOp.EditString)
+
+		case "replace_section":
+			opDesc = fmt.Sprintf("replace_section: %s", editOp.ReplaceSection.Header)
+			result, err = applyReplaceSection(currentResult, *editOp.ReplaceSection)
+
+		case "replace_file":
+			opDesc = "replace_file"
+			result = strings.TrimSpace(editOp.ReplaceFile.Content)
+		}
+
+		if err != nil {
+			return fmt.Errorf("failed to apply edit %d (%s): %w", i+1, opDesc, err)
+		}
+
+		fmt.Printf("[EXECUTE-UPDATE] Applied edit %d: %s\n", i+1, opDesc)
+		currentResult = result
+
+		// Save version after this edit
+		versionPath := filepath.Join(opDir, fmt.Sprintf("%d-after-%s.md", i+1, editOp.Type))
 		if err := os.WriteFile(versionPath, []byte(currentResult), 0644); err != nil {
 			return fmt.Errorf("failed to save version: %w", err)
-		}
-		editNum++
-	} else {
-		// Apply replace_section edits
-		for i, replaceSection := range edits.ReplaceSections {
-			fmt.Printf("[EXECUTE-UPDATE] Applying replace_section %d: %s\n", i+1, replaceSection.Header)
-			result, err := applyReplaceSection(currentResult, replaceSection)
-			if err != nil {
-				return fmt.Errorf("failed to apply replace_section %d: %w", i+1, err)
-			}
-			currentResult = result
-
-			versionPath := filepath.Join(opDir, fmt.Sprintf("%d-after-replace-section-%d.md", editNum, i+1))
-			if err := os.WriteFile(versionPath, []byte(currentResult), 0644); err != nil {
-				return fmt.Errorf("failed to save version: %w", err)
-			}
-			editNum++
-		}
-
-		// Apply edit_string edits
-		for i, editString := range edits.EditStrings {
-			fmt.Printf("[EXECUTE-UPDATE] Applying edit_string %d\n", i+1)
-			result, err := applyEditString(currentResult, editString)
-			if err != nil {
-				return fmt.Errorf("failed to apply edit_string %d: %w", i+1, err)
-			}
-			currentResult = result
-
-			versionPath := filepath.Join(opDir, fmt.Sprintf("%d-after-edit-string-%d.md", editNum, i+1))
-			if err := os.WriteFile(versionPath, []byte(currentResult), 0644); err != nil {
-				return fmt.Errorf("failed to save version: %w", err)
-			}
-			editNum++
 		}
 	}
 
