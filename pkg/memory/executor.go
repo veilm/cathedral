@@ -75,8 +75,9 @@ func (e *Executor) ExecuteConsolidation(sleepSessionDir string) error {
 			}
 
 		case "Create":
-			fmt.Printf("[EXECUTE-CONSOLIDATION] ⚠️  WARNING: Create operations are not yet implemented!\n")
-			fmt.Printf("[EXECUTE-CONSOLIDATION] ⚠️  Skipping Operation %d: Create %s\n", op.Number, op.Name)
+			if err := e.ExecuteCreateOperation(op, sessionDir, sleepSessionDir, string(planContent)); err != nil {
+				return fmt.Errorf("failed to execute operation %d: %w", op.Number, err)
+			}
 
 		default:
 			return fmt.Errorf("unknown operation type: %s", op.OpType)
@@ -305,6 +306,94 @@ func (e *Executor) ExecuteUpdateOperation(op Operation, sessionDir, sleepSession
 	return nil
 }
 
+// ExecuteCreateOperation executes a single Create operation from the consolidation plan
+func (e *Executor) ExecuteCreateOperation(op Operation, sessionDir, sleepSessionDir, planContent string) error {
+	activeStore := e.config.GetActiveStorePath()
+	if activeStore == "" {
+		return fmt.Errorf("no active memory store")
+	}
+
+	fmt.Printf("[EXECUTE-CREATE] Starting Operation %d: Create %s\n", op.Number, op.Name)
+
+	// Create operation directory
+	opDirName := fmt.Sprintf("%d-create-%s", op.Number, strings.TrimSuffix(op.Name, ".md"))
+	opDir := filepath.Join(sleepSessionDir, "operations", opDirName)
+	if err := os.MkdirAll(opDir, 0755); err != nil {
+		return fmt.Errorf("failed to create operation directory: %w", err)
+	}
+	fmt.Printf("[EXECUTE-CREATE] Created operation directory: %s\n", opDir)
+
+	// Determine file path based on node type
+	var filePath string
+	switch op.NodeType {
+	case "Index":
+		filePath = filepath.Join(activeStore, op.Name)
+	case "Episodic":
+		episodicDir := filepath.Join(activeStore, "episodic")
+		if err := os.MkdirAll(episodicDir, 0755); err != nil {
+			return fmt.Errorf("failed to create episodic directory: %w", err)
+		}
+		filePath = filepath.Join(episodicDir, op.Name)
+	case "Semantic":
+		semanticDir := filepath.Join(activeStore, "semantic")
+		if err := os.MkdirAll(semanticDir, 0755); err != nil {
+			return fmt.Errorf("failed to create semantic directory: %w", err)
+		}
+		filePath = filepath.Join(semanticDir, op.Name)
+	default:
+		return fmt.Errorf("unknown node type: %s", op.NodeType)
+	}
+
+	// Create executor conversation
+	chatDir, err := e.createCreateConversation(sessionDir, planContent, op)
+	if err != nil {
+		return fmt.Errorf("failed to create executor conversation: %w", err)
+	}
+	fmt.Printf("[EXECUTE-CREATE] Created executor conversation: %s\n", chatDir)
+
+	// Generate content from LLM
+	fmt.Printf("[EXECUTE-CREATE] Generating content...\n")
+	cmd := exec.Command("hnt-chat", "gen", "--model", "openrouter/google/gemini-2.5-pro", "--output-filename", "-c", chatDir)
+	outputFilename, err := cmd.Output()
+	if err != nil {
+		return fmt.Errorf("failed to generate content: %w", err)
+	}
+
+	outputFile := strings.TrimSpace(string(outputFilename))
+	contentPath := filepath.Join(chatDir, outputFile)
+	fmt.Printf("[EXECUTE-CREATE] Generated content: %s\n", contentPath)
+
+	// Read generated content
+	rawContent, err := os.ReadFile(contentPath)
+	if err != nil {
+		return fmt.Errorf("failed to read generated content: %w", err)
+	}
+
+	// Extract content from <content> tags
+	extractedContent, err := extractContent(string(rawContent))
+	if err != nil {
+		return fmt.Errorf("failed to extract content XML: %w", err)
+	}
+
+	finalContent := strings.TrimSpace(extractedContent)
+
+	// Write to the actual file
+	if err := os.WriteFile(filePath, []byte(finalContent), 0644); err != nil {
+		return fmt.Errorf("failed to write file: %w", err)
+	}
+	fmt.Printf("[EXECUTE-CREATE] Created file: %s\n", filePath)
+
+	// Save to operation directory
+	savedPath := filepath.Join(opDir, "created.md")
+	if err := os.WriteFile(savedPath, []byte(finalContent), 0644); err != nil {
+		return fmt.Errorf("failed to save to operation directory: %w", err)
+	}
+	fmt.Printf("[EXECUTE-CREATE] Saved copy to: %s\n", savedPath)
+
+	fmt.Printf("[EXECUTE-CREATE] Operation %d complete!\n", op.Number)
+	return nil
+}
+
 // createUpdateConversation creates a hinata conversation for the update executor
 func (e *Executor) createUpdateConversation(sessionDir, planContent string, op Operation, currentContent string) (string, error) {
 	// Create new hnt-chat session
@@ -389,6 +478,90 @@ func (e *Executor) createUpdateConversation(sessionDir, planContent string, op O
 	return chatDir, nil
 }
 
+// createCreateConversation creates a hinata conversation for the create executor
+func (e *Executor) createCreateConversation(sessionDir, planContent string, op Operation) (string, error) {
+	// Create new hnt-chat session
+	cmd := exec.Command("hnt-chat", "new")
+	output, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("failed to create hnt-chat session: %w", err)
+	}
+	chatDir := strings.TrimSpace(string(output))
+
+	// Add session messages (same as planner)
+	entries, err := os.ReadDir(sessionDir)
+	if err != nil {
+		return "", fmt.Errorf("failed to read session directory: %w", err)
+	}
+
+	var messageFiles []string
+	for _, entry := range entries {
+		if !entry.IsDir() && strings.Contains(entry.Name(), "-") && strings.HasSuffix(entry.Name(), ".md") {
+			messageFiles = append(messageFiles, entry.Name())
+		}
+	}
+
+	for _, filename := range messageFiles {
+		content, err := os.ReadFile(filepath.Join(sessionDir, filename))
+		if err != nil {
+			continue
+		}
+
+		var role string
+		var tagName string
+		if strings.HasSuffix(filename, "-world.md") {
+			role = "user"
+			tagName = "world"
+		} else if strings.HasSuffix(filename, "-self.md") {
+			role = "assistant"
+			tagName = "self"
+		} else {
+			continue
+		}
+
+		wrappedContent := fmt.Sprintf("<%s>\n%s\n</%s>", tagName, string(content), tagName)
+		cmd = exec.Command("hnt-chat", "add", role, "-c", chatDir)
+		cmd.Stdin = strings.NewReader(wrappedContent)
+		if err := cmd.Run(); err != nil {
+			return "", fmt.Errorf("failed to add message: %w", err)
+		}
+	}
+
+	// Generate executor prompt
+	grimoirePath := config.GetGrimoirePath()
+	templatePath := filepath.Join(grimoirePath, "consolidation-executor-create.md")
+	template, err := os.ReadFile(templatePath)
+	if err != nil {
+		return "", fmt.Errorf("failed to read executor template: %w", err)
+	}
+
+	// Extract session path
+	parts := strings.Split(sessionDir, string(os.PathSeparator))
+	sessionPath := ""
+	if len(parts) >= 2 {
+		sessionPath = fmt.Sprintf("%s/%s", parts[len(parts)-2], parts[len(parts)-1])
+	}
+
+	// Replace template variables
+	prompt := string(template)
+	prompt = strings.ReplaceAll(prompt, "__SESSION_PATH__", sessionPath)
+	prompt = strings.ReplaceAll(prompt, "__FULL_PLAN__", planContent)
+	prompt = strings.ReplaceAll(prompt, "__OP_NUMBER__", fmt.Sprintf("%d", op.Number))
+	prompt = strings.ReplaceAll(prompt, "__FILENAME__", op.Name)
+	prompt = strings.ReplaceAll(prompt, "__NODE_TYPE__", op.NodeType)
+	prompt = strings.ReplaceAll(prompt, "__WORDS__", fmt.Sprintf("%d", op.Words))
+
+	// Wrap in <system> tags and add as user message
+	systemMessage := fmt.Sprintf("<system>\n%s\n</system>", prompt)
+	cmd = exec.Command("hnt-chat", "add", "user", "-c", chatDir)
+	cmd.Stdin = strings.NewReader(systemMessage)
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("failed to add executor prompt: %w", err)
+	}
+
+	return chatDir, nil
+}
+
 // extractEdits extracts content between <edits> tags
 func extractEdits(content string) (string, error) {
 	pattern := regexp.MustCompile(`(?s)<edits>(.*)</edits>`)
@@ -399,6 +572,18 @@ func extractEdits(content string) (string, error) {
 	}
 
 	return "<edits>" + strings.TrimSpace(matches[1]) + "</edits>", nil
+}
+
+// extractContent extracts content between <content> tags
+func extractContent(rawOutput string) (string, error) {
+	pattern := regexp.MustCompile(`(?s)<content>(.*)</content>`)
+	matches := pattern.FindStringSubmatch(rawOutput)
+
+	if len(matches) < 2 {
+		return "", fmt.Errorf("no <content> tags found in output")
+	}
+
+	return strings.TrimSpace(matches[1]), nil
 }
 
 // applyEditString applies a string replacement edit
