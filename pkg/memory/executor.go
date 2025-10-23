@@ -91,9 +91,8 @@ func (e *Executor) ExecuteConsolidation(sleepSessionDir string) error {
 	return nil
 }
 
-// Edits represents the parsed XML structure of edit operations
+// Edits represents the parsed structure of edit operations
 type Edits struct {
-	XMLName  xml.Name `xml:"edits"`
 	Children []EditOperation
 }
 
@@ -107,69 +106,19 @@ type EditOperation struct {
 
 // EditString represents a string replacement edit
 type EditString struct {
-	Old string `xml:"old"`
-	New string `xml:"new"`
+	Old string
+	New string
 }
 
 // ReplaceSection represents a section replacement edit
 type ReplaceSection struct {
-	Header  string `xml:"header,attr"`
-	Content string `xml:",innerxml"`
+	Header  string
+	Content string
 }
 
 // ReplaceFile represents a full file replacement
 type ReplaceFile struct {
-	Content string `xml:",innerxml"`
-}
-
-// UnmarshalXML custom unmarshaler to preserve order of edit operations
-func (e *Edits) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
-	e.Children = []EditOperation{}
-
-	for {
-		token, err := d.Token()
-		if err != nil {
-			return err
-		}
-
-		switch el := token.(type) {
-		case xml.StartElement:
-			var op EditOperation
-			switch el.Name.Local {
-			case "edit_string":
-				op.Type = "edit_string"
-				var es EditString
-				if err := d.DecodeElement(&es, &el); err != nil {
-					return err
-				}
-				op.EditString = &es
-				e.Children = append(e.Children, op)
-
-			case "replace_section":
-				op.Type = "replace_section"
-				var rs ReplaceSection
-				if err := d.DecodeElement(&rs, &el); err != nil {
-					return err
-				}
-				op.ReplaceSection = &rs
-				e.Children = append(e.Children, op)
-
-			case "replace_file":
-				op.Type = "replace_file"
-				var rf ReplaceFile
-				if err := d.DecodeElement(&rf, &el); err != nil {
-					return err
-				}
-				op.ReplaceFile = &rf
-				e.Children = append(e.Children, op)
-			}
-
-		case xml.EndElement:
-			if el.Name.Local == "edits" {
-				return nil
-			}
-		}
-	}
+	Content string
 }
 
 // ExecuteUpdateOperation executes a single Update operation from the consolidation plan
@@ -246,10 +195,10 @@ func (e *Executor) ExecuteUpdateOperation(op Operation, sessionDir, sleepSession
 		return fmt.Errorf("failed to extract edits XML: %w", err)
 	}
 
-	// Parse edits
-	var edits Edits
-	if err := xml.Unmarshal([]byte(extractedEdits), &edits); err != nil {
-		return fmt.Errorf("failed to parse edits XML: %w", err)
+	// Parse edits manually (not using XML parser to avoid escaping issues)
+	edits, err := parseEditsManually(extractedEdits)
+	if err != nil {
+		return fmt.Errorf("failed to parse edits: %w", err)
 	}
 	fmt.Printf("[EXECUTE-UPDATE] Parsed %d edit operations\n", len(edits.Children))
 
@@ -571,7 +520,148 @@ func extractEdits(content string) (string, error) {
 		return "", fmt.Errorf("no <edits> tags found in output")
 	}
 
-	return "<edits>" + strings.TrimSpace(matches[1]) + "</edits>", nil
+	return strings.TrimSpace(matches[1]), nil
+}
+
+// parseEditsManually parses edit operations without using XML parser
+// This allows the LLM to use & and other special chars naturally
+func parseEditsManually(content string) (Edits, error) {
+	var edits Edits
+	edits.Children = []EditOperation{}
+
+	// Find all edit blocks in order by scanning for opening tags
+	pos := 0
+	for pos < len(content) {
+		// Find the next edit operation tag
+		editStringIdx := strings.Index(content[pos:], "<edit_string>")
+		replaceSectionIdx := strings.Index(content[pos:], "<replace_section")
+		replaceFileIdx := strings.Index(content[pos:], "<replace_file>")
+
+		// Adjust indices to be absolute
+		if editStringIdx != -1 {
+			editStringIdx += pos
+		}
+		if replaceSectionIdx != -1 {
+			replaceSectionIdx += pos
+		}
+		if replaceFileIdx != -1 {
+			replaceFileIdx += pos
+		}
+
+		// Find which comes first
+		var nextIdx int
+		var editType string
+
+		if editStringIdx != -1 && (replaceSectionIdx == -1 || editStringIdx < replaceSectionIdx) && (replaceFileIdx == -1 || editStringIdx < replaceFileIdx) {
+			nextIdx = editStringIdx
+			editType = "edit_string"
+		} else if replaceSectionIdx != -1 && (replaceFileIdx == -1 || replaceSectionIdx < replaceFileIdx) {
+			nextIdx = replaceSectionIdx
+			editType = "replace_section"
+		} else if replaceFileIdx != -1 {
+			nextIdx = replaceFileIdx
+			editType = "replace_file"
+		} else {
+			// No more edit operations
+			break
+		}
+
+		var op EditOperation
+		op.Type = editType
+
+		switch editType {
+		case "edit_string":
+			// Extract <old>...</old> and <new>...</new>
+			oldStart := strings.Index(content[nextIdx:], "<old>")
+			if oldStart == -1 {
+				return edits, fmt.Errorf("edit_string missing <old> tag")
+			}
+			oldStart += nextIdx + len("<old>")
+
+			oldEnd := strings.Index(content[oldStart:], "</old>")
+			if oldEnd == -1 {
+				return edits, fmt.Errorf("edit_string missing </old> tag")
+			}
+			oldEnd += oldStart
+
+			newStart := strings.Index(content[oldEnd:], "<new>")
+			if newStart == -1 {
+				return edits, fmt.Errorf("edit_string missing <new> tag")
+			}
+			newStart += oldEnd + len("<new>")
+
+			newEnd := strings.Index(content[newStart:], "</new>")
+			if newEnd == -1 {
+				return edits, fmt.Errorf("edit_string missing </new> tag")
+			}
+			newEnd += newStart
+
+			op.EditString = &EditString{
+				Old: content[oldStart:oldEnd],
+				New: content[newStart:newEnd],
+			}
+
+			pos = newEnd + len("</new>")
+
+		case "replace_section":
+			// Extract header attribute
+			headerStart := strings.Index(content[nextIdx:], `header="`)
+			if headerStart == -1 {
+				return edits, fmt.Errorf("replace_section missing header attribute")
+			}
+			headerStart += nextIdx + len(`header="`)
+
+			headerEnd := strings.Index(content[headerStart:], `"`)
+			if headerEnd == -1 {
+				return edits, fmt.Errorf("replace_section header not properly quoted")
+			}
+			headerEnd += headerStart
+
+			header := content[headerStart:headerEnd]
+
+			// Find the end of the opening tag
+			tagEnd := strings.Index(content[nextIdx:], ">")
+			if tagEnd == -1 {
+				return edits, fmt.Errorf("replace_section opening tag not closed")
+			}
+			tagEnd += nextIdx + 1
+
+			// Find closing tag
+			closingTag := "</replace_section>"
+			contentEnd := strings.Index(content[tagEnd:], closingTag)
+			if contentEnd == -1 {
+				return edits, fmt.Errorf("replace_section missing closing tag")
+			}
+			contentEnd += tagEnd
+
+			op.ReplaceSection = &ReplaceSection{
+				Header:  header,
+				Content: content[tagEnd:contentEnd],
+			}
+
+			pos = contentEnd + len(closingTag)
+
+		case "replace_file":
+			// Find content between <replace_file> and </replace_file>
+			contentStart := nextIdx + len("<replace_file>")
+			closingTag := "</replace_file>"
+			contentEnd := strings.Index(content[contentStart:], closingTag)
+			if contentEnd == -1 {
+				return edits, fmt.Errorf("replace_file missing closing tag")
+			}
+			contentEnd += contentStart
+
+			op.ReplaceFile = &ReplaceFile{
+				Content: content[contentStart:contentEnd],
+			}
+
+			pos = contentEnd + len(closingTag)
+		}
+
+		edits.Children = append(edits.Children, op)
+	}
+
+	return edits, nil
 }
 
 // extractContent extracts content between <content> tags
