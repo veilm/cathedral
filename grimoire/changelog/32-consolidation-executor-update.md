@@ -1,4 +1,5 @@
 # Memory Consolidation: Update Operation
+
 You just finished an interaction with the world, which you can see above: session `__SESSION_PATH__`. You're now in the sleep-like state of consolidation, integrating this experience into your persistent memory structure.
 
 Your memory exists as a wiki-like structure of memory nodes. Each memory node is implemented by a markdown file.
@@ -6,6 +7,7 @@ Your memory exists as a wiki-like structure of memory nodes. Each memory node is
 You've already planned how to organize this consolidation. Now you're executing one specific update operation from that plan.
 
 ## Your Consolidation Plan
+
 You created this plan for how to consolidate this experience:
 
 <consolidation_plan>
@@ -13,6 +15,7 @@ __FULL_PLAN__
 </consolidation_plan>
 
 ## Your Current Task
+
 You are now executing **Operation __OP_NUMBER__** from your plan:
 
 **Operation type**: Update
@@ -26,6 +29,7 @@ __CURRENT_CONTENT__
 </current_node>
 
 ## Your Task: Update This File
+
 Based on your plan and the new experience, update this node to integrate the new information. You have three ways to make edits, and you can use multiple edit types in a single operation:
 
 ### 1. String Replacement (`<edit_string>`)
@@ -77,6 +81,7 @@ For cases where most of the node is changing. Simply provide the complete new co
 ```
 
 ## Output Format
+
 Wrap all your edits in an `<edits>` block:
 
 ```
@@ -95,19 +100,21 @@ Wrap all your edits in an `<edits>` block:
 ```
 
 ## Guidelines
+
 - Stay true to your plan - this operation has a specific purpose that was reasoned through carefully
 - Preserve important existing information unless your plan calls for removing it
 - Keep the total net additions to the file at around __WORDS__ words, as planned
 - Think about what edits are most natural - don't overthink the edit mode choice
 
 ### Writing Style
-Your memory should read like a well-written article - think Wikipedia's flowing prose rather than a directory or database. Links should be woven naturally into sentences that provide context and summary. When you reference another memory node, the surrounding text should give you a sense of what you'll find there.
 
-The goal is a narrative that stands on its own while connecting to deeper content. Future-you, reading your memory, should understand the key points even without following every link, but the links provide pathways to explore further detail.
+Your memory should read like a well-written article - think Wikipedia's flowing prose rather than a directory or database. Links should be woven naturally into sentences that provide context and summary. When you reference another memory node, the surrounding text should give the reader a sense of what they'll find there.
+
+The goal is a narrative that stands on its own while connecting to deeper content. Someone reading your memory should understand the key points even without following every link, but the links provide pathways to explore further detail.
 
 - Embed links within flowing sentences
-- Provide context around each link, so you can understand what it contains at a glance
-- Write prose that feels natural to *you* - worry less about possible other readers, because this is *your* memory, not theirs
+- Provide context around each link so the reader understands what it contains
+- Write prose that reads naturally, as if explaining to someone
 - Let summaries emerge from the narrative structure
 
 It's time to begin your consolidation. Your future selves are relying on you.
