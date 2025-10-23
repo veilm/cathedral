@@ -123,16 +123,14 @@ and knowledge bases with episodic and semantic memory structures.`,
 
 	// Consolidation execution command
 	executeConsolidationCmd := &cobra.Command{
-		Use:   "execute-consolidation [SLEEP_SESSION]",
+		Use:   "execute-consolidation",
 		Short: "Execute a consolidation plan from a sleep session",
 		Long: `Execute all operations from a consolidation plan.
-SLEEP_SESSION can be:
-  - A full path to a sleep session directory
-  - A unix timestamp (will look in sleep/TIMESTAMP)
-  - Omitted (will use the latest sleep session)`,
-		Args: cobra.MaximumNArgs(1),
+Use --session to specify which sleep session to execute, or omit to use the latest.`,
+		Args: cobra.NoArgs,
 		RunE: runExecuteConsolidation,
 	}
+	executeConsolidationCmd.Flags().StringVar(&sleepSessionDir, "session", "", "Sleep session (timestamp or full path, default: latest)")
 
 	// Conversation start command
 	startConvCmd := &cobra.Command{
@@ -352,15 +350,13 @@ func runExecuteConsolidation(cmd *cobra.Command, args []string) error {
 
 	// Resolve sleep session directory
 	var sleepSessionPath string
-	if len(args) > 0 {
-		input := args[0]
-
+	if sleepSessionDir != "" {
 		// Check if it's a full path
-		if filepath.IsAbs(input) {
-			sleepSessionPath = input
+		if filepath.IsAbs(sleepSessionDir) {
+			sleepSessionPath = sleepSessionDir
 		} else {
 			// Assume it's a timestamp
-			sleepSessionPath = filepath.Join(sleepDir, input)
+			sleepSessionPath = filepath.Join(sleepDir, sleepSessionDir)
 		}
 	} else {
 		// Find latest sleep session

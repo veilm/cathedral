@@ -46,20 +46,21 @@ func (e *Executor) ExecuteConsolidation(sleepSessionDir string) error {
 		return fmt.Errorf("failed to read consolidation-plan.md: %w", err)
 	}
 
-	// Extract session directory from log
-	logPath := filepath.Join(sleepSessionDir, "log.txt")
-	logContent, err := os.ReadFile(logPath)
+	// Read session name
+	sessionNamePath := filepath.Join(sleepSessionDir, "session-name.txt")
+	sessionNameContent, err := os.ReadFile(sessionNamePath)
 	if err != nil {
-		return fmt.Errorf("failed to read log.txt: %w", err)
+		return fmt.Errorf("failed to read session-name.txt: %w", err)
 	}
+	sessionName := strings.TrimSpace(string(sessionNameContent))
+	fmt.Printf("[EXECUTE-CONSOLIDATION] Session: %s\n", sessionName)
 
-	// Parse session directory from log (format: "Based on chat session: /path/to/session")
-	sessionDirPattern := regexp.MustCompile(`Based on chat session: (.+)`)
-	matches := sessionDirPattern.FindStringSubmatch(string(logContent))
-	if len(matches) < 2 {
-		return fmt.Errorf("could not find session directory in log.txt")
+	// Resolve session directory
+	activeStore := e.config.GetActiveStorePath()
+	sessionDir := filepath.Join(activeStore, "episodic-raw", sessionName)
+	if _, err := os.Stat(sessionDir); os.IsNotExist(err) {
+		return fmt.Errorf("session directory not found: %s", sessionDir)
 	}
-	sessionDir := strings.TrimSpace(matches[1])
 	fmt.Printf("[EXECUTE-CONSOLIDATION] Session directory: %s\n", sessionDir)
 
 	// Execute each operation

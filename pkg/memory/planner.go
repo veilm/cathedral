@@ -292,12 +292,27 @@ func (p *Planner) createConsolidationConversation(indexPath, templatePath, sessi
 	}
 	fmt.Printf("[PLAN-CONSOLIDATION] Added planning prompt as user message with <system> tags\n")
 
+	// Extract session name (last two parts of path)
+	parts := strings.Split(sessionDir, string(os.PathSeparator))
+	sessionName := ""
+	if len(parts) >= 2 {
+		sessionName = fmt.Sprintf("%s/%s", parts[len(parts)-2], parts[len(parts)-1])
+	}
+
+	// Write session-name.txt
+	sessionNamePath := filepath.Join(sleepSessionDir, "session-name.txt")
+	if err := os.WriteFile(sessionNamePath, []byte(sessionName), 0644); err != nil {
+		return "", "", fmt.Errorf("failed to write session-name.txt: %w", err)
+	}
+	fmt.Printf("[PLAN-CONSOLIDATION] Saved session name: %s\n", sessionNamePath)
+
 	// Write log.txt with session information
 	logContent := fmt.Sprintf("Plan-Consolidation Sleep Session Log\n")
 	logContent += fmt.Sprintf("====================================\n\n")
 	logContent += fmt.Sprintf("Timestamp: %d\n", timestamp)
 	logContent += fmt.Sprintf("Created: %s\n\n", time.Unix(0, timestamp).Format(time.RFC3339))
-	logContent += fmt.Sprintf("Based on chat session: %s\n\n", sessionDir)
+	logContent += fmt.Sprintf("Session: %s\n", sessionName)
+	logContent += fmt.Sprintf("Session directory: %s\n\n", sessionDir)
 	logContent += fmt.Sprintf("HNT-Chat conversation directory: %s\n\n", chatDir)
 	logContent += fmt.Sprintf("Messages parsed and added (%d total):\n", len(addedMessages))
 	for _, msg := range addedMessages {
