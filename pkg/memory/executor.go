@@ -426,11 +426,7 @@ func (e *Executor) createUpdateConversation(sessionDir, planContent string, op O
 	}
 
 	// Extract session path
-	parts := strings.Split(sessionDir, string(os.PathSeparator))
-	sessionPath := ""
-	if len(parts) >= 2 {
-		sessionPath = fmt.Sprintf("%s/%s", parts[len(parts)-2], parts[len(parts)-1])
-	}
+	sessionPath := getSessionPath(sessionDir)
 
 	// Format completed operations for context
 	var completedOpsText string
@@ -500,6 +496,15 @@ func (e *Executor) createCreateConversation(sessionDir, planContent string, op O
 		}
 	}
 
+	// For episodic nodes, use full filenames as tags so the LLM can link to raw messages
+	// For semantic nodes, use simple world/self tags
+	useFullPaths := (op.NodeType == "Episodic")
+
+	var sessionPath string
+	if useFullPaths {
+		sessionPath = getSessionPath(sessionDir)
+	}
+
 	for _, filename := range messageFiles {
 		content, err := os.ReadFile(filepath.Join(sessionDir, filename))
 		if err != nil {
@@ -510,10 +515,18 @@ func (e *Executor) createCreateConversation(sessionDir, planContent string, op O
 		var tagName string
 		if strings.HasSuffix(filename, "-world.md") {
 			role = "user"
-			tagName = "world"
+			if useFullPaths {
+				tagName = fmt.Sprintf("%s/%s", sessionPath, filename)
+			} else {
+				tagName = "world"
+			}
 		} else if strings.HasSuffix(filename, "-self.md") {
 			role = "assistant"
-			tagName = "self"
+			if useFullPaths {
+				tagName = fmt.Sprintf("%s/%s", sessionPath, filename)
+			} else {
+				tagName = "self"
+			}
 		} else {
 			continue
 		}
@@ -535,11 +548,7 @@ func (e *Executor) createCreateConversation(sessionDir, planContent string, op O
 	}
 
 	// Extract session path
-	parts := strings.Split(sessionDir, string(os.PathSeparator))
-	sessionPath := ""
-	if len(parts) >= 2 {
-		sessionPath = fmt.Sprintf("%s/%s", parts[len(parts)-2], parts[len(parts)-1])
-	}
+	sessionPath := getSessionPath(sessionDir)
 
 	// Format completed operations for context
 	var completedOpsText string
