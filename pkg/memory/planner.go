@@ -358,18 +358,22 @@ func (p *Planner) generatePlanningPrompt(indexPath, templatePath, sessionDir str
 	fmt.Printf("[PLAN-CONSOLIDATION] Read conversation from %s, transcript length: %d bytes\n", sessionPath, len(transcript))
 
 	// Calculate word metrics (approximately 6 chars per word)
-	origWords := len(transcript) / 6
-	targetWords := int(float64(origWords) * compression)
+	rawOrigWords := len(transcript) / 6
+
+	// Calculate targetWords from unrounded original, then ceil to nearest 50
+	targetWords := int(float64(rawOrigWords) * compression)
+	targetWords = ((targetWords + 49) / 50) * 50 // Ceil to nearest 50
+
+	// Back-calculate origWords to ensure perfect ratio with targetWords
+	origWords := int(float64(targetWords) / compression)
+	origWords = (origWords / 50) * 50 // Round to nearest 50 for display
 
 	// Split between episodic (40%) and semantic (60%)
 	episodicWords := int(float64(targetWords) * 0.4)
-	semanticWords := int(float64(targetWords) * 0.6)
-
-	// Round to nearest 50
-	origWords = (origWords / 50) * 50
-	targetWords = (targetWords / 50) * 50
 	episodicWords = (episodicWords / 50) * 50
-	semanticWords = (semanticWords / 50) * 50
+
+	// Calculate semantic to ensure it sums exactly to target
+	semanticWords := targetWords - episodicWords
 
 	// Replace variables
 	prompt := string(template)
