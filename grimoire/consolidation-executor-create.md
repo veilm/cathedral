@@ -60,12 +60,6 @@ The goal is a narrative that stands on its own while connecting to deeper conten
 - Write prose that feels natural to *you* - worry less about possible other readers, because this is *your* memory, not theirs
 - Let summaries emerge from the narrative structure
 
-### For Episodic Memory Nodes
-
-If you're creating an episodic memory node, write it as a narrative of what happened. Capture the flow of the conversation, the key moments, and the progression of ideas. Link to semantic nodes when concepts are introduced or discussed.
-
-### For Semantic Memory Nodes
-
-If you're creating a semantic memory node, organize the knowledge topically. Explain the concept, its context, and its significance. Link back to episodic memories as sources where this knowledge emerged.
+__NODE_TYPE_GUIDELINES__
 
 It's time to begin your consolidation. Your future selves are relying on you.
