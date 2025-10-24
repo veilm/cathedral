@@ -409,7 +409,7 @@ func (e *Executor) createUpdateConversation(sessionDir, planContent string, op O
 			continue
 		}
 
-		wrappedContent := fmt.Sprintf("<%s>\n%s\n</%s>", tagName, string(content), tagName)
+		wrappedContent := fmt.Sprintf("<%s>\n%s\n</%s>", tagName, strings.TrimRight(string(content), "\n"), tagName)
 		cmd = exec.Command("hnt-chat", "add", role, "-c", chatDir)
 		cmd.Stdin = strings.NewReader(wrappedContent)
 		if err := cmd.Run(); err != nil {
@@ -453,7 +453,7 @@ func (e *Executor) createUpdateConversation(sessionDir, planContent string, op O
 			completedOpsText += fmt.Sprintf("\n</%s>\n\n", completed.Name)
 		}
 	} else {
-		completedOpsText = "\nThis is the first operation in this consolidation session.\n\n"
+		completedOpsText = "\nThis is the first operation in this consolidation session.\n"
 	}
 
 	// Replace template variables
@@ -463,11 +463,11 @@ func (e *Executor) createUpdateConversation(sessionDir, planContent string, op O
 	prompt = strings.ReplaceAll(prompt, "__OP_NUMBER__", fmt.Sprintf("%d", op.Number))
 	prompt = strings.ReplaceAll(prompt, "__FILENAME__", op.Name)
 	prompt = strings.ReplaceAll(prompt, "__WORDS__", fmt.Sprintf("%d", op.Words))
-	prompt = strings.ReplaceAll(prompt, "__CURRENT_CONTENT__", currentContent)
+	prompt = strings.ReplaceAll(prompt, "__CURRENT_CONTENT__", strings.TrimRight(currentContent, "\n"))
 	prompt = strings.ReplaceAll(prompt, "__COMPLETED_OPERATIONS__", completedOpsText)
 
-	// Wrap in <system> tags and add as user message
-	systemMessage := fmt.Sprintf("<system>\n%s\n</system>", prompt)
+	// Wrap in <system> tags and add as user message (trim prompt to avoid extra blank lines)
+	systemMessage := fmt.Sprintf("<system>\n%s\n</system>", strings.TrimRight(prompt, "\n"))
 	cmd = exec.Command("hnt-chat", "add", "user", "-c", chatDir)
 	cmd.Stdin = strings.NewReader(systemMessage)
 	if err := cmd.Run(); err != nil {
@@ -518,7 +518,7 @@ func (e *Executor) createCreateConversation(sessionDir, planContent string, op O
 			continue
 		}
 
-		wrappedContent := fmt.Sprintf("<%s>\n%s\n</%s>", tagName, string(content), tagName)
+		wrappedContent := fmt.Sprintf("<%s>\n%s\n</%s>", tagName, strings.TrimRight(string(content), "\n"), tagName)
 		cmd = exec.Command("hnt-chat", "add", role, "-c", chatDir)
 		cmd.Stdin = strings.NewReader(wrappedContent)
 		if err := cmd.Run(); err != nil {
@@ -562,7 +562,7 @@ func (e *Executor) createCreateConversation(sessionDir, planContent string, op O
 			completedOpsText += fmt.Sprintf("\n</%s>\n\n", completed.Name)
 		}
 	} else {
-		completedOpsText = "\nThis is the first operation in this consolidation session.\n\n"
+		completedOpsText = "\nThis is the first operation in this consolidation session.\n"
 	}
 
 	// Replace template variables
@@ -575,8 +575,8 @@ func (e *Executor) createCreateConversation(sessionDir, planContent string, op O
 	prompt = strings.ReplaceAll(prompt, "__WORDS__", fmt.Sprintf("%d", op.Words))
 	prompt = strings.ReplaceAll(prompt, "__COMPLETED_OPERATIONS__", completedOpsText)
 
-	// Wrap in <system> tags and add as user message
-	systemMessage := fmt.Sprintf("<system>\n%s\n</system>", prompt)
+	// Wrap in <system> tags and add as user message (trim prompt to avoid extra blank lines)
+	systemMessage := fmt.Sprintf("<system>\n%s\n</system>", strings.TrimRight(prompt, "\n"))
 	cmd = exec.Command("hnt-chat", "add", "user", "-c", chatDir)
 	cmd.Stdin = strings.NewReader(systemMessage)
 	if err := cmd.Run(); err != nil {

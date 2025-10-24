@@ -265,7 +265,7 @@ func (p *Planner) createConsolidationConversation(indexPath, templatePath, sessi
 		}
 
 		// Wrap content in tags
-		wrappedContent := fmt.Sprintf("<%s>\n%s\n</%s>", tagName, string(content), tagName)
+		wrappedContent := fmt.Sprintf("<%s>\n%s\n</%s>", tagName, strings.TrimRight(string(content), "\n"), tagName)
 
 		// Add message to conversation
 		cmd = exec.Command("hnt-chat", "add", role, "-c", chatDir)
@@ -284,7 +284,7 @@ func (p *Planner) createConsolidationConversation(indexPath, templatePath, sessi
 	}
 
 	// Wrap prompt in <system> tags and add as user message
-	systemMessage := fmt.Sprintf("<system>\n%s\n</system>", prompt)
+	systemMessage := fmt.Sprintf("<system>\n%s\n</system>", strings.TrimRight(prompt, "\n"))
 	cmd = exec.Command("hnt-chat", "add", "user", "-c", chatDir)
 	cmd.Stdin = strings.NewReader(systemMessage)
 	if err := cmd.Run(); err != nil {
@@ -425,7 +425,7 @@ func (p *Planner) readConversationMessages(sessionDir string) (string, string) {
 		}
 
 		tagName := fmt.Sprintf("%s/%s", sessionPath, filename)
-		messages = append(messages, fmt.Sprintf("<%s>\n%s\n</%s>", tagName, string(content), tagName))
+		messages = append(messages, fmt.Sprintf("<%s>\n%s\n</%s>", tagName, strings.TrimRight(string(content), "\n"), tagName))
 		fmt.Printf("[PLAN-CONSOLIDATION] Added message %s (%d bytes)\n", filename, len(content))
 	}
 
