@@ -40,6 +40,42 @@ func NewPlanner(cfg *config.Config) *Planner {
 	return &Planner{config: cfg}
 }
 
+// getSessionPath extracts the session path from a full directory path
+// Returns the last two path components formatted as "YYYYMMDD/SESSION_ID"
+func getSessionPath(sessionDir string) string {
+	parts := strings.Split(sessionDir, string(os.PathSeparator))
+	if len(parts) >= 2 {
+		return fmt.Sprintf("%s/%s", parts[len(parts)-2], parts[len(parts)-1])
+	}
+	return ""
+}
+
+// calculateConversationLength calculates the total character length of all messages in a session
+func calculateConversationLength(sessionDir string) (int, error) {
+	entries, err := os.ReadDir(sessionDir)
+	if err != nil {
+		return 0, fmt.Errorf("failed to read session directory: %w", err)
+	}
+
+	var messageFiles []string
+	for _, entry := range entries {
+		if !entry.IsDir() && strings.Contains(entry.Name(), "-") && strings.HasSuffix(entry.Name(), ".md") {
+			messageFiles = append(messageFiles, entry.Name())
+		}
+	}
+
+	totalLength := 0
+	for _, filename := range messageFiles {
+		content, err := os.ReadFile(filepath.Join(sessionDir, filename))
+		if err != nil {
+			return 0, fmt.Errorf("failed to read message file %s: %w", filename, err)
+		}
+		totalLength += len(content)
+	}
+
+	return totalLength, nil
+}
+
 // PlanConsolidation generates a consolidation planning conversation for a session
 func (p *Planner) PlanConsolidation(sessionID, templatePath, indexPath string, prepareOnly bool, compression float64) error {
 	activeStore := p.config.GetActiveStorePath()
@@ -292,12 +328,8 @@ func (p *Planner) createConsolidationConversation(indexPath, templatePath, sessi
 	}
 	fmt.Printf("[PLAN-CONSOLIDATION] Added planning prompt as user message with <system> tags\n")
 
-	// Extract session name (last two parts of path)
-	parts := strings.Split(sessionDir, string(os.PathSeparator))
-	sessionName := ""
-	if len(parts) >= 2 {
-		sessionName = fmt.Sprintf("%s/%s", parts[len(parts)-2], parts[len(parts)-1])
-	}
+	// Extract session name
+	sessionName := getSessionPath(sessionDir)
 
 	// Write session-name.txt
 	sessionNamePath := filepath.Join(sleepSessionDir, "session-name.txt")
@@ -353,12 +385,16 @@ func (p *Planner) generatePlanningPrompt(indexPath, templatePath, sessionDir str
 	}
 	fmt.Printf("[PLAN-CONSOLIDATION] Template loaded from: %s\n", templatePath)
 
-	// Read conversation
-	transcript, sessionPath := p.readConversationMessages(sessionDir)
-	fmt.Printf("[PLAN-CONSOLIDATION] Read conversation from %s, transcript length: %d bytes\n", sessionPath, len(transcript))
+	// Calculate conversation length for word count planning
+	conversationLength, err := calculateConversationLength(sessionDir)
+	if err != nil {
+		return "", fmt.Errorf("failed to calculate conversation length: %w", err)
+	}
+	sessionPath := getSessionPath(sessionDir)
+	fmt.Printf("[PLAN-CONSOLIDATION] Read conversation from %s, total length: %d bytes\n", sessionPath, conversationLength)
 
 	// Calculate word metrics (approximately 6 chars per word)
-	rawOrigWords := len(transcript) / 6
+	rawOrigWords := conversationLength / 6
 
 	// Calculate targetWords from unrounded original, then ceil to nearest 50
 	targetWords := int(float64(rawOrigWords) * compression)
@@ -387,52 +423,6 @@ func (p *Planner) generatePlanningPrompt(indexPath, templatePath, sessionDir str
 	return prompt, nil
 }
 
-// readConversationMessages reads all messages from a session directory
-func (p *Planner) readConversationMessages(sessionDir string) (string, string) {
-	fmt.Printf("[PLAN-CONSOLIDATION] Reading messages from directory: %s\n", sessionDir)
-
-	// Extract session path (last two parts)
-	parts := strings.Split(sessionDir, string(os.PathSeparator))
-	sessionPath := ""
-	if len(parts) >= 2 {
-		sessionPath = fmt.Sprintf("%s/%s", parts[len(parts)-2], parts[len(parts)-1])
-	}
-
-	// Get all message files sorted by number
-	entries, err := os.ReadDir(sessionDir)
-	if err != nil {
-		fmt.Printf("[PLAN-CONSOLIDATION] ERROR: Failed to read session directory %s: %v\n", sessionDir, err)
-		return "", sessionPath
-	}
-
-	var messageFiles []string
-	for _, entry := range entries {
-		if !entry.IsDir() && strings.Contains(entry.Name(), "-") && strings.HasSuffix(entry.Name(), ".md") {
-			messageFiles = append(messageFiles, entry.Name())
-		}
-	}
-
-	fmt.Printf("[PLAN-CONSOLIDATION] Found %d message files in session\n", len(messageFiles))
-
-	// Build transcript
-	var messages []string
-
-	for _, filename := range messageFiles {
-		content, err := os.ReadFile(filepath.Join(sessionDir, filename))
-		if err != nil {
-			fmt.Printf("[PLAN-CONSOLIDATION] WARNING: Failed to read message file %s: %v\n", filename, err)
-			continue
-		}
-
-		tagName := fmt.Sprintf("%s/%s", sessionPath, filename)
-		messages = append(messages, fmt.Sprintf("<%s>\n%s\n</%s>", tagName, strings.TrimRight(string(content), "\n"), tagName))
-		fmt.Printf("[PLAN-CONSOLIDATION] Added message %s (%d bytes)\n", filename, len(content))
-	}
-
-	result := strings.Join(messages, "\n\n")
-	fmt.Printf("[PLAN-CONSOLIDATION] Total transcript size: %d bytes\n", len(result))
-	return result, sessionPath
-}
 
 // findLatestSession finds the latest session in episodic-raw
 func (p *Planner) findLatestSession(episodicRawDir string) string {
