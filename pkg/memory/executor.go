@@ -499,11 +499,7 @@ func (e *Executor) createCreateConversation(sessionDir, planContent string, op O
 	// For episodic nodes, use full filenames as tags so the LLM can link to raw messages
 	// For semantic nodes, use simple world/self tags
 	useFullPaths := (op.NodeType == "Episodic")
-
-	var sessionPath string
-	if useFullPaths {
-		sessionPath = getSessionPath(sessionDir)
-	}
+	sessionPath := getSessionPath(sessionDir)
 
 	for _, filename := range messageFiles {
 		content, err := os.ReadFile(filepath.Join(sessionDir, filename))
@@ -547,8 +543,20 @@ func (e *Executor) createCreateConversation(sessionDir, planContent string, op O
 		return "", fmt.Errorf("failed to read executor template: %w", err)
 	}
 
-	// Extract session path
-	sessionPath := getSessionPath(sessionDir)
+	// Load node-type-specific guidelines
+	var guidelinesPath string
+	if op.NodeType == "Episodic" {
+		guidelinesPath = filepath.Join(grimoirePath, "create-episodic-guide.md")
+	} else if op.NodeType == "Semantic" {
+		guidelinesPath = filepath.Join(grimoirePath, "create-semantic-guide.md")
+	} else {
+		return "", fmt.Errorf("unexpected node type for create operation: %s (only Episodic and Semantic nodes should be created)", op.NodeType)
+	}
+
+	guidelines, err := os.ReadFile(guidelinesPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to read guidelines file: %w", err)
+	}
 
 	// Format completed operations for context
 	var completedOpsText string
@@ -583,6 +591,7 @@ func (e *Executor) createCreateConversation(sessionDir, planContent string, op O
 	prompt = strings.ReplaceAll(prompt, "__NODE_TYPE__", op.NodeType)
 	prompt = strings.ReplaceAll(prompt, "__WORDS__", fmt.Sprintf("%d", op.Words))
 	prompt = strings.ReplaceAll(prompt, "__COMPLETED_OPERATIONS__", completedOpsText)
+	prompt = strings.ReplaceAll(prompt, "__NODE_TYPE_GUIDELINES__", strings.TrimSpace(string(guidelines)))
 
 	// Wrap in <system> tags and add as user message (trim prompt to avoid extra blank lines)
 	systemMessage := fmt.Sprintf("<system>\n%s\n</system>", strings.TrimRight(prompt, "\n"))
