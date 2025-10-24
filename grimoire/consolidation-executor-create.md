@@ -14,6 +14,8 @@ You created this plan for how to consolidate this experience:
 __FULL_PLAN__
 </consolidation_plan>
 
+__COMPLETED_OPERATIONS__
+
 ## Your Current Task
 
 You are now executing **Operation __OP_NUMBER__** from your plan:
