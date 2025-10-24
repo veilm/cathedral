@@ -436,15 +436,24 @@ func (e *Executor) createUpdateConversation(sessionDir, planContent string, op O
 	var completedOpsText string
 	if len(completedOps) > 0 {
 		completedOpsText = "\n## Previously Completed Operations in This Consolidation\n\n"
-		completedOpsText += "You have already completed the following operations in this consolidation session. Use these as context to ensure consistency and coherent cross-references:\n\n"
+		completedOpsText += "You have already completed the following operations in this consolidation session. Use these as context to ensure consistency and coherent cross-references in your memory:\n\n"
 		for _, completed := range completedOps {
-			completedOpsText += fmt.Sprintf("### Completed Operation %d: %s %s\n\n", completed.Number, completed.OpType, completed.Name)
-			completedOpsText += "<final_content>\n"
+			// Use past tense verb
+			verb := "Updated"
+			description := fmt.Sprintf("You updated your %s node. Now that the update is complete, here is its final content:", completed.Name)
+			if completed.OpType == "Create" {
+				verb = "Created"
+				description = fmt.Sprintf("You created a new node, %s. Here is its content:", completed.Name)
+			}
+
+			completedOpsText += fmt.Sprintf("### Completed Operation %d: %s %s\n\n", completed.Number, verb, completed.Name)
+			completedOpsText += description + "\n\n"
+			completedOpsText += fmt.Sprintf("<%s>\n", completed.Name)
 			completedOpsText += completed.FinalContent
-			completedOpsText += "\n</final_content>\n\n"
+			completedOpsText += fmt.Sprintf("\n</%s>\n\n", completed.Name)
 		}
 	} else {
-		completedOpsText = "\n## Previously Completed Operations in This Consolidation\n\nThis is the first operation in this consolidation session.\n\n"
+		completedOpsText = "\nThis is the first operation in this consolidation session.\n\n"
 	}
 
 	// Replace template variables
@@ -536,15 +545,24 @@ func (e *Executor) createCreateConversation(sessionDir, planContent string, op O
 	var completedOpsText string
 	if len(completedOps) > 0 {
 		completedOpsText = "\n## Previously Completed Operations in This Consolidation\n\n"
-		completedOpsText += "You have already completed the following operations in this consolidation session. Use these as context to ensure consistency and coherent cross-references:\n\n"
+		completedOpsText += "You have already completed the following operations in this consolidation session. Use these as context to ensure consistency and coherent cross-references in your memory:\n\n"
 		for _, completed := range completedOps {
-			completedOpsText += fmt.Sprintf("### Completed Operation %d: %s %s\n\n", completed.Number, completed.OpType, completed.Name)
-			completedOpsText += "<final_content>\n"
+			// Use past tense verb
+			verb := "Updated"
+			description := fmt.Sprintf("You updated your %s node. Now that the update is complete, here is its final content:", completed.Name)
+			if completed.OpType == "Create" {
+				verb = "Created"
+				description = fmt.Sprintf("You created a new node, %s. Here is its content:", completed.Name)
+			}
+
+			completedOpsText += fmt.Sprintf("### Completed Operation %d: %s %s\n\n", completed.Number, verb, completed.Name)
+			completedOpsText += description + "\n\n"
+			completedOpsText += fmt.Sprintf("<%s>\n", completed.Name)
 			completedOpsText += completed.FinalContent
-			completedOpsText += "\n</final_content>\n\n"
+			completedOpsText += fmt.Sprintf("\n</%s>\n\n", completed.Name)
 		}
 	} else {
-		completedOpsText = "\n## Previously Completed Operations in This Consolidation\n\nThis is the first operation in this consolidation session.\n\n"
+		completedOpsText = "\nThis is the first operation in this consolidation session.\n\n"
 	}
 
 	// Replace template variables
