@@ -4,6 +4,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -192,7 +193,184 @@ func (r *RetrievalRanker) CreateRetrievalRanking() error {
 		fmt.Printf("Combined total: %d characters (~%d tokens)\n", totalSize+totalNewSize, (totalSize+totalNewSize)/4)
 	}
 
+	// Generate LLM ranking and save to sleep directory
+	fmt.Println()
+	fmt.Println(color.CyanString("=== Generating LLM Ranking ===\n"))
+
+	indexNode, err := r.getIndexNode(activeStore)
+	if err != nil {
+		return fmt.Errorf("failed to load index.md: %w", err)
+	}
+
+	// Filter out index.md from allNodes
+	var otherNodes []NodeInfo
+	for _, node := range allNodes {
+		if node.Name != "index.md" {
+			otherNodes = append(otherNodes, node)
+		}
+	}
+
+	rankingPath, err := r.generateRanking(activeStore, indexNode, newEpisodicNodes, otherNodes)
+	if err != nil {
+		return fmt.Errorf("failed to generate ranking: %w", err)
+	}
+
+	fmt.Printf("✓ Ranking saved to: %s\n", rankingPath)
+
 	return nil
+}
+
+// getIndexNode loads index.md as a NodeInfo
+func (r *RetrievalRanker) getIndexNode(storePath string) (NodeInfo, error) {
+	indexPath := filepath.Join(storePath, "index.md")
+	content, err := os.ReadFile(indexPath)
+	if err != nil {
+		return NodeInfo{}, fmt.Errorf("failed to read index.md: %w", err)
+	}
+
+	return NodeInfo{
+		Name:      "index.md",
+		Path:      indexPath,
+		Size:      len(content),
+		Iteration: 0,
+	}, nil
+}
+
+// generateRanking creates an LLM ranking request and saves the result as TSV
+func (r *RetrievalRanker) generateRanking(storePath string, indexNode NodeInfo, newEpisodicNodes []NodeInfo, otherNodes []NodeInfo) (string, error) {
+	// Find latest sleep session
+	sleepDir := filepath.Join(storePath, "sleep")
+	entries, err := os.ReadDir(sleepDir)
+	if err != nil {
+		return "", fmt.Errorf("failed to read sleep directory: %w", err)
+	}
+
+	var latestTimestamp string
+	for _, entry := range entries {
+		if entry.IsDir() && entry.Name() > latestTimestamp {
+			latestTimestamp = entry.Name()
+		}
+	}
+
+	if latestTimestamp == "" {
+		return "", fmt.Errorf("no sleep sessions found")
+	}
+
+	sleepSessionPath := filepath.Join(sleepDir, latestTimestamp)
+
+	// Load grimoire template
+	grimoirePath := config.GetGrimoirePath()
+	templatePath := filepath.Join(grimoirePath, "retrieval-init-ranker.md")
+	template, err := os.ReadFile(templatePath)
+	if err != nil {
+		return "", fmt.Errorf("failed to read ranker template: %w", err)
+	}
+
+	// Format nodes for injection
+	indexSection := r.formatNodeSection(storePath, []NodeInfo{indexNode})
+	newEpisodicSection := r.formatNodeSection(storePath, newEpisodicNodes)
+	otherSection := r.formatNodeSection(storePath, otherNodes)
+
+	// Replace placeholders
+	prompt := string(template)
+	prompt = strings.ReplaceAll(prompt, "__INDEX__", indexSection)
+	prompt = strings.ReplaceAll(prompt, "__NEW_EPISODIC_NODES__", newEpisodicSection)
+	prompt = strings.ReplaceAll(prompt, "__OTHER_NODES__", otherSection)
+
+	// Create hnt-chat conversation
+	cmd := exec.Command("hnt-chat", "new")
+	output, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("failed to create hnt-chat session: %w", err)
+	}
+	chatDir := strings.TrimSpace(string(output))
+	fmt.Printf("Created ranking conversation: %s\n", chatDir)
+
+	// Add the ranker prompt as user message
+	cmd = exec.Command("hnt-chat", "add", "user", "-c", chatDir)
+	cmd.Stdin = strings.NewReader(prompt)
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("failed to add ranker prompt: %w", err)
+	}
+
+	// Generate ranking with LLM
+	fmt.Printf("Generating ranking with LLM...\n")
+	cmd = exec.Command("hnt-chat", "gen", "--model", "openrouter/google/gemini-2.5-pro", "--include-reasoning", "--output-filename", "-c", chatDir)
+	outputFilename, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("failed to generate ranking: %w", err)
+	}
+
+	outputFile := strings.TrimSpace(string(outputFilename))
+	rankingOutputPath := filepath.Join(chatDir, outputFile)
+	fmt.Printf("Generated ranking output: %s\n", rankingOutputPath)
+
+	// Read and extract rankings
+	rawOutput, err := os.ReadFile(rankingOutputPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to read ranking output: %w", err)
+	}
+
+	rankings, err := extractRankings(string(rawOutput))
+	if err != nil {
+		return "", fmt.Errorf("failed to extract rankings: %w", err)
+	}
+
+	// Save as TSV in sleep session directory
+	tsvPath := filepath.Join(sleepSessionPath, "retrieval-ranking.tsv")
+	if err := os.WriteFile(tsvPath, []byte(rankings), 0644); err != nil {
+		return "", fmt.Errorf("failed to save ranking TSV: %w", err)
+	}
+
+	return tsvPath, nil
+}
+
+// formatNodeSection formats a list of nodes for prompt injection
+func (r *RetrievalRanker) formatNodeSection(storePath string, nodes []NodeInfo) string {
+	if len(nodes) == 0 {
+		return "(None)"
+	}
+
+	var sb strings.Builder
+	for _, node := range nodes {
+		// Determine node type from path
+		nodeType := "unknown"
+		relPath, _ := filepath.Rel(storePath, node.Path)
+		if strings.HasPrefix(relPath, "semantic/") {
+			nodeType = "semantic"
+		} else if strings.HasPrefix(relPath, "episodic/") {
+			nodeType = "episodic"
+		} else if strings.HasPrefix(relPath, "episodic-raw/") {
+			nodeType = "episodic-raw"
+		} else if node.Name == "index.md" {
+			nodeType = "index"
+		}
+
+		// Read content
+		content, err := os.ReadFile(node.Path)
+		if err != nil {
+			content = []byte("(Error reading file)")
+		}
+
+		sb.WriteString(fmt.Sprintf("### %s (type: %s)\n\n", node.Name, nodeType))
+		sb.WriteString("```\n")
+		sb.WriteString(string(content))
+		sb.WriteString("\n```\n\n")
+	}
+
+	return sb.String()
+}
+
+// extractRankings extracts content between <rankings> tags
+func extractRankings(content string) (string, error) {
+	pattern := regexp.MustCompile(`(?s)<rankings>(.*?)</rankings>`)
+	matches := pattern.FindStringSubmatch(content)
+
+	if len(matches) < 2 {
+		return "", fmt.Errorf("no <rankings> tags found in output")
+	}
+
+	return strings.TrimSpace(matches[1]), nil
 }
 
 // getNewEpisodicNodes finds Episodic Create operations from the latest sleep session
