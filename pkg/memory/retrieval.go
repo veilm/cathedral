@@ -1,6 +1,7 @@
 package memory
 
 import (
+	"encoding/xml"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -169,7 +170,88 @@ func (r *RetrievalRanker) CreateRetrievalRanking() error {
 			node.Name, node.Size, node.Iteration, relPath)
 	}
 
+	// Get newly created Episodic nodes from latest consolidation
+	newEpisodicNodes, err := r.getNewEpisodicNodes(activeStore)
+	if err != nil {
+		return err
+	}
+
+	if len(newEpisodicNodes) > 0 {
+		fmt.Println()
+		fmt.Println(color.CyanString("=== Newly Created Episodic Nodes (from latest consolidation) ===\n"))
+		fmt.Printf("Found %d newly created episodic node(s):\n\n", len(newEpisodicNodes))
+
+		totalNewSize := 0
+		for _, nodeInfo := range newEpisodicNodes {
+			totalNewSize += nodeInfo.Size
+			relPath, _ := filepath.Rel(activeStore, nodeInfo.Path)
+			fmt.Printf("  - %s (%d chars) [%s]\n", nodeInfo.Name, nodeInfo.Size, relPath)
+		}
+
+		fmt.Printf("\nTotal from new episodic nodes: %d characters (~%d tokens)\n", totalNewSize, totalNewSize/4)
+		fmt.Printf("Combined total: %d characters (~%d tokens)\n", totalSize+totalNewSize, (totalSize+totalNewSize)/4)
+	}
+
 	return nil
+}
+
+// getNewEpisodicNodes finds Episodic Create operations from the latest sleep session
+func (r *RetrievalRanker) getNewEpisodicNodes(storePath string) ([]NodeInfo, error) {
+	sleepDir := filepath.Join(storePath, "sleep")
+
+	// Find latest sleep session
+	entries, err := os.ReadDir(sleepDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read sleep directory: %w", err)
+	}
+
+	// Find the most recent directory (highest timestamp)
+	var latestTimestamp string
+	for _, entry := range entries {
+		if entry.IsDir() && entry.Name() > latestTimestamp {
+			latestTimestamp = entry.Name()
+		}
+	}
+
+	if latestTimestamp == "" {
+		return nil, fmt.Errorf("no sleep sessions found")
+	}
+
+	sleepSessionPath := filepath.Join(sleepDir, latestTimestamp)
+
+	// Read structured-plan.xml
+	structuredPlanPath := filepath.Join(sleepSessionPath, "structured-plan.xml")
+	structuredPlanContent, err := os.ReadFile(structuredPlanPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read structured-plan.xml: %w", err)
+	}
+
+	var plan StructuredPlan
+	if err := xml.Unmarshal(structuredPlanContent, &plan); err != nil {
+		return nil, fmt.Errorf("failed to parse structured plan: %w", err)
+	}
+
+	// Extract Episodic Create operations and verify they exist
+	var newEpisodicNodes []NodeInfo
+	for _, op := range plan.Operations {
+		if op.OpType == "Create" && op.NodeType == "Episodic" {
+			filePath := filepath.Join(storePath, "episodic", op.Name)
+
+			content, err := os.ReadFile(filePath)
+			if err != nil {
+				return nil, fmt.Errorf("episodic node from consolidation not found: %s\nRun 'cathedral execute-consolidation' to complete the consolidation", op.Name)
+			}
+
+			newEpisodicNodes = append(newEpisodicNodes, NodeInfo{
+				Name:      op.Name,
+				Path:      filePath,
+				Size:      len(content),
+				Iteration: -1, // Special marker for consolidation-created nodes
+			})
+		}
+	}
+
+	return newEpisodicNodes, nil
 }
 
 // extractWikiLinks extracts all [[link]] patterns from content
