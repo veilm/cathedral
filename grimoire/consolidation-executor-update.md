@@ -122,4 +122,6 @@ The goal is a narrative that stands on its own while connecting to deeper conten
 - Write prose that feels natural to *you* - worry less about possible other readers, because this is *your* memory, not theirs
 - Let summaries emerge from the narrative structure
 
+__NODE_TYPE_GUIDELINES__
+
 It's time to begin your consolidation. Your future selves are relying on you.
