@@ -139,3 +139,12 @@
 	Maybe if it's like a lazy conversation, it won't be able to switch into
 	"this is important I need to complete a definite task" mode? but it seemed
 	pretty fine in initial testing
+
+- Which nodes should you start with in context?
+	index.md obviosuly but ideally index isn't that long, maybe like 3k tokens max
+	You still want to be able to make updates to it in just one Update() operation execution
+
+	So either way you likely want to include more than just index.md in context
+	What other nodes are most important?
+	- Most recent episodic nodes, and maybe most less critically, recent semantic nodes
+	- Top-level episodic and semantic nodes linked to by index.md

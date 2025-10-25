@@ -18,6 +18,11 @@ type Config struct {
 	// User role may be necessary for certain LLM provider restrictions
 	MemoryConsolidationRole string `json:"memory_consolidation_role,omitempty"`
 
+	// RetrievalThreshold specifies the character count threshold for auto-populating
+	// memory nodes at conversation start. BFS traversal stops when cumulative
+	// character count reaches this threshold. Default: 24000 characters (~6000 tokens)
+	RetrievalThreshold int `json:"retrieval_threshold,omitempty"`
+
 	configPath string // Internal: path to config file
 }
 
@@ -38,6 +43,7 @@ func Load(configPath string) (*Config, error) {
 	cfg := &Config{
 		Stores:                  make(map[string]string),
 		MemoryConsolidationRole: "system", // Default to system role
+		RetrievalThreshold:      24000,    // Default to 24000 characters (~6000 tokens)
 		configPath:              configPath,
 	}
 
@@ -66,6 +72,11 @@ func Load(configPath string) (*Config, error) {
 		cfg.MemoryConsolidationRole = "system"
 	} else if cfg.MemoryConsolidationRole != "system" && cfg.MemoryConsolidationRole != "user" {
 		return nil, fmt.Errorf("invalid memory_consolidation_role '%s': must be 'system' or 'user'", cfg.MemoryConsolidationRole)
+	}
+
+	// Ensure RetrievalThreshold has a valid value
+	if cfg.RetrievalThreshold == 0 {
+		cfg.RetrievalThreshold = 24000
 	}
 
 	cfg.configPath = configPath
