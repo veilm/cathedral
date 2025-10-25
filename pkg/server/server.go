@@ -498,16 +498,8 @@ func (s *Server) handleNewConversationContinued(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	// Read agentic-retrieval.md if it exists
-	agenticRetrievalContent := ""
-	agenticRetrievalPath := filepath.Join(grimoirePath, "agentic-retrieval.md")
-	if agenticData, err := os.ReadFile(agenticRetrievalPath); err == nil {
-		agenticRetrievalContent = string(agenticData)
-	}
-
 	// Replace placeholders
 	systemPrompt := strings.ReplaceAll(string(templateContent), "__MEMORY_INDEX__", strings.TrimSpace(string(indexContent)))
-	systemPrompt = strings.ReplaceAll(systemPrompt, "__AGENTIC_RETRIEVAL__", strings.TrimSpace(agenticRetrievalContent))
 
 	// Create new conversation using hinata package
 	baseDir, err := chat.GetConversationsDir()
