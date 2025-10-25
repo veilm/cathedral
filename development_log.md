@@ -126,9 +126,7 @@ save to index.md based on the content of a given conversation
 	DONE 1. Submitted conv to LLM and received a plan
 	DONE 2. Submitted plan to XML formatter LLM
 	DONE 3. Parsed XML from formatter
-	TODO 4. Iterate through each operation and submit to executor LLM
-		TODO Create
-		TODO Update
-			DONE initial prompt
-				TODO iterate prompt a bit
-			TODO iterate on implementation a bit
+	DONE 4. Iterate through each operation and submit to executor LLM
+		DONE Create
+		DONE Update
+		DONE episodic-raw

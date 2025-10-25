@@ -521,7 +521,7 @@ func (p *Planner) ParseConsolidationPlan(planContent, sleepSessionDir string) (s
 
 	// Generate the structured plan
 	fmt.Printf("[PARSE-PLAN] Generating structured XML...\n")
-	cmd = exec.Command("hnt-chat", "gen", "--model", "openrouter/google/gemini-2.5-pro", "--output-filename", "-c", chatDir)
+	cmd = exec.Command("hnt-chat", "gen", "--model", "openrouter/google/gemini-2.5-pro", "--include-reasoning", "--output-filename", "-c", chatDir)
 	outputFilename, err := cmd.Output()
 	if err != nil {
 		return "", fmt.Errorf("failed to generate structured plan: %w", err)

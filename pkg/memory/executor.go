@@ -19,10 +19,12 @@ type Executor struct {
 
 // CompletedOperation represents an operation that has been executed
 type CompletedOperation struct {
-	Number      int
-	OpType      string
-	Name        string
+	Number       int
+	OpType       string
+	Name         string
 	FinalContent string
+	ChatDir      string
+	OpDir        string
 }
 
 // NewExecutor creates a new consolidation executor
@@ -79,17 +81,19 @@ func (e *Executor) ExecuteConsolidation(sleepSessionDir string) error {
 		fmt.Printf("[EXECUTE-CONSOLIDATION] Type: %s, Node: %s (%s)\n", op.OpType, op.Name, op.NodeType)
 
 		var finalContent string
+		var chatDir string
+		var opDir string
 		var err error
 
 		switch op.OpType {
 		case "Update":
-			finalContent, err = e.ExecuteUpdateOperation(op, sessionDir, sleepSessionDir, string(planContent), completedOps)
+			finalContent, chatDir, opDir, err = e.ExecuteUpdateOperation(op, sessionDir, sleepSessionDir, string(planContent), completedOps)
 			if err != nil {
 				return fmt.Errorf("failed to execute operation %d: %w", op.Number, err)
 			}
 
 		case "Create":
-			finalContent, err = e.ExecuteCreateOperation(op, sessionDir, sleepSessionDir, string(planContent), completedOps)
+			finalContent, chatDir, opDir, err = e.ExecuteCreateOperation(op, sessionDir, sleepSessionDir, string(planContent), completedOps)
 			if err != nil {
 				return fmt.Errorf("failed to execute operation %d: %w", op.Number, err)
 			}
@@ -104,12 +108,40 @@ func (e *Executor) ExecuteConsolidation(sleepSessionDir string) error {
 			OpType:       op.OpType,
 			Name:         op.Name,
 			FinalContent: finalContent,
+			ChatDir:      chatDir,
+			OpDir:        opDir,
 		})
+	}
+
+	// Append execution summary to log
+	logPath := filepath.Join(sleepSessionDir, "log.txt")
+	logAddition := fmt.Sprintf("\n\n=== Consolidation Execution ===\n")
+	logAddition += fmt.Sprintf("Executed %d operations\n\n", len(completedOps))
+
+	for _, completed := range completedOps {
+		logAddition += fmt.Sprintf("Operation %d: %s %s\n", completed.Number, completed.OpType, completed.Name)
+		logAddition += fmt.Sprintf("  HNT-Chat conversation: %s\n", completed.ChatDir)
+		logAddition += fmt.Sprintf("  Operation directory: %s\n", completed.OpDir)
+		logAddition += fmt.Sprintf("  Final word count: ~%d words\n", len(completed.FinalContent)/6)
+		logAddition += "\n"
+	}
+
+	logAddition += fmt.Sprintf("Consolidation execution complete!\n")
+
+	logFile, err := os.OpenFile(logPath, os.O_APPEND|os.O_WRONLY, 0644)
+	if err != nil {
+		return fmt.Errorf("failed to open log for appending: %w", err)
+	}
+	defer logFile.Close()
+
+	if _, err := logFile.WriteString(logAddition); err != nil {
+		return fmt.Errorf("failed to append execution log: %w", err)
 	}
 
 	fmt.Printf("\n[EXECUTE-CONSOLIDATION] ========================================\n")
 	fmt.Printf("[EXECUTE-CONSOLIDATION] Consolidation execution complete!\n")
 	fmt.Printf("[EXECUTE-CONSOLIDATION] Sleep session: %s\n", sleepSessionDir)
+	fmt.Printf("[EXECUTE-CONSOLIDATION] Updated log: %s\n", logPath)
 
 	return nil
 }
@@ -145,11 +177,11 @@ type ReplaceFile struct {
 }
 
 // ExecuteUpdateOperation executes a single Update operation from the consolidation plan
-// Returns the final content of the updated file
-func (e *Executor) ExecuteUpdateOperation(op Operation, sessionDir, sleepSessionDir, planContent string, completedOps []CompletedOperation) (string, error) {
+// Returns: finalContent, chatDir, opDir, error
+func (e *Executor) ExecuteUpdateOperation(op Operation, sessionDir, sleepSessionDir, planContent string, completedOps []CompletedOperation) (string, string, string, error) {
 	activeStore := e.config.GetActiveStorePath()
 	if activeStore == "" {
-		return "", fmt.Errorf("no active memory store")
+		return "", "", "", fmt.Errorf("no active memory store")
 	}
 
 	fmt.Printf("[EXECUTE-UPDATE] Starting Operation %d: Update %s\n", op.Number, op.Name)
@@ -158,7 +190,7 @@ func (e *Executor) ExecuteUpdateOperation(op Operation, sessionDir, sleepSession
 	opDirName := fmt.Sprintf("%d-update-%s", op.Number, strings.TrimSuffix(op.Name, ".md"))
 	opDir := filepath.Join(sleepSessionDir, "operations", opDirName)
 	if err := os.MkdirAll(opDir, 0755); err != nil {
-		return "", fmt.Errorf("failed to create operation directory: %w", err)
+		return "", "", "", fmt.Errorf("failed to create operation directory: %w", err)
 	}
 	fmt.Printf("[EXECUTE-UPDATE] Created operation directory: %s\n", opDir)
 
@@ -172,36 +204,36 @@ func (e *Executor) ExecuteUpdateOperation(op Operation, sessionDir, sleepSession
 	case "Semantic":
 		filePath = filepath.Join(activeStore, "semantic", op.Name)
 	default:
-		return "", fmt.Errorf("unknown node type: %s", op.NodeType)
+		return "", "", "", fmt.Errorf("unknown node type: %s", op.NodeType)
 	}
 
 	// Read current file content
 	currentContent, err := os.ReadFile(filePath)
 	if err != nil {
-		return "", fmt.Errorf("failed to read file %s: %w", filePath, err)
+		return "", "", "", fmt.Errorf("failed to read file %s: %w", filePath, err)
 	}
 	fmt.Printf("[EXECUTE-UPDATE] Read current file: %s (%d bytes)\n", filePath, len(currentContent))
 
 	// Save original content
 	originalPath := filepath.Join(opDir, "0-original.md")
 	if err := os.WriteFile(originalPath, currentContent, 0644); err != nil {
-		return "", fmt.Errorf("failed to save original content: %w", err)
+		return "", "", "", fmt.Errorf("failed to save original content: %w", err)
 	}
 	fmt.Printf("[EXECUTE-UPDATE] Saved original to: %s\n", originalPath)
 
 	// Create executor conversation
 	chatDir, err := e.createUpdateConversation(sessionDir, planContent, op, string(currentContent), completedOps)
 	if err != nil {
-		return "", fmt.Errorf("failed to create executor conversation: %w", err)
+		return "", "", "", fmt.Errorf("failed to create executor conversation: %w", err)
 	}
 	fmt.Printf("[EXECUTE-UPDATE] Created executor conversation: %s\n", chatDir)
 
 	// Generate edits from LLM
 	fmt.Printf("[EXECUTE-UPDATE] Generating edits...\n")
-	cmd := exec.Command("hnt-chat", "gen", "--model", "openrouter/google/gemini-2.5-pro", "--output-filename", "-c", chatDir)
+	cmd := exec.Command("hnt-chat", "gen", "--model", "openrouter/google/gemini-2.5-pro", "--include-reasoning", "--output-filename", "-c", chatDir)
 	outputFilename, err := cmd.Output()
 	if err != nil {
-		return "", fmt.Errorf("failed to generate edits: %w", err)
+		return "", "", "", fmt.Errorf("failed to generate edits: %w", err)
 	}
 
 	outputFile := strings.TrimSpace(string(outputFilename))
@@ -211,18 +243,18 @@ func (e *Executor) ExecuteUpdateOperation(op Operation, sessionDir, sleepSession
 	// Read and extract edits
 	rawEdits, err := os.ReadFile(editsPath)
 	if err != nil {
-		return "", fmt.Errorf("failed to read edits: %w", err)
+		return "", "", "", fmt.Errorf("failed to read edits: %w", err)
 	}
 
 	extractedEdits, err := extractEdits(string(rawEdits))
 	if err != nil {
-		return "", fmt.Errorf("failed to extract edits XML: %w", err)
+		return "", "", "", fmt.Errorf("failed to extract edits XML: %w", err)
 	}
 
 	// Parse edits manually (not using XML parser to avoid escaping issues)
 	edits, err := parseEditsManually(extractedEdits)
 	if err != nil {
-		return "", fmt.Errorf("failed to parse edits: %w", err)
+		return "", "", "", fmt.Errorf("failed to parse edits: %w", err)
 	}
 	fmt.Printf("[EXECUTE-UPDATE] Parsed %d edit operations\n", len(edits.Children))
 
@@ -249,7 +281,7 @@ func (e *Executor) ExecuteUpdateOperation(op Operation, sessionDir, sleepSession
 		}
 
 		if err != nil {
-			return "", fmt.Errorf("failed to apply edit %d (%s): %w", i+1, opDesc, err)
+			return "", "", "", fmt.Errorf("failed to apply edit %d (%s): %w", i+1, opDesc, err)
 		}
 
 		fmt.Printf("[EXECUTE-UPDATE] Applied edit %d: %s\n", i+1, opDesc)
@@ -258,33 +290,33 @@ func (e *Executor) ExecuteUpdateOperation(op Operation, sessionDir, sleepSession
 		// Save version after this edit
 		versionPath := filepath.Join(opDir, fmt.Sprintf("%d-after-%s.md", i+1, editOp.Type))
 		if err := os.WriteFile(versionPath, []byte(currentResult), 0644); err != nil {
-			return "", fmt.Errorf("failed to save version: %w", err)
+			return "", "", "", fmt.Errorf("failed to save version: %w", err)
 		}
 	}
 
 	// Write final result back to the file
 	if err := os.WriteFile(filePath, []byte(currentResult), 0644); err != nil {
-		return "", fmt.Errorf("failed to write updated file: %w", err)
+		return "", "", "", fmt.Errorf("failed to write updated file: %w", err)
 	}
 	fmt.Printf("[EXECUTE-UPDATE] Updated file: %s\n", filePath)
 
 	// Save final version to operation directory
 	finalPath := filepath.Join(opDir, "final.md")
 	if err := os.WriteFile(finalPath, []byte(currentResult), 0644); err != nil {
-		return "", fmt.Errorf("failed to save final version: %w", err)
+		return "", "", "", fmt.Errorf("failed to save final version: %w", err)
 	}
 	fmt.Printf("[EXECUTE-UPDATE] Saved final version to: %s\n", finalPath)
 
 	fmt.Printf("[EXECUTE-UPDATE] Operation %d complete!\n", op.Number)
-	return currentResult, nil
+	return currentResult, chatDir, opDir, nil
 }
 
 // ExecuteCreateOperation executes a single Create operation from the consolidation plan
-// Returns the final content of the created file
-func (e *Executor) ExecuteCreateOperation(op Operation, sessionDir, sleepSessionDir, planContent string, completedOps []CompletedOperation) (string, error) {
+// Returns: finalContent, chatDir, opDir, error
+func (e *Executor) ExecuteCreateOperation(op Operation, sessionDir, sleepSessionDir, planContent string, completedOps []CompletedOperation) (string, string, string, error) {
 	activeStore := e.config.GetActiveStorePath()
 	if activeStore == "" {
-		return "", fmt.Errorf("no active memory store")
+		return "", "", "", fmt.Errorf("no active memory store")
 	}
 
 	fmt.Printf("[EXECUTE-CREATE] Starting Operation %d: Create %s\n", op.Number, op.Name)
@@ -293,7 +325,7 @@ func (e *Executor) ExecuteCreateOperation(op Operation, sessionDir, sleepSession
 	opDirName := fmt.Sprintf("%d-create-%s", op.Number, strings.TrimSuffix(op.Name, ".md"))
 	opDir := filepath.Join(sleepSessionDir, "operations", opDirName)
 	if err := os.MkdirAll(opDir, 0755); err != nil {
-		return "", fmt.Errorf("failed to create operation directory: %w", err)
+		return "", "", "", fmt.Errorf("failed to create operation directory: %w", err)
 	}
 	fmt.Printf("[EXECUTE-CREATE] Created operation directory: %s\n", opDir)
 
@@ -305,32 +337,32 @@ func (e *Executor) ExecuteCreateOperation(op Operation, sessionDir, sleepSession
 	case "Episodic":
 		episodicDir := filepath.Join(activeStore, "episodic")
 		if err := os.MkdirAll(episodicDir, 0755); err != nil {
-			return "", fmt.Errorf("failed to create episodic directory: %w", err)
+			return "", "", "", fmt.Errorf("failed to create episodic directory: %w", err)
 		}
 		filePath = filepath.Join(episodicDir, op.Name)
 	case "Semantic":
 		semanticDir := filepath.Join(activeStore, "semantic")
 		if err := os.MkdirAll(semanticDir, 0755); err != nil {
-			return "", fmt.Errorf("failed to create semantic directory: %w", err)
+			return "", "", "", fmt.Errorf("failed to create semantic directory: %w", err)
 		}
 		filePath = filepath.Join(semanticDir, op.Name)
 	default:
-		return "", fmt.Errorf("unknown node type: %s", op.NodeType)
+		return "", "", "", fmt.Errorf("unknown node type: %s", op.NodeType)
 	}
 
 	// Create executor conversation
 	chatDir, err := e.createCreateConversation(sessionDir, planContent, op, completedOps)
 	if err != nil {
-		return "", fmt.Errorf("failed to create executor conversation: %w", err)
+		return "", "", "", fmt.Errorf("failed to create executor conversation: %w", err)
 	}
 	fmt.Printf("[EXECUTE-CREATE] Created executor conversation: %s\n", chatDir)
 
 	// Generate content from LLM
 	fmt.Printf("[EXECUTE-CREATE] Generating content...\n")
-	cmd := exec.Command("hnt-chat", "gen", "--model", "openrouter/google/gemini-2.5-pro", "--output-filename", "-c", chatDir)
+	cmd := exec.Command("hnt-chat", "gen", "--model", "openrouter/google/gemini-2.5-pro", "--include-reasoning", "--output-filename", "-c", chatDir)
 	outputFilename, err := cmd.Output()
 	if err != nil {
-		return "", fmt.Errorf("failed to generate content: %w", err)
+		return "", "", "", fmt.Errorf("failed to generate content: %w", err)
 	}
 
 	outputFile := strings.TrimSpace(string(outputFilename))
@@ -340,32 +372,32 @@ func (e *Executor) ExecuteCreateOperation(op Operation, sessionDir, sleepSession
 	// Read generated content
 	rawContent, err := os.ReadFile(contentPath)
 	if err != nil {
-		return "", fmt.Errorf("failed to read generated content: %w", err)
+		return "", "", "", fmt.Errorf("failed to read generated content: %w", err)
 	}
 
 	// Extract content from <content> tags
 	extractedContent, err := extractContent(string(rawContent))
 	if err != nil {
-		return "", fmt.Errorf("failed to extract content XML: %w", err)
+		return "", "", "", fmt.Errorf("failed to extract content XML: %w", err)
 	}
 
 	finalContent := strings.TrimSpace(extractedContent)
 
 	// Write to the actual file
 	if err := os.WriteFile(filePath, []byte(finalContent), 0644); err != nil {
-		return "", fmt.Errorf("failed to write file: %w", err)
+		return "", "", "", fmt.Errorf("failed to write file: %w", err)
 	}
 	fmt.Printf("[EXECUTE-CREATE] Created file: %s\n", filePath)
 
 	// Save to operation directory
 	savedPath := filepath.Join(opDir, "created.md")
 	if err := os.WriteFile(savedPath, []byte(finalContent), 0644); err != nil {
-		return "", fmt.Errorf("failed to save to operation directory: %w", err)
+		return "", "", "", fmt.Errorf("failed to save to operation directory: %w", err)
 	}
 	fmt.Printf("[EXECUTE-CREATE] Saved copy to: %s\n", savedPath)
 
 	fmt.Printf("[EXECUTE-CREATE] Operation %d complete!\n", op.Number)
-	return finalContent, nil
+	return finalContent, chatDir, opDir, nil
 }
 
 // createUpdateConversation creates a hinata conversation for the update executor

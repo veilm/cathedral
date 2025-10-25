@@ -57,6 +57,7 @@ Decide which memory nodes to create or update:
 - If you want to add a small update (<~750 words), append to an existing node
 - Episodic memory: time-based organization (e.g., "2025-October.md", "2025-12-25-nutrition-debate.md")
   - Granularity adapts to content volume
+  - Always include a time period in the node name
   - In most cases you'll want to at least create a node dedicated to this experience
   - Occasionally, for longer experiences, there'll be significantly more episodic content to create than would fit in one memory node
     - In such a case, you can split it across multiple episodic nodes that collectively cover this session
