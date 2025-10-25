@@ -460,6 +460,23 @@ func (e *Executor) createUpdateConversation(sessionDir, planContent string, op O
 	// Extract session path
 	sessionPath := getSessionPath(sessionDir)
 
+	// Load node-type-specific guidelines
+	var guidelinesPath string
+	if op.NodeType == "Index" {
+		guidelinesPath = filepath.Join(grimoirePath, "update-index-guide.md")
+	} else if op.NodeType == "Episodic" {
+		guidelinesPath = filepath.Join(grimoirePath, "update-episodic-guide.md")
+	} else if op.NodeType == "Semantic" {
+		guidelinesPath = filepath.Join(grimoirePath, "update-semantic-guide.md")
+	} else {
+		return "", fmt.Errorf("unexpected node type for update operation: %s", op.NodeType)
+	}
+
+	guidelines, err := os.ReadFile(guidelinesPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to read guidelines file: %w", err)
+	}
+
 	// Format completed operations for context
 	var completedOpsText string
 	if len(completedOps) > 0 {
@@ -493,6 +510,7 @@ func (e *Executor) createUpdateConversation(sessionDir, planContent string, op O
 	prompt = strings.ReplaceAll(prompt, "__WORDS__", fmt.Sprintf("%d", op.Words))
 	prompt = strings.ReplaceAll(prompt, "__CURRENT_CONTENT__", strings.TrimRight(currentContent, "\n"))
 	prompt = strings.ReplaceAll(prompt, "__COMPLETED_OPERATIONS__", completedOpsText)
+	prompt = strings.ReplaceAll(prompt, "__NODE_TYPE_GUIDELINES__", strings.TrimSpace(string(guidelines)))
 
 	// Wrap in <system> tags and add as user message (trim prompt to avoid extra blank lines)
 	systemMessage := fmt.Sprintf("<system>\n%s\n</system>", strings.TrimRight(prompt, "\n"))
