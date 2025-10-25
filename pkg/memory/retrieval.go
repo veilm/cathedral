@@ -202,10 +202,15 @@ func (r *RetrievalRanker) CreateRetrievalRanking() error {
 		return fmt.Errorf("failed to load index.md: %w", err)
 	}
 
-	// Filter out index.md from allNodes
+	// Filter out index.md from allNodes and check for overlaps with new episodic nodes
+	newEpisodicNames := make(map[string]bool)
+	for _, node := range newEpisodicNodes {
+		newEpisodicNames[node.Name] = true
+	}
+
 	var otherNodes []NodeInfo
 	for _, node := range allNodes {
-		if node.Name != "index.md" {
+		if node.Name != "index.md" && !newEpisodicNames[node.Name] {
 			otherNodes = append(otherNodes, node)
 		}
 	}
@@ -352,10 +357,13 @@ func (r *RetrievalRanker) formatNodeSection(storePath string, nodes []NodeInfo) 
 			content = []byte("(Error reading file)")
 		}
 
+		// Strip trailing newlines from content
+		contentStr := strings.TrimRight(string(content), "\n")
+
 		sb.WriteString(fmt.Sprintf("### %s (type: %s)\n\n", node.Name, nodeType))
-		sb.WriteString("```\n")
-		sb.WriteString(string(content))
-		sb.WriteString("\n```\n\n")
+		sb.WriteString(fmt.Sprintf("<%s>\n", node.Name))
+		sb.WriteString(contentStr)
+		sb.WriteString(fmt.Sprintf("\n</%s>\n\n", node.Name))
 	}
 
 	return sb.String()
