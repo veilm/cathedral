@@ -123,10 +123,28 @@ save to index.md based on the content of a given conversation
 	model-specific. Even if we lock in Gemini, we want future Geminis too
 - Implementing cathedral CLI consolidation
 	TODO step 0. allow navigation (for consolidation plans built on existing wikis)
-	DONE 1. Submitted conv to LLM and received a plan
-	DONE 2. Submitted plan to XML formatter LLM
-	DONE 3. Parsed XML from formatter
-	DONE 4. Iterate through each operation and submit to executor LLM
-		DONE Create
-		DONE Update
-		DONE episodic-raw
+
+	Now we have
+	- `cathedral plan-consolidation`
+		Makes a plan of which nodes to create and to upddate
+			Each is an operation
+				e.g. operation 1: create 2025-10-12.md, type episodic
+					approximately 520 words
+					reasoning: it'll probably have XYZ
+
+		Parses the plan into structured XML
+	- `cathedral execute-consolidation`
+		Iterates through the parsed XML for operations
+		Creates different prompt with different guidelines depending on the node
+		tyep and operation
+		Different output format depending on update vs create
+
+		Decent diff-like format with different options, for Update
+		Simple full output for Create
+
+- TODO Making a ranking command, to look through existing nodes and decide which are
+	most important
+
+	Then we have a configurable threshold (e.g. 6k tokens), of budget for
+	including the most important nodes, in the initial system prompt for new
+	conversations

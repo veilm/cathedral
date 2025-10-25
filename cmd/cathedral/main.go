@@ -160,6 +160,14 @@ Use --session to specify which sleep session to execute, or omit to use the late
 	}
 	readCmd.Flags().BoolVar(&noTags, "no-tags", false, "Don't wrap output in XML tags")
 
+	// Retrieval ranking command
+	retrievalRankingCmd := &cobra.Command{
+		Use:   "create-retrieval-ranking",
+		Short: "Perform BFS traversal from index.md to rank nodes for retrieval",
+		Args:  cobra.NoArgs,
+		RunE:  runCreateRetrievalRanking,
+	}
+
 	// Add all commands to root
 	rootCmd.AddCommand(
 		createStoreCmd,
@@ -175,6 +183,7 @@ Use --session to specify which sleep session to execute, or omit to use the late
 		startConvCmd,
 		healthCmd,
 		readCmd,
+		retrievalRankingCmd,
 	)
 
 	if err := rootCmd.Execute(); err != nil {
@@ -388,4 +397,14 @@ func runExecuteConsolidation(cmd *cobra.Command, args []string) error {
 
 	executor := memory.NewExecutor(cfg)
 	return executor.ExecuteConsolidation(sleepSessionPath)
+}
+
+func runCreateRetrievalRanking(cmd *cobra.Command, args []string) error {
+	cfg, err := config.Load(configPath)
+	if err != nil {
+		return err
+	}
+
+	ranker := memory.NewRetrievalRanker(cfg)
+	return ranker.CreateRetrievalRanking()
 }
