@@ -544,3 +544,108 @@ func contains(slice []string, item string) bool {
 	}
 	return false
 }
+
+// LoadInitialMemory loads memory nodes from the latest retrieval ranking
+// and formats them for injection into conversation start prompts.
+// It accumulates nodes until the threshold is reached or exceeded.
+func LoadInitialMemory(cfg *config.Config) (string, error) {
+	activeStore := cfg.GetActiveStorePath()
+	if activeStore == "" {
+		return "", nil // No active store, return empty
+	}
+
+	// Find latest consolidation directory
+	sleepDir := filepath.Join(activeStore, "sleep")
+	entries, err := os.ReadDir(sleepDir)
+	if err != nil {
+		return "", nil // No sleep directory, return empty
+	}
+
+	var latestTimestamp string
+	for _, entry := range entries {
+		if entry.IsDir() && entry.Name() > latestTimestamp {
+			latestTimestamp = entry.Name()
+		}
+	}
+
+	if latestTimestamp == "" {
+		return "", nil // No sleep sessions, return empty
+	}
+
+	// Read retrieval-ranking.tsv
+	rankingPath := filepath.Join(sleepDir, latestTimestamp, "retrieval-ranking.tsv")
+	rankingData, err := os.ReadFile(rankingPath)
+	if err != nil {
+		return "", nil // No ranking file, return empty
+	}
+
+	// Parse TSV to get node names in ranked order
+	lines := strings.Split(string(rankingData), "\n")
+	var nodeNames []string
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+
+		// Split by tab and extract second column (node name)
+		fields := strings.Split(line, "\t")
+		if len(fields) >= 2 {
+			nodeNames = append(nodeNames, fields[1])
+		}
+	}
+
+	// Accumulate nodes until threshold is reached
+	threshold := cfg.RetrievalThreshold
+	var selectedNodes []string
+	cumulativeLength := 0
+	ranker := NewRetrievalRanker(cfg)
+
+	for _, nodeName := range nodeNames {
+		// Resolve node path
+		nodePath, err := ranker.resolveNodePath(activeStore, nodeName)
+		if err != nil {
+			continue // Skip nodes that can't be found
+		}
+
+		// Read node content
+		content, err := os.ReadFile(nodePath)
+		if err != nil {
+			continue // Skip nodes that can't be read
+		}
+
+		nodeLength := len(content)
+
+		// Add to selection
+		selectedNodes = append(selectedNodes, nodeName)
+		cumulativeLength += nodeLength
+
+		// Check if we've reached or exceeded threshold
+		if cumulativeLength >= threshold {
+			break
+		}
+	}
+
+	// Format selected nodes
+	var sb strings.Builder
+	for _, nodeName := range selectedNodes {
+		nodePath, err := ranker.resolveNodePath(activeStore, nodeName)
+		if err != nil {
+			continue
+		}
+
+		content, err := os.ReadFile(nodePath)
+		if err != nil {
+			continue
+		}
+
+		// Strip trailing newlines
+		contentStr := strings.TrimRight(string(content), "\n")
+
+		sb.WriteString(fmt.Sprintf("<%s>\n", nodeName))
+		sb.WriteString(contentStr)
+		sb.WriteString(fmt.Sprintf("\n</%s>\n\n", nodeName))
+	}
+
+	return strings.TrimRight(sb.String(), "\n"), nil
+}

@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/veilm/cathedral/pkg/config"
+	"github.com/veilm/cathedral/pkg/memory"
 	"github.com/veilm/cathedral/pkg/session"
 	"github.com/veilm/hinata/cmd/hnt-chat/pkg/chat"
 	"github.com/veilm/hinata/cmd/hnt-llm/pkg/llm"
@@ -498,8 +499,18 @@ func (s *Server) handleNewConversationContinued(w http.ResponseWriter, r *http.R
 		return
 	}
 
+	// Load initial memory from latest retrieval ranking
+	initialMemory, err := memory.LoadInitialMemory(cfg)
+	if err != nil {
+		if s.verbose {
+			log.Printf("Warning: Failed to load initial memory: %v", err)
+		}
+		initialMemory = ""
+	}
+
 	// Replace placeholders
 	systemPrompt := strings.ReplaceAll(string(templateContent), "__MEMORY_INDEX__", strings.TrimSpace(string(indexContent)))
+	systemPrompt = strings.ReplaceAll(systemPrompt, "__INITIAL_MEMORY__", strings.TrimSpace(initialMemory))
 
 	// Create new conversation using hinata package
 	baseDir, err := chat.GetConversationsDir()

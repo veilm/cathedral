@@ -142,9 +142,14 @@ save to index.md based on the content of a given conversation
 		Decent diff-like format with different options, for Update
 		Simple full output for Create
 
-- TODO Making a ranking command, to look through existing nodes and decide which are
+- Made a ranking command, to look through existing nodes and decide which are
 	most important
-
 	Then we have a configurable threshold (e.g. 6k tokens), of budget for
 	including the most important nodes, in the initial system prompt for new
 	conversations
+	We BFS through links starting from index.md until we reach that threshold.
+	Then we additionally token-regardless, dump all of the created episodic
+	nodes in the most recent consolidation sessions (good for continuity /
+	recency bias)
+	Then the LLM ranks them, and we use that ranking to get the first 6k tokens
+	worth' for the next session
