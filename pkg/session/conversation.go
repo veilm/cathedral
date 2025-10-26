@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/veilm/cathedral/pkg/config"
+	"github.com/veilm/cathedral/pkg/memory"
 )
 
 // ConversationStarter handles starting new conversations with memory context
@@ -46,8 +47,17 @@ func (c *ConversationStarter) StartConversation(templatePath string, getPromptOn
 		return fmt.Errorf("failed to read template: %w", err)
 	}
 
+	// Load initial memory from latest retrieval ranking
+	initialMemory, err := memory.LoadInitialMemory(c.config)
+	if err != nil {
+		// Log warning but continue - initial memory is optional
+		fmt.Fprintf(os.Stderr, "Warning: Failed to load initial memory: %v\n", err)
+		initialMemory = ""
+	}
+
 	// Replace placeholders
 	prompt := strings.ReplaceAll(string(templateContent), "__MEMORY_INDEX__", strings.TrimSpace(string(indexContent)))
+	prompt = strings.ReplaceAll(prompt, "__INITIAL_MEMORY__", strings.TrimSpace(initialMemory))
 
 	if getPromptOnly {
 		// Just output the prompt
