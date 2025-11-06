@@ -526,10 +526,10 @@ func (e *Executor) createUpdateConversation(sessionDir, planContent string, op O
 	prompt = strings.ReplaceAll(prompt, "__COMPLETED_OPERATIONS__", completedOpsText)
 	prompt = strings.ReplaceAll(prompt, "__NODE_TYPE_GUIDELINES__", strings.TrimSpace(string(guidelines)))
 
-	// Wrap in <system> tags and add as user message (trim prompt to avoid extra blank lines)
-	systemMessage := fmt.Sprintf("<system>\n%s\n</system>", strings.TrimRight(prompt, "\n"))
+	// Wrap in <cathedral> tags and add as user message (trim prompt to avoid extra blank lines)
+	cathedralMessage := fmt.Sprintf("<cathedral>\n%s\n</cathedral>", strings.TrimRight(prompt, "\n"))
 	cmd = exec.Command("hnt-chat", "add", "user", "-c", chatDir)
-	cmd.Stdin = strings.NewReader(systemMessage)
+	cmd.Stdin = strings.NewReader(cathedralMessage)
 	if err := cmd.Run(); err != nil {
 		return "", fmt.Errorf("failed to add executor prompt: %w", err)
 	}
@@ -671,10 +671,10 @@ func (e *Executor) createCreateConversation(sessionDir, planContent string, op O
 	prompt = strings.ReplaceAll(prompt, "__COMPLETED_OPERATIONS__", completedOpsText)
 	prompt = strings.ReplaceAll(prompt, "__NODE_TYPE_GUIDELINES__", strings.TrimSpace(string(guidelines)))
 
-	// Wrap in <system> tags and add as user message (trim prompt to avoid extra blank lines)
-	systemMessage := fmt.Sprintf("<system>\n%s\n</system>", strings.TrimRight(prompt, "\n"))
+	// Wrap in <cathedral> tags and add as user message (trim prompt to avoid extra blank lines)
+	cathedralMessage := fmt.Sprintf("<cathedral>\n%s\n</cathedral>", strings.TrimRight(prompt, "\n"))
 	cmd = exec.Command("hnt-chat", "add", "user", "-c", chatDir)
-	cmd.Stdin = strings.NewReader(systemMessage)
+	cmd.Stdin = strings.NewReader(cathedralMessage)
 	if err := cmd.Run(); err != nil {
 		return "", fmt.Errorf("failed to add executor prompt: %w", err)
 	}

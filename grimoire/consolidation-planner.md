@@ -27,7 +27,7 @@ What does your mind feel like it wishes to capture from this experience?
 You have access to your memory through `<shell>` tags. To read a memory node:
 
 <shell>
-recall semantic/cathedral-architecture.md
+recall cathedral-architecture.md
 </shell>
 
 After you write a shell block, pause your message there. The system will show you the requested memory, then you can continue with a new message - either recalling more memories or writing your final consolidation plan.
@@ -35,8 +35,8 @@ After you write a shell block, pause your message there. The system will show yo
 You can use multiple `recall` commands in one shell block to efficiently read several nodes at once:
 
 <shell>
-recall episodic/2025-September.md
-recall semantic/memory-systems.md
+recall 2025-September.md
+recall memory-systems.md
 </shell>
 
 Use these tools to:
