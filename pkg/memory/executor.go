@@ -431,12 +431,26 @@ func (e *Executor) createUpdateConversation(sessionDir, planContent string, op O
 
 		var role string
 		var tagName string
+		messageParts := strings.SplitN(filename, "-", 2)
+		if len(messageParts) < 2 {
+			fmt.Printf("[EXECUTE-UPDATE] WARNING: Unrecognized message filename %s, skipping\n", filename)
+			continue
+		}
+		messageIndex := messageParts[0]
+
 		if strings.HasSuffix(filename, "-world.md") {
 			role = "user"
 			tagName = "world"
 		} else if strings.HasSuffix(filename, "-self.md") {
 			role = "assistant"
 			tagName = "self"
+		} else if strings.HasSuffix(filename, "-cathedral.md") {
+			tagName = "cathedral"
+			if messageIndex == "00" {
+				role = "system"
+			} else {
+				role = "user"
+			}
 		} else {
 			continue
 		}
@@ -559,6 +573,13 @@ func (e *Executor) createCreateConversation(sessionDir, planContent string, op O
 
 		var role string
 		var tagName string
+		messageParts := strings.SplitN(filename, "-", 2)
+		if len(messageParts) < 2 {
+			fmt.Printf("[EXECUTE-CREATE] WARNING: Unrecognized message filename %s, skipping\n", filename)
+			continue
+		}
+		messageIndex := messageParts[0]
+
 		if strings.HasSuffix(filename, "-world.md") {
 			role = "user"
 			if useFullPaths {
@@ -572,6 +593,13 @@ func (e *Executor) createCreateConversation(sessionDir, planContent string, op O
 				tagName = fmt.Sprintf("%s/%s", sessionPath, filename)
 			} else {
 				tagName = "self"
+			}
+		} else if strings.HasSuffix(filename, "-cathedral.md") {
+			tagName = "cathedral"
+			if messageIndex == "00" {
+				role = "system"
+			} else {
+				role = "user"
 			}
 		} else {
 			continue

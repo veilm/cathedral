@@ -334,15 +334,29 @@ func (p *Planner) createConsolidationConversation(indexPath, templatePath, sessi
 			continue
 		}
 
-		// Determine role from filename (N-world.md or N-self.md)
+		// Determine role from filename (N-world.md, N-self.md, N-cathedral.md)
 		var role string
 		var tagName string
+		messageParts := strings.SplitN(filename, "-", 2)
+		if len(messageParts) < 2 {
+			fmt.Printf("[PLAN-CONSOLIDATION] WARNING: Unrecognized message filename %s, skipping\n", filename)
+			continue
+		}
+		messageIndex := messageParts[0]
+
 		if strings.HasSuffix(filename, "-world.md") {
 			role = "user"
 			tagName = "world"
 		} else if strings.HasSuffix(filename, "-self.md") {
 			role = "assistant"
 			tagName = "self"
+		} else if strings.HasSuffix(filename, "-cathedral.md") {
+			tagName = "cathedral"
+			if messageIndex == "00" {
+				role = "system"
+			} else {
+				role = "user"
+			}
 		} else {
 			fmt.Printf("[PLAN-CONSOLIDATION] WARNING: Unknown role in filename %s, skipping\n", filename)
 			continue
