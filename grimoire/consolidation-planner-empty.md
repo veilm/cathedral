@@ -30,7 +30,7 @@ Decide which memory nodes to create:
 - Each node file should be roughly 750-1500 words, besides index.md which can be ~3000 words
   - These word counts were carefully selected and are important guidelines to keep in mind
   - If you feel the urge to sigificantly undershoot, consider designing a higher-level node that groups multiple smaller topics
-  - Remember that your current design isn't permanent: in future consolidations down, as your memory grows, you'll be able to split out sections into separate nodes and re-organize
+  - Remember that your current design isn't permanent: in future consolidations, as your memory grows, you'll be able to split out sections into separate nodes and re-organize
 - For your first consolidation, you'll likely create:
   - An updated index.md (with episodic and semantic sections that summarize and link to your new nodes)
   - One or more episodic nodes (time-based, e.g., "2024-01-16-birthday-celebration.md")

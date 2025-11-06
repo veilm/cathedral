@@ -164,26 +164,16 @@ func (p *Planner) PlanConsolidation(sessionID, templatePath, indexPath string, p
 		return nil
 	}
 
-	// Generate the consolidation plan
+	// Generate the consolidation plan, allowing the LLM to issue recall commands
 	fmt.Printf("[PLAN-CONSOLIDATION] Generating consolidation plan...\n")
-	cmd := exec.Command("hnt-chat", "gen", "--model", "openrouter/google/gemini-2.5-pro", "--include-reasoning", "--output-filename", "-c", chatDir)
-	outputFilename, err := cmd.Output()
+	finalPlanPath, finalPlanContent, err := p.generatePlanWithRecall(chatDir)
 	if err != nil {
-		return fmt.Errorf("failed to generate consolidation plan: %w", err)
+		return err
 	}
-
-	outputFile := strings.TrimSpace(string(outputFilename))
-	planPath := filepath.Join(chatDir, outputFile)
-	fmt.Printf("[PLAN-CONSOLIDATION] Generated plan: %s\n", planPath)
-
-	// Read the generated plan
-	planContent, err := os.ReadFile(planPath)
-	if err != nil {
-		return fmt.Errorf("failed to read generated plan: %w", err)
-	}
+	fmt.Printf("[PLAN-CONSOLIDATION] Generated plan: %s\n", finalPlanPath)
 
 	// Extract content between <consolidation_plan> tags
-	extractedPlan, err := extractConsolidationPlan(string(planContent))
+	extractedPlan, err := extractConsolidationPlan(finalPlanContent)
 	if err != nil {
 		return fmt.Errorf("failed to extract consolidation plan: %w", err)
 	}
@@ -204,7 +194,7 @@ func (p *Planner) PlanConsolidation(sessionID, templatePath, indexPath string, p
 
 	// Append to log file
 	logPath := filepath.Join(sleepSessionDir, "log.txt")
-	logAddition := fmt.Sprintf("\nGenerated plan output file: %s\n", planPath)
+	logAddition := fmt.Sprintf("\nGenerated plan output file: %s\n", finalPlanPath)
 	logAddition += fmt.Sprintf("Plan copied to: %s\n", consolidationPlanPath)
 	logAddition += fmt.Sprintf("Structured plan created: %s\n", structuredPlanPath)
 
@@ -223,6 +213,64 @@ func (p *Planner) PlanConsolidation(sessionID, templatePath, indexPath string, p
 	fmt.Printf("Sleep session directory: %s\n", sleepSessionDir)
 
 	return nil
+}
+
+// generatePlanWithRecall handles iterative generation of the consolidation plan, executing recall commands when requested.
+func (p *Planner) generatePlanWithRecall(chatDir string) (string, string, error) {
+	const maxIterations = 10
+
+	var lastPlanPath string
+	var lastPlanContent string
+
+	for iteration := 0; iteration < maxIterations; iteration++ {
+		fmt.Printf("[PLAN-CONSOLIDATION] Generation iteration %d\n", iteration+1)
+
+		cmd := exec.Command("hnt-chat", "gen", "--model", "openrouter/google/gemini-2.5-pro", "--include-reasoning", "--output-filename", "-c", chatDir)
+		outputFilename, err := cmd.Output()
+		if err != nil {
+			return "", "", fmt.Errorf("failed to generate consolidation plan: %w", err)
+		}
+
+		outputFile := strings.TrimSpace(string(outputFilename))
+		planPath := filepath.Join(chatDir, outputFile)
+
+		planContentBytes, err := os.ReadFile(planPath)
+		if err != nil {
+			return "", "", fmt.Errorf("failed to read generated plan: %w", err)
+		}
+		planContent := string(planContentBytes)
+
+		shellBlock, hasShell := extractShellBlock(planContent)
+		if !hasShell {
+			lastPlanPath = planPath
+			lastPlanContent = planContent
+			break
+		}
+
+		fmt.Printf("[PLAN-CONSOLIDATION] Recall requested. Executing shell block...\n")
+		recallOutput, err := executeRecall(shellBlock)
+		if err != nil {
+			fmt.Printf("[PLAN-CONSOLIDATION] WARNING: Recall execution failed: %v\n", err)
+			recallOutput = fmt.Sprintf("[Error executing recall: %v]", err)
+		}
+
+		cmd = exec.Command("hnt-chat", "add", "user", "-c", chatDir)
+		cmd.Stdin = strings.NewReader(recallOutput)
+		if err := cmd.Run(); err != nil {
+			return "", "", fmt.Errorf("failed to add recall output to conversation: %w", err)
+		}
+		fmt.Printf("[PLAN-CONSOLIDATION] Added recall output to conversation\n")
+
+		if iteration == maxIterations-1 {
+			return "", "", fmt.Errorf("maximum recall iterations reached without completing consolidation plan")
+		}
+	}
+
+	if lastPlanPath == "" {
+		return "", "", fmt.Errorf("failed to generate consolidation plan without recall requests")
+	}
+
+	return lastPlanPath, lastPlanContent, nil
 }
 
 // createConsolidationConversation creates a hinata conversation with session messages and planning prompt
@@ -423,7 +471,6 @@ func (p *Planner) generatePlanningPrompt(indexPath, templatePath, sessionDir str
 	return prompt, nil
 }
 
-
 // findLatestSession finds the latest session in episodic-raw
 func (p *Planner) findLatestSession(episodicRawDir string) string {
 	// Get all date directories
@@ -470,6 +517,34 @@ func extractConsolidationPlan(content string) (string, error) {
 	}
 
 	return strings.TrimSpace(matches[1]), nil
+}
+
+// extractShellBlock extracts the first <shell>...</shell> block from the text, if present
+func extractShellBlock(content string) (string, bool) {
+	pattern := regexp.MustCompile(`(?s)<shell>\n(.*?)\n</shell>`)
+	matches := pattern.FindStringSubmatch(content)
+	if len(matches) > 1 {
+		return matches[1], true
+	}
+	return "", false
+}
+
+// executeRecall runs recall commands contained within a shell block
+func executeRecall(shellContent string) (string, error) {
+	shellScript := fmt.Sprintf("alias recall=\"cathedral read-node\"\n%s", shellContent)
+
+	cmd := exec.Command("shell-exec")
+	cmd.Stdin = strings.NewReader(shellScript)
+
+	output, err := cmd.Output()
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			return "", fmt.Errorf("shell execution failed: %s", string(exitErr.Stderr))
+		}
+		return "", err
+	}
+
+	return string(output), nil
 }
 
 // extractStructuredPlan extracts content between <structured_plan> tags
