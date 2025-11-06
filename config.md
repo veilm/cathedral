@@ -134,7 +134,7 @@
 	Is there any real reason not to? I guess it might assume maybe that the
 	final user message is from the same user it has been speaking to, but you
 	can mitigate it by having it have a distinct formal writing style, and using
-	the <self>/<world>/<system> tags
+	the <self>/<world>/<cathedral> tags
 
 	Maybe if it's like a lazy conversation, it won't be able to switch into
 	"this is important I need to complete a definite task" mode? but it seemed

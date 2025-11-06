@@ -254,8 +254,10 @@ func (p *Planner) generatePlanWithRecall(chatDir string) (string, string, error)
 			recallOutput = fmt.Sprintf("[Error executing recall: %v]", err)
 		}
 
+		formattedRecall := fmt.Sprintf("<cathedral>\n%s\n</cathedral>", strings.TrimRight(recallOutput, "\n"))
+
 		cmd = exec.Command("hnt-chat", "add", "user", "-c", chatDir)
-		cmd.Stdin = strings.NewReader(recallOutput)
+		cmd.Stdin = strings.NewReader(formattedRecall)
 		if err := cmd.Run(); err != nil {
 			return "", "", fmt.Errorf("failed to add recall output to conversation: %w", err)
 		}
@@ -381,14 +383,14 @@ func (p *Planner) createConsolidationConversation(indexPath, templatePath, sessi
 		return "", "", fmt.Errorf("failed to generate planning prompt: %w", err)
 	}
 
-	// Wrap prompt in <system> tags and add as user message
-	systemMessage := fmt.Sprintf("<system>\n%s\n</system>", strings.TrimRight(prompt, "\n"))
+	// Wrap prompt in <cathedral> tags and add as user message
+	cathedralMessage := fmt.Sprintf("<cathedral>\n%s\n</cathedral>", strings.TrimRight(prompt, "\n"))
 	cmd = exec.Command("hnt-chat", "add", "user", "-c", chatDir)
-	cmd.Stdin = strings.NewReader(systemMessage)
+	cmd.Stdin = strings.NewReader(cathedralMessage)
 	if err := cmd.Run(); err != nil {
-		return "", "", fmt.Errorf("failed to add system planning prompt: %w", err)
+		return "", "", fmt.Errorf("failed to add cathedral planning prompt: %w", err)
 	}
-	fmt.Printf("[PLAN-CONSOLIDATION] Added planning prompt as user message with <system> tags\n")
+	fmt.Printf("[PLAN-CONSOLIDATION] Added planning prompt as user message with <cathedral> tags\n")
 
 	// Extract session name
 	sessionName := getSessionPath(sessionDir)
