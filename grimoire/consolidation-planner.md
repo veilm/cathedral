@@ -53,6 +53,8 @@ The experience you're consolidating is approximately __ORIG_WORDS__ words. You'l
 
 Decide which memory nodes to create or update:
 - Each node file should be roughly 750-1500 words, besides index.md which can be ~3000 words
+  - These word counts were carefully selected and are important guidelines to keep in mind
+  - If you feel the urge to sigificantly undershoot, consider designing a higher-level node that groups multiple smaller topics
 - If you want to add substantial content (≥~750 words) to a topic, create a new node
 - If you want to add a small update (<~750 words), append to an existing node
 - Episodic memory: time-based organization (e.g., "2025-October.md", "2025-12-25-nutrition-debate.md")
@@ -69,7 +71,7 @@ Decide which memory nodes to create or update:
   - Organized for useful recall, like Wikipedia
 - index.md: overview, navigation hub, high-level abstractions, links to deeper content
   - Like Wikipedia's "Mathematics" article - mostly summaries and links
-- Circular links are fine and often beneficial - memory nodes can reference each other
+- Nodes can reference each other freely - memory is a graph, not a tree
 
 ### 4. Write Your Plan
 
@@ -97,8 +99,7 @@ Output your plan in this format:
 ## Important Notes
 
 - Each operation should fit comfortably in one output (~1500-2000 words max)
-- If updating an existing file, you'll be given its current content later
-- Files being created in this same consolidation can reference each other - just describe what they'll contain
+- Files being created in this consolidation can reference each other - just describe what they'll contain
 - Don't overthink the structure - your natural organization instincts are good
 - The goal is useful, navigable memory, not perfect categorization
 
