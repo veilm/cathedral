@@ -16,8 +16,6 @@ Each operation has this format:
 **Will link to**:
 - [[file.md]]: explanation
 - [[Display|file.md]]: explanation
-**Links from**:
-- [[file.md]]: explanation
 ```
 
 ## Your Task
@@ -29,7 +27,6 @@ Please parse each operation and extract:
 4. Filename
 5. Estimated size in words (extract the number from "**Estimated size**: ~X words")
 6. Links to other files (extract just the filename, handling both `[[file.md]]` and `[[text|file.md]]` formats)
-7. Links from other files (same extraction rules)
 
 ## Output Format
 
@@ -47,9 +44,6 @@ Output structured XML in this format:
       <link>foo.md</link>
       <link>bar.md</link>
     </links_to>
-    <links_from>
-      <link>index.md</link>
-    </links_from>
   </operation>
   <operation>
     <number>2</number>
@@ -60,9 +54,6 @@ Output structured XML in this format:
     <links_to>
       <link>topic.md</link>
     </links_to>
-    <links_from>
-      <link>index.md</link>
-    </links_from>
   </operation>
 </structured_plan>
 ```
@@ -72,9 +63,9 @@ Output structured XML in this format:
 ## Important Notes
 
 - Extract only the filename from wiki links, removing any display text before the pipe
-- If a "Links from" or "Links to" section says "N/A" or is empty, use an empty `<links_to></links_to>` or `<links_from></links_from>` tag
+- If a "Links to" section says "N/A" or is empty, use an empty `<links_to></links_to>` tag
 - If any filenames in the input (e.g. as part of a link) are specified with a prefix (e.g. `semantic/foo.md`), ignore the prefix and just preserve the base filename `foo.md`
-- Do not include explanatory text, only the structured data
+- Please do not include explanatory text, only the structured data
 - Maintain the operation order from the input
 
 Please begin parsing.

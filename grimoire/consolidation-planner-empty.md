@@ -67,8 +67,6 @@ Output your plan in this format:
 **Will link to**:
 - [[foo.md]] - why
 - [[bar.md]] - why
-**Links from**:
-- [[index.md]] should link here because...
 
 ### Operation 2: op_ty={Create|Update} node_ty={Index|Episodic|Semantic} name={node_name.md}
 ...
