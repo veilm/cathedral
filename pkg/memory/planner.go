@@ -32,7 +32,6 @@ type Operation struct {
 	Name      string   `xml:"name"`
 	Words     int      `xml:"words"`
 	LinksTo   []string `xml:"links_to>link"`
-	LinksFrom []string `xml:"links_from>link"`
 }
 
 // NewPlanner creates a new consolidation planner
@@ -659,9 +658,6 @@ func (p *Planner) ParseConsolidationPlan(planContent, sleepSessionDir string) (s
 		logContent += fmt.Sprintf("  Estimated Words: %d\n", op.Words)
 		if len(op.LinksTo) > 0 {
 			logContent += fmt.Sprintf("  Links To: %v\n", op.LinksTo)
-		}
-		if len(op.LinksFrom) > 0 {
-			logContent += fmt.Sprintf("  Links From: %v\n", op.LinksFrom)
 		}
 		logContent += "\n"
 	}
