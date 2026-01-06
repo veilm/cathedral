@@ -1,0 +1,22 @@
+[project]
+name = "cathedral-v2"
+version = "0.1.0"
+description = "Cathedral v2 memory system"
+requires-python = ">=3.11"
+readme = "README.md"
+authors = [{ name = "cathedral" }]
+
+dependencies = [
+  "fastapi>=0.110",
+  "uvicorn>=0.27",
+]
+
+[project.scripts]
+cathedral = "cathedral_v2.cli:main"
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.uv]
+package = true

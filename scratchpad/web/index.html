@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Cathedral v2</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="topbar">
+        <div class="brand">Cathedral v2</div>
+        <div class="actions">
+          <button id="newConv">New Conversation</button>
+        </div>
+      </header>
+
+      <main class="main">
+        <section class="panel panel-left">
+          <div class="panel-header">Conversations</div>
+          <div id="convList" class="list"></div>
+        </section>
+
+        <section class="panel panel-center">
+          <div class="panel-header">Chat</div>
+          <div id="chatLog" class="chat"></div>
+          <form id="chatForm" class="chat-form">
+            <textarea id="chatInput" rows="3" placeholder="Message..."></textarea>
+            <button type="submit">Send</button>
+          </form>
+        </section>
+
+        <section class="panel panel-right">
+          <div class="panel-header">Memory</div>
+          <form id="memoryForm" class="memory-form">
+            <input id="memoryInput" type="text" placeholder="Title" />
+            <button type="submit">Read</button>
+          </form>
+          <pre id="memoryView" class="memory"></pre>
+        </section>
+      </main>
+    </div>
+
+    <script src="/app.js"></script>
+  </body>
+</html>
