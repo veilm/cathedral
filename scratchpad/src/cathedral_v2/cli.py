@@ -167,7 +167,7 @@ def cmd_consolidate(args: argparse.Namespace) -> None:
             "Do not mention files, tools, or actions."
         )
 
-    convo = hnt.new_conversation()
+    convo = hnt.new_conversation(store)
     hnt.add_message(convo, "system", prompt_text)
     hnt.add_message(convo, "user", transcript)
     summary = hnt.generate(convo, model=args.model or cfg.model).strip()
