@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import secrets
 import subprocess
+from datetime import datetime
 from pathlib import Path
 from typing import List, Optional
 
@@ -23,15 +25,29 @@ def _run(args: List[str], input_text: Optional[str] = None, timeout: int = 300) 
     return proc.stdout
 
 
-def new_conversation() -> Path:
-    out = _run(["hnt-chat", "new"]).strip()
-    return Path(out)
+def _session_id() -> str:
+    stamp = datetime.utcnow().strftime("%H%M%S")
+    token = secrets.token_hex(2)
+    return f"{stamp}-{token}"
 
 
-def list_conversations() -> List[Path]:
-    out = _run(["hnt-chat", "list"])
-    lines = [line.strip() for line in out.splitlines() if line.strip()]
-    return [Path(line) for line in lines]
+def new_conversation(store: Path) -> Path:
+    date = datetime.utcnow().strftime("%Y%m%d")
+    base = store / "episodic-raw" / date
+    base.mkdir(parents=True, exist_ok=True)
+    path = base / _session_id()
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+def list_conversations(store: Path) -> List[Path]:
+    root = store / "episodic-raw"
+    if not root.exists():
+        return []
+    hits: List[Path] = []
+    for path in root.rglob("*.md"):
+        hits.append(path.parent)
+    return sorted({p.resolve() for p in hits})
 
 
 def add_message(conversation: Path, role: str, content: str) -> None:

@@ -125,7 +125,11 @@ def cmd_tokens(args: argparse.Namespace) -> None:
 def cmd_chat(args: argparse.Namespace) -> None:
     cfg = load_config(Path(args.config) if args.config else None)
     store = _store_from_args(args)
-    conversation = Path(args.conversation) if args.conversation else hnt.new_conversation()
+    if args.conversation:
+        conversation = Path(args.conversation)
+    else:
+        conversation = hnt.new_conversation(store)
+        print(f"[conversation={conversation}]")
     runtime_prompt = Path(args.runtime_prompt) if args.runtime_prompt else cfg.runtime_prompt
     model = args.model or cfg.model
     message = _read_message_arg(args.message)
@@ -140,6 +144,12 @@ def cmd_chat(args: argparse.Namespace) -> None:
     print(output)
     print(f"[memory_reads={reads}]")
 
+
+
+def cmd_conversations(args: argparse.Namespace) -> None:
+    store = _store_from_args(args)
+    for path in hnt.list_conversations(store):
+        print(path)
 
 def cmd_consolidate(args: argparse.Namespace) -> None:
     cfg = load_config(Path(args.config) if args.config else None)
@@ -294,6 +304,9 @@ def build_parser() -> argparse.ArgumentParser:
     tokens_p = sub.add_parser("tokens", help="Estimate tokens for a file")
     tokens_p.add_argument("path")
     tokens_p.set_defaults(func=cmd_tokens)
+
+    conversations_p = sub.add_parser("conversations", help="List conversations in the store")
+    conversations_p.set_defaults(func=cmd_conversations)
 
     chat_p = sub.add_parser("chat", help="Send one chat turn")
     chat_p.add_argument("message", nargs="?")
