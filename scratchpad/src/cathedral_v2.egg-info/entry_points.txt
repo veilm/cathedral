@@ -1,2 +1,0 @@
-[console_scripts]
-cathedral = cathedral_v2.cli:main

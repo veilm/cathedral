@@ -137,3 +137,5 @@ cathedral web --store ./example-store
 ```
 
 Then open `http://127.0.0.1:1345`.
+
+Default model is `openrouter/google/gemini-2.5-pro` unless overridden by config or env.

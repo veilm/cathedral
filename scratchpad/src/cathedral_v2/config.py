@@ -10,7 +10,7 @@ from typing import Any, Dict, Optional
 @dataclass
 class Config:
     store_path: Optional[Path] = None
-    model: Optional[str] = None
+    model: str = "openrouter/google/gemini-2.5-pro"
     runtime_prompt: Optional[Path] = None
     consolidation_prompt: Optional[Path] = None
     agent_cmds: Dict[str, str] | None = None

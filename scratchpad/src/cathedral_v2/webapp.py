@@ -41,7 +41,7 @@ def _model() -> str | None:
 
 
 def _resolve_conversation_id(conv_id: str) -> Path:
-    for path in hnt.list_conversations():
+    for path in hnt.list_conversations(_store_path()):
         if path.name == conv_id or str(path) == conv_id:
             return path
     raise HTTPException(status_code=404, detail="Conversation not found")
@@ -75,14 +75,14 @@ def styles() -> FileResponse:
 @app.get("/api/conversations")
 def list_conversations() -> JSONResponse:
     items = []
-    for path in hnt.list_conversations():
+    for path in hnt.list_conversations(_store_path()):
         items.append({"id": path.name, "path": str(path)})
     return JSONResponse(items)
 
 
 @app.post("/api/conversations")
 def create_conversation() -> JSONResponse:
-    path = hnt.new_conversation()
+    path = hnt.new_conversation(_store_path())
     return JSONResponse({"id": path.name, "path": str(path)})
 
 
