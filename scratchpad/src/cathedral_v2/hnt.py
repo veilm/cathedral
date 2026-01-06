@@ -55,10 +55,22 @@ def add_message(conversation: Path, role: str, content: str) -> None:
 
 
 def generate(conversation: Path, model: Optional[str] = None) -> str:
-    args = ["hnt-chat", "gen", "-c", str(conversation), "--merge"]
+    args = [
+        "hnt-chat",
+        "gen",
+        "-c",
+        str(conversation),
+        "--merge",
+        "--write",
+        "--output-filename",
+    ]
     if model:
         args += ["--model", model]
-    return _run(args, timeout=300)
+    filename = _run(args, timeout=300).strip()
+    if not filename:
+        raise HntError("hnt-chat gen did not return a filename")
+    path = conversation / filename
+    return path.read_text(encoding="utf-8")
 
 
 def pack(conversation: Path) -> str:

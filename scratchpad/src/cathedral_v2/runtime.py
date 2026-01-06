@@ -64,26 +64,6 @@ def _parse_memory_read(text: str) -> tuple[Optional[str], bool]:
     return None, True
 
 
-def _strip_frontmatter(text: str) -> str:
-    if text.startswith("---"):
-        end = text.find("---", 3)
-        if end != -1:
-            return text[end + 3 :].lstrip("\n")
-    return text
-
-
-def _forced_answer(question: str, memory: str, model: Optional[str]) -> str:
-    convo = hnt.new_conversation()
-    system = (
-        "Answer the user's question using the memory below. "
-        "Do not request more memory. Respond directly."
-    )
-    payload = f"Question:\n{question}\n\nMemory:\n{_strip_frontmatter(memory).strip()}\n"
-    hnt.add_message(convo, "system", system)
-    hnt.add_message(convo, "user", payload)
-    return hnt.generate(convo, model=model).strip()
-
-
 def _format_memory_block(path: Path, content: str) -> str:
     return f"[Memory: {path}]\n{content.strip()}\n"
 
@@ -101,18 +81,11 @@ def run_turn(
 
     reads = 0
     seen_reads = set()
-    last_memory: Optional[str] = None
     while True:
         output = hnt.generate(conversation, model=model)
         command, strict = _parse_memory_read(output)
         if not command:
-            hnt.add_message(conversation, "assistant", output)
             return output, reads
-
-        if last_memory is not None:
-            response = _forced_answer(message, last_memory, model)
-            hnt.add_message(conversation, "assistant", response)
-            return response, reads
 
         if not strict:
             hnt.add_message(
@@ -135,8 +108,6 @@ def run_turn(
         try:
             path, content = read_node(store, command)
             memory_block = _format_memory_block(path, content)
-            if last_memory is None:
-                last_memory = content
         except Exception as exc:  # noqa: BLE001 - return error to model
             memory_block = f"[Memory not found: {command}] {exc}"
 
