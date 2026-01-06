@@ -60,7 +60,6 @@ def generate(conversation: Path, model: Optional[str] = None) -> str:
         "gen",
         "-c",
         str(conversation),
-        "--merge",
         "--write",
         "--output-filename",
     ]
