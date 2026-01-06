@@ -11,15 +11,21 @@
   box-sizing: border-box;
 }
 
+html,
+body {
+  height: 100%;
+}
+
 body {
   margin: 0;
   font-family: "IBM Plex Sans", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
   color: var(--text);
   background: var(--bg);
+  overflow: hidden;
 }
 
 .app {
-  min-height: 100vh;
+  height: 100vh;
   display: flex;
   flex-direction: column;
 }
@@ -48,6 +54,7 @@ body {
   grid-template-columns: 1fr 2fr 1fr;
   gap: 12px;
   padding: 12px;
+  min-height: 0;
 }
 
 .panel {
@@ -66,7 +73,7 @@ body {
 
 .list {
   padding: 8px;
-  overflow: auto;
+  overflow-y: auto;
 }
 
 .list button {

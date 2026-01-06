@@ -9,12 +9,13 @@ class HntError(RuntimeError):
     pass
 
 
-def _run(args: List[str], input_text: Optional[str] = None) -> str:
+def _run(args: List[str], input_text: Optional[str] = None, timeout: int = 300) -> str:
     proc = subprocess.run(
         args,
         input=input_text,
         text=True,
         capture_output=True,
+        timeout=timeout,
         check=False,
     )
     if proc.returncode != 0:
@@ -41,7 +42,7 @@ def generate(conversation: Path, model: Optional[str] = None) -> str:
     args = ["hnt-chat", "gen", "-c", str(conversation), "--merge"]
     if model:
         args += ["--model", model]
-    return _run(args)
+    return _run(args, timeout=300)
 
 
 def pack(conversation: Path) -> str:

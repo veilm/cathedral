@@ -136,4 +136,4 @@ cathedral init --store ./example-store
 cathedral web --store ./example-store
 ```
 
-Then open `http://127.0.0.1:13450`.
+Then open `http://127.0.0.1:1345`.
