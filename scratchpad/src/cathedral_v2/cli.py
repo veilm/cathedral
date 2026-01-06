@@ -5,9 +5,9 @@ import json
 import os
 import shlex
 import subprocess
+import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 from .config import load_config
 from .memory import (
@@ -21,6 +21,49 @@ from .memory import (
 from .runtime import run_turn
 from .tokens import estimate_tokens
 from . import hnt
+
+
+def _read_message_arg(value: str | None) -> str:
+    if value is None or value == "-":
+        value = sys.stdin.read()
+    value = (value or "").strip()
+    if not value:
+        raise SystemExit("message required (arg or stdin)")
+    return value
+
+
+def _today() -> str:
+    return datetime.utcnow().date().isoformat()
+
+
+def _set_frontmatter_date(text: str, key: str, value: str) -> str:
+    if not text.startswith("---"):
+        return text
+    end = text.find("---", 3)
+    if end == -1:
+        return text
+    fm = text[3:end].strip().splitlines()
+    body = text[end + 3 :].lstrip("\n")
+    found = False
+    new_lines = []
+    for line in fm:
+        if line.startswith(f"{key}:"):
+            new_lines.append(f"{key}: {value}")
+            found = True
+        else:
+            new_lines.append(line)
+    if not found:
+        new_lines.append(f"{key}: {value}")
+    new_fm = "\n".join(new_lines)
+    return f"---\n{new_fm}\n---\n\n{body}"
+
+
+def _append_index_link(text: str, link: str) -> str:
+    if "## Recent" not in text:
+        text = text.rstrip() + "\n\n## Recent\n"
+    if not text.endswith("\n"):
+        text += "\n"
+    return text + f"- [[{link}]]\n"
 
 
 def _store_from_args(args: argparse.Namespace) -> Path:
@@ -85,16 +128,65 @@ def cmd_chat(args: argparse.Namespace) -> None:
     conversation = Path(args.conversation) if args.conversation else hnt.new_conversation()
     runtime_prompt = Path(args.runtime_prompt) if args.runtime_prompt else cfg.runtime_prompt
     model = args.model or cfg.model
+    message = _read_message_arg(args.message)
 
     output, reads = run_turn(
         conversation=conversation,
         store=store,
-        message=args.message,
+        message=message,
         model=model,
         runtime_prompt=runtime_prompt,
     )
     print(output)
     print(f"[memory_reads={reads}]")
+
+
+def cmd_consolidate(args: argparse.Namespace) -> None:
+    cfg = load_config(Path(args.config) if args.config else None)
+    store = _store_from_args(args)
+    conversation = Path(args.conversation)
+
+    transcript = hnt.pack(conversation)
+
+    if args.prompt:
+        prompt_text = Path(args.prompt).read_text(encoding="utf-8")
+    else:
+        prompt_text = (
+            "You are summarizing a conversation into a memory note. "
+            "Output only Markdown body with a short title and key facts. "
+            "Do not mention files, tools, or actions."
+        )
+
+    convo = hnt.new_conversation()
+    hnt.add_message(convo, "system", prompt_text)
+    hnt.add_message(convo, "user", transcript)
+    summary = hnt.generate(convo, model=args.model or cfg.model).strip()
+
+    ts = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
+    title = f"session-{ts}"
+    node_rel = Path("semantic") / f"{title}.md"
+    node_path = store / node_rel
+    today = _today()
+
+    body = summary
+    if not body.startswith("#"):
+        body = f"# Session {ts}\n\n{body}\n"
+
+    node_path.parent.mkdir(parents=True, exist_ok=True)
+    node_path.write_text(
+        f"---\ncreated: {today}\nupdated: {today}\n---\n\n{body}\n",
+        encoding="utf-8",
+    )
+
+    index_path = store / "index.md"
+    index_text = index_path.read_text(encoding="utf-8")
+    index_text = _set_frontmatter_date(index_text, "updated", today)
+    if "created:" not in index_text:
+        index_text = _set_frontmatter_date(index_text, "created", today)
+    index_text = _append_index_link(index_text, f"semantic/{title}")
+    index_path.write_text(index_text, encoding="utf-8")
+
+    print(node_path)
 
 
 def _sleep_dir(store: Path) -> Path:
@@ -204,11 +296,17 @@ def build_parser() -> argparse.ArgumentParser:
     tokens_p.set_defaults(func=cmd_tokens)
 
     chat_p = sub.add_parser("chat", help="Send one chat turn")
-    chat_p.add_argument("message")
+    chat_p.add_argument("message", nargs="?")
     chat_p.add_argument("--conversation")
     chat_p.add_argument("--model")
     chat_p.add_argument("--runtime-prompt")
     chat_p.set_defaults(func=cmd_chat)
+
+    consolidate_p = sub.add_parser("consolidate", help="Run a simple consolidation")
+    consolidate_p.add_argument("--conversation", required=True)
+    consolidate_p.add_argument("--prompt")
+    consolidate_p.add_argument("--model")
+    consolidate_p.set_defaults(func=cmd_consolidate)
 
     sleep_p = sub.add_parser("sleep", help="Prepare a consolidation job")
     sleep_p.add_argument("--conversation", required=True)
@@ -222,7 +320,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     web_p = sub.add_parser("web", help="Run the web server")
     web_p.add_argument("--host", default="127.0.0.1")
-    web_p.add_argument("--port", type=int, default=13450)
+    web_p.add_argument("--port", type=int, default=1345)
     web_p.add_argument("--model")
     web_p.add_argument("--runtime-prompt")
     web_p.set_defaults(func=cmd_web)
