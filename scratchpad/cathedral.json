@@ -3,6 +3,6 @@
   "runtime_prompt": "prompts/runtime/default.md",
   "consolidation_prompt": "prompts/consolidation/default.md",
   "agent_cmds": {
-    "codex": "bash -lc 'codex exec --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox -C {store} - < {prompt}'"
+    "codex": "bash -lc 'codex exec --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox -C {store} -'"
   }
 }

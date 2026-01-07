@@ -172,7 +172,7 @@ Continue the same conversation:
 echo "next turn" | uv run cathedral chat --store ./my-store --conversation /path/to/conv
 ```
 
-Prepare a consolidation job (copies the conversation into `episodic-raw/`):
+Prepare a consolidation job (copies the conversation into `episodic-raw/` and writes metadata/logs under `sleep/`):
 
 ```
 uv run cathedral sleep --store ./my-store --conversation /path/to/conv
@@ -191,3 +191,5 @@ Consolidation copies the conversation directory into the store's `episodic-raw/`
 Consolidation prompts live under `prompts/consolidation/` and are passed verbatim to Codex/Claude Code.
 
 All commands follow `cathedral <command> <opts>` (options after the command).
+
+Run-agent captures stdout/stderr into `sleep/<ts>/agent.stdout.txt` and `sleep/<ts>/agent.stderr.txt`.
