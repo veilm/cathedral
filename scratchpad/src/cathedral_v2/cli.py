@@ -191,7 +191,8 @@ def cmd_sleep(args: argparse.Namespace) -> None:
     if prompt_path is None:
         prompt_path = Path(__file__).resolve().parents[2] / "prompts" / "consolidation" / "default.md"
     prompt_text = prompt_path.read_text(encoding="utf-8")
-    (sleep_dir / "consolidation.md").write_text(prompt_text, encoding="utf-8")
+    rendered = prompt_text.replace("__CONVERSATION_PATH__", str(stored_conv))
+    (sleep_dir / "consolidation.md").write_text(rendered, encoding="utf-8")
 
     info = {
         "store": str(store),
@@ -279,23 +280,32 @@ def build_parser() -> argparse.ArgumentParser:
     tokens_p.set_defaults(func=cmd_tokens)
 
     create_p = sub.add_parser("create-conversation", help="Create a conversation")
+    create_p.add_argument("--config")
     create_p.set_defaults(func=cmd_create_conversation)
 
     conversations_p = sub.add_parser("conversations", help="List conversations in the store")
+    conversations_p.add_argument("--config")
+    conversations_p.add_argument("--store")
     conversations_p.set_defaults(func=cmd_conversations)
 
     chat_p = sub.add_parser("chat", help="Send one chat turn")
+    chat_p.add_argument("--config")
+    chat_p.add_argument("--store")
     chat_p.add_argument("--conversation", required=True)
     chat_p.add_argument("--model")
     chat_p.add_argument("--runtime-prompt")
     chat_p.set_defaults(func=cmd_chat)
 
     sleep_p = sub.add_parser("sleep", help="Prepare a consolidation job")
+    sleep_p.add_argument("--config")
+    sleep_p.add_argument("--store")
     sleep_p.add_argument("--conversation", required=True)
     sleep_p.add_argument("--prompt")
     sleep_p.set_defaults(func=cmd_sleep)
 
     run_p = sub.add_parser("run-agent", help="Run a configured consolidation agent")
+    run_p.add_argument("--config")
+    run_p.add_argument("--store")
     run_p.add_argument("--sleep", required=True)
     run_p.add_argument("--agent", required=True)
     run_p.set_defaults(func=cmd_run_agent)

@@ -189,3 +189,5 @@ uv run cathedral conversations
 Consolidation copies the conversation directory into the store's `episodic-raw/` before running.
 
 Consolidation prompts live under `prompts/consolidation/` and are passed verbatim to Codex/Claude Code.
+
+All commands follow `cathedral <command> <opts>` (options after the command).
