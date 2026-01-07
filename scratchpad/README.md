@@ -172,13 +172,11 @@ Continue the same conversation:
 echo "next turn" | uv run cathedral chat --store ./my-store --conversation /path/to/conv
 ```
 
-Prepare a consolidation job (copies the conversation into `episodic-raw/` and writes metadata/logs under `sleep/`):
+Run consolidation (copies the conversation into `episodic-raw/` and writes metadata/logs under `sleep/`):
 
 ```
-uv run cathedral sleep --store ./my-store --conversation /path/to/conv
+uv run cathedral consolidate --store ./my-store --conversation /path/to/conv --agent codex
 ```
-
-Then run your agent (Codex/Claude Code) against the store using `run-agent`.
 
 List hnt-chat conversations:
 
@@ -192,4 +190,4 @@ Consolidation prompts live under `prompts/consolidation/` and are passed verbati
 
 All commands follow `cathedral <command> <opts>` (options after the command).
 
-Run-agent captures stdout/stderr into `sleep/<ts>/agent.stdout.txt` and `sleep/<ts>/agent.stderr.txt`.
+Consolidation captures stdout/stderr into `sleep/<ts>/agent.stdout.txt` and `sleep/<ts>/agent.stderr.txt`.
