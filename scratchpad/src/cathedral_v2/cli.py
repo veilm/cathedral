@@ -198,7 +198,7 @@ def _sleep_dir(store: Path) -> Path:
     return store / "sleep" / ts
 
 
-def cmd_sleep(args: argparse.Namespace) -> None:
+def cmd_consolidate(args: argparse.Namespace) -> None:
     cfg = load_config(Path(args.config) if args.config else None)
     store = _store_from_args(args)
     conversation = Path(args.conversation)
@@ -216,24 +216,17 @@ def cmd_sleep(args: argparse.Namespace) -> None:
         "conversation": str(conversation),
         "stored_conversation": str(stored_conv),
         "prompt": str(prompt_path),
+        "agent": args.agent,
     }
     (sleep_dir / "job.json").write_text(json.dumps(info, indent=2), encoding="utf-8")
 
-    print(sleep_dir)
-
-def cmd_run_agent(args: argparse.Namespace) -> None:
-    cfg = load_config(Path(args.config) if args.config else None)
     agent_cmds = cfg.agent_cmds or {}
     template = agent_cmds.get(args.agent)
     if not template:
         raise SystemExit(f"No command configured for agent '{args.agent}'")
 
-    sleep_dir = Path(args.sleep)
-    job = json.loads((sleep_dir / "job.json").read_text(encoding="utf-8"))
-    store = Path(job["store"])
-    prompt_path = Path(job["prompt"])
     prompt_text = prompt_path.read_text(encoding="utf-8")
-    rendered = prompt_text.replace("__CONVERSATION_PATH__", str(job["stored_conversation"]))
+    rendered = prompt_text.replace("__CONVERSATION_PATH__", str(stored_conv))
 
     cmd = template.format(store=str(store), sleep=str(sleep_dir))
     args_list = shlex.split(cmd)
@@ -250,6 +243,7 @@ def cmd_run_agent(args: argparse.Namespace) -> None:
     if proc.returncode != 0:
         raise SystemExit(proc.stderr.strip() or "agent failed")
 
+    print(sleep_dir)
 
 def cmd_web(args: argparse.Namespace) -> None:
     import uvicorn
@@ -318,19 +312,13 @@ def build_parser() -> argparse.ArgumentParser:
     chat_p.add_argument("--runtime-prompt")
     chat_p.set_defaults(func=cmd_chat)
 
-    sleep_p = sub.add_parser("sleep", help="Prepare a consolidation job")
-    sleep_p.add_argument("--config")
-    sleep_p.add_argument("--store")
-    sleep_p.add_argument("--conversation", required=True)
-    sleep_p.add_argument("--prompt")
-    sleep_p.set_defaults(func=cmd_sleep)
-
-    run_p = sub.add_parser("run-agent", help="Run a configured consolidation agent")
-    run_p.add_argument("--config")
-    run_p.add_argument("--store")
-    run_p.add_argument("--sleep", required=True)
-    run_p.add_argument("--agent", required=True)
-    run_p.set_defaults(func=cmd_run_agent)
+    consolidate_p = sub.add_parser("consolidate", help="Consolidate using an agent")
+    consolidate_p.add_argument("--config")
+    consolidate_p.add_argument("--store")
+    consolidate_p.add_argument("--conversation", required=True)
+    consolidate_p.add_argument("--prompt")
+    consolidate_p.add_argument("--agent", required=True)
+    consolidate_p.set_defaults(func=cmd_consolidate)
 
     web_p = sub.add_parser("web", help="Run the web server")
     web_p.add_argument("--host", default="127.0.0.1")
