@@ -64,26 +64,34 @@ chooses where to go next.
 
 ## Runtime agent (conversation)
 
-The runtime agent is the model that talks to the user. It uses a single tool:
-`MEMORY_READ`. The protocol is intentionally minimal:
+The runtime agent is the model that talks to the user. It requests memory by
+emitting a recall tag anywhere in its reply:
 
-- If it needs more context, it outputs **only**:
-  `MEMORY_READ: Title`
-- The system resolves the title, reads the file, and provides the content as a
-  system message.
-- The agent then continues from the new context.
+```
+<recall>Title</recall>
+```
 
-To avoid "wiki holes", the loop is capped to a small number of reads per user
-turn (default 3). Prompts are kept short and stored in `prompts/runtime/`.
+The runtime loop resolves the title, reads the file, and injects:
+
+```
+<memory name="Title">
+...content...
+</memory>
+```
+
+If a requested node does not exist, the runtime returns a user message wrapped
+in `<cathedral>` explaining the issue. To avoid "wiki holes", the loop is capped
+to a small number of recalls per user turn (default 3). Prompts are kept short
+and stored in `prompts/runtime/`.
 
 ## Consolidation (sleep)
 
 Consolidation is treated as a refactor of the memory store:
 
 1. User ends a conversation and triggers consolidation.
-2. The conversation transcript is saved to `sleep/<timestamp>/transcript.md`.
-3. A consolidation prompt describes the memory format and the desired outcome.
-4. A coding agent (Codex/Claude Code) edits the filesystem accordingly.
+2. The conversation directory is copied into `episodic-raw/` inside the store.
+3. A consolidation prompt describes the memory format and desired outcome.
+4. A coding agent (Codex/Claude Code) reads the conversation files and edits the wiki.
 
 This is done outside the runtime agent to avoid complex prompting and to leverage
 SWE-capable tools.
@@ -112,7 +120,7 @@ Optional `cathedral.json` at the project root:
 ```
 {
   "store_path": "/path/to/store",
-  "model": "gemini-3",
+  "model": "openrouter/google/gemini-2.5-pro",
   "runtime_prompt": "prompts/runtime/default.md",
   "consolidation_prompt": "prompts/consolidation/default.md",
   "agent_cmds": {
@@ -139,3 +147,45 @@ cathedral web --store ./example-store
 Then open `http://127.0.0.1:1345`.
 
 Default model is `openrouter/google/gemini-2.5-pro` unless overridden by config or env.
+
+
+## CLI usage
+
+Create a store:
+
+```
+uv run cathedral init --store ./my-store
+```
+
+Send a message (a new conversation directory is created inside
+`my-store/episodic-raw/` and printed):
+
+```
+uv run cathedral create-conversation
+# then send a message
+echo "hello" | uv run cathedral chat --store ./my-store --conversation /path/to/conv
+```
+
+Continue the same conversation:
+
+```
+echo "next turn" | uv run cathedral chat --store ./my-store --conversation /path/to/conv
+```
+
+Prepare a consolidation job (copies the conversation into `episodic-raw/`):
+
+```
+uv run cathedral sleep --store ./my-store --conversation /path/to/conv
+```
+
+Then run your agent (Codex/Claude Code) against the store using `run-agent`.
+
+List hnt-chat conversations:
+
+```
+uv run cathedral conversations
+```
+
+Consolidation copies the conversation directory into the store's `episodic-raw/` before running.
+
+Consolidation prompts live under `prompts/consolidation/` and are passed verbatim to Codex/Claude Code.

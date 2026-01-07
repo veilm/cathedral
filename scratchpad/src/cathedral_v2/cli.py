@@ -23,12 +23,11 @@ from .tokens import estimate_tokens
 from . import hnt
 
 
-def _read_message_arg(value: str | None) -> str:
-    if value is None or value == "-":
-        value = sys.stdin.read()
+def _read_message_arg() -> str:
+    value = sys.stdin.read()
     value = (value or "").strip()
     if not value:
-        raise SystemExit("message required (arg or stdin)")
+        raise SystemExit("message required on stdin")
     return value
 
 
@@ -132,7 +131,7 @@ def cmd_chat(args: argparse.Namespace) -> None:
         print(f"[conversation={conversation}]")
     runtime_prompt = Path(args.runtime_prompt) if args.runtime_prompt else cfg.runtime_prompt
     model = args.model or cfg.model
-    message = _read_message_arg(args.message)
+    message = _read_message_arg()
 
     output, reads = run_turn(
         conversation=conversation,
@@ -147,57 +146,31 @@ def cmd_chat(args: argparse.Namespace) -> None:
 
 
 def cmd_conversations(args: argparse.Namespace) -> None:
-    store = _store_from_args(args)
-    for path in hnt.list_conversations(store):
+    for path in hnt.list_conversations():
         print(path)
 
-def cmd_consolidate(args: argparse.Namespace) -> None:
-    cfg = load_config(Path(args.config) if args.config else None)
-    store = _store_from_args(args)
-    conversation = Path(args.conversation)
 
-    transcript = hnt.pack(conversation)
+def cmd_create_conversation(args: argparse.Namespace) -> None:
+    conv = hnt.new_conversation()
+    print(conv)
 
-    if args.prompt:
-        prompt_text = Path(args.prompt).read_text(encoding="utf-8")
-    else:
-        prompt_text = (
-            "You are summarizing a conversation into a memory note. "
-            "Output only Markdown body with a short title and key facts. "
-            "Do not mention files, tools, or actions."
-        )
 
-    convo = hnt.new_conversation(store)
-    hnt.add_message(convo, "system", prompt_text)
-    hnt.add_message(convo, "user", transcript)
-    summary = hnt.generate(convo, model=args.model or cfg.model).strip()
 
-    ts = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
-    title = f"session-{ts}"
-    node_rel = Path("semantic") / f"{title}.md"
-    node_path = store / node_rel
-    today = _today()
+def _copy_conversation(store: Path, conversation: Path) -> Path:
+    import shutil
+    from datetime import datetime
 
-    body = summary
-    if not body.startswith("#"):
-        body = f"# Session {ts}\n\n{body}\n"
-
-    node_path.parent.mkdir(parents=True, exist_ok=True)
-    node_path.write_text(
-        f"---\ncreated: {today}\nupdated: {today}\n---\n\n{body}\n",
-        encoding="utf-8",
-    )
-
-    index_path = store / "index.md"
-    index_text = index_path.read_text(encoding="utf-8")
-    index_text = _set_frontmatter_date(index_text, "updated", today)
-    if "created:" not in index_text:
-        index_text = _set_frontmatter_date(index_text, "created", today)
-    index_text = _append_index_link(index_text, f"semantic/{title}")
-    index_path.write_text(index_text, encoding="utf-8")
-
-    print(node_path)
-
+    date = datetime.utcnow().strftime("%Y%m%d")
+    base = store / "episodic-raw" / date
+    base.mkdir(parents=True, exist_ok=True)
+    name = conversation.name or "conversation"
+    dest = base / name
+    suffix = 1
+    while dest.exists():
+        dest = base / f"{name}-{suffix}"
+        suffix += 1
+    shutil.copytree(conversation, dest)
+    return dest
 
 def _sleep_dir(store: Path) -> Path:
     ts = datetime.utcnow().strftime("%Y%m%d-%H%M%S")
@@ -208,12 +181,11 @@ def cmd_sleep(args: argparse.Namespace) -> None:
     cfg = load_config(Path(args.config) if args.config else None)
     store = _store_from_args(args)
     conversation = Path(args.conversation)
+    stored_conv = _copy_conversation(store, conversation)
 
     sleep_dir = _sleep_dir(store)
     sleep_dir.mkdir(parents=True, exist_ok=True)
 
-    transcript = hnt.pack(conversation)
-    (sleep_dir / "transcript.md").write_text(transcript, encoding="utf-8")
 
     prompt_path = Path(args.prompt) if args.prompt else cfg.consolidation_prompt
     if prompt_path is None:
@@ -224,6 +196,7 @@ def cmd_sleep(args: argparse.Namespace) -> None:
     info = {
         "store": str(store),
         "conversation": str(conversation),
+        "stored_conversation": str(stored_conv),
         "prompt": str(prompt_path),
     }
     (sleep_dir / "job.json").write_text(json.dumps(info, indent=2), encoding="utf-8")
@@ -231,7 +204,7 @@ def cmd_sleep(args: argparse.Namespace) -> None:
     instructions = (
         "Run your consolidation agent in the memory store root.\n"
         "Inputs:\n"
-        f"- {sleep_dir / 'transcript.md'}\n"
+        f"- {stored_conv}\n"
         f"- {sleep_dir / 'consolidation.md'}\n"
         "Update files in the store, then commit if desired.\n"
     )
@@ -305,21 +278,17 @@ def build_parser() -> argparse.ArgumentParser:
     tokens_p.add_argument("path")
     tokens_p.set_defaults(func=cmd_tokens)
 
+    create_p = sub.add_parser("create-conversation", help="Create a conversation")
+    create_p.set_defaults(func=cmd_create_conversation)
+
     conversations_p = sub.add_parser("conversations", help="List conversations in the store")
     conversations_p.set_defaults(func=cmd_conversations)
 
     chat_p = sub.add_parser("chat", help="Send one chat turn")
-    chat_p.add_argument("message", nargs="?")
-    chat_p.add_argument("--conversation")
+    chat_p.add_argument("--conversation", required=True)
     chat_p.add_argument("--model")
     chat_p.add_argument("--runtime-prompt")
     chat_p.set_defaults(func=cmd_chat)
-
-    consolidate_p = sub.add_parser("consolidate", help="Run a simple consolidation")
-    consolidate_p.add_argument("--conversation", required=True)
-    consolidate_p.add_argument("--prompt")
-    consolidate_p.add_argument("--model")
-    consolidate_p.set_defaults(func=cmd_consolidate)
 
     sleep_p = sub.add_parser("sleep", help="Prepare a consolidation job")
     sleep_p.add_argument("--conversation", required=True)
