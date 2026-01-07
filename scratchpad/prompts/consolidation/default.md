@@ -22,3 +22,7 @@ Constraints:
 - Prefer updating existing nodes over duplicating facts.
 
 When done, report what files you changed or created.
+
+Conversation directory: __CONVERSATION_PATH__
+
+Read all message files in that directory to understand the finished session.
