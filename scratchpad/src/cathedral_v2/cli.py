@@ -23,6 +23,23 @@ from .tokens import estimate_tokens
 from . import hnt
 
 
+def _memory_home() -> Path:
+    env = os.environ.get("CATHEDRAL_MEMORY_HOME")
+    if env:
+        return Path(env).expanduser()
+    xdg = os.environ.get("XDG_DATA_HOME")
+    base = Path(xdg).expanduser() if xdg else Path.home() / ".local" / "share"
+    return base / "cathedral" / "memory"
+
+
+def _resolve_store_path(value: str) -> Path:
+    candidate = Path(value).expanduser()
+    if candidate.is_absolute() or any(sep in value for sep in ("/", os.sep)) or value.startswith("."):
+        return candidate
+    return _memory_home() / value
+
+
+
 def _read_message_arg() -> str:
     value = sys.stdin.read()
     value = (value or "").strip()
@@ -68,13 +85,17 @@ def _append_index_link(text: str, link: str) -> str:
 def _store_from_args(args: argparse.Namespace) -> Path:
     cfg = load_config(Path(args.config) if args.config else None)
     store = args.store or (cfg.store_path if cfg.store_path else None)
+    if store and not isinstance(store, Path):
+        store = _resolve_store_path(str(store))
     if not store:
         raise SystemExit("store path required (--store or CATHEDRAL_STORE)")
-    return Path(store)
+    if isinstance(store, Path):
+        return store
+    return _resolve_store_path(str(store))
 
 
 def cmd_init(args: argparse.Namespace) -> None:
-    store = Path(args.store)
+    store = _resolve_store_path(args.store)
     init_store(store)
     print(f"Initialized {store}")
 
@@ -186,13 +207,9 @@ def cmd_sleep(args: argparse.Namespace) -> None:
     sleep_dir = _sleep_dir(store)
     sleep_dir.mkdir(parents=True, exist_ok=True)
 
-
     prompt_path = Path(args.prompt) if args.prompt else cfg.consolidation_prompt
     if prompt_path is None:
         prompt_path = Path(__file__).resolve().parents[2] / "prompts" / "consolidation" / "default.md"
-    prompt_text = prompt_path.read_text(encoding="utf-8")
-    rendered = prompt_text.replace("__CONVERSATION_PATH__", str(stored_conv))
-    (sleep_dir / "consolidation.md").write_text(rendered, encoding="utf-8")
 
     info = {
         "store": str(store),
@@ -202,17 +219,7 @@ def cmd_sleep(args: argparse.Namespace) -> None:
     }
     (sleep_dir / "job.json").write_text(json.dumps(info, indent=2), encoding="utf-8")
 
-    instructions = (
-        "Run your consolidation agent in the memory store root.\n"
-        "Inputs:\n"
-        f"- {stored_conv}\n"
-        f"- {sleep_dir / 'consolidation.md'}\n"
-        "Update files in the store, then commit if desired.\n"
-    )
-    (sleep_dir / "README.txt").write_text(instructions, encoding="utf-8")
-
     print(sleep_dir)
-
 
 def cmd_run_agent(args: argparse.Namespace) -> None:
     cfg = load_config(Path(args.config) if args.config else None)
@@ -224,11 +231,24 @@ def cmd_run_agent(args: argparse.Namespace) -> None:
     sleep_dir = Path(args.sleep)
     job = json.loads((sleep_dir / "job.json").read_text(encoding="utf-8"))
     store = Path(job["store"])
-    prompt = sleep_dir / "consolidation.md"
+    prompt_path = Path(job["prompt"])
+    prompt_text = prompt_path.read_text(encoding="utf-8")
+    rendered = prompt_text.replace("__CONVERSATION_PATH__", str(job["stored_conversation"]))
 
-    cmd = template.format(prompt=str(prompt), store=str(store), sleep=str(sleep_dir))
+    cmd = template.format(store=str(store), sleep=str(sleep_dir))
     args_list = shlex.split(cmd)
-    subprocess.run(args_list, cwd=store, check=True)
+    proc = subprocess.run(
+        args_list,
+        cwd=store,
+        input=rendered,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    (sleep_dir / "agent.stdout.txt").write_text(proc.stdout or "", encoding="utf-8")
+    (sleep_dir / "agent.stderr.txt").write_text(proc.stderr or "", encoding="utf-8")
+    if proc.returncode != 0:
+        raise SystemExit(proc.stderr.strip() or "agent failed")
 
 
 def cmd_web(args: argparse.Namespace) -> None:
@@ -236,6 +256,8 @@ def cmd_web(args: argparse.Namespace) -> None:
 
     cfg = load_config(Path(args.config) if args.config else None)
     store = args.store or (cfg.store_path if cfg.store_path else None)
+    if store and not isinstance(store, Path):
+        store = _resolve_store_path(str(store))
     if store:
         os.environ["CATHEDRAL_STORE"] = str(store)
     if args.model:
