@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import re
 from dataclasses import dataclass
@@ -8,6 +9,8 @@ from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Tuple
 
 LINK_RE = re.compile(r"\[\[([^\]]+)\]\]")
+META_DIR = "meta"
+CONVERSATIONS_FILE = "conversations.json"
 
 
 @dataclass
@@ -20,6 +23,12 @@ def init_store(store: Path) -> None:
     store.mkdir(parents=True, exist_ok=True)
     for sub in ["episodic", "episodic-raw", "semantic", "sleep"]:
         (store / sub).mkdir(exist_ok=True)
+
+    meta_dir = store / META_DIR
+    meta_dir.mkdir(exist_ok=True)
+    conv_file = meta_dir / CONVERSATIONS_FILE
+    if not conv_file.exists():
+        conv_file.write_text("[]\n", encoding="utf-8")
 
     index_path = store / "index.md"
     if not index_path.exists():
@@ -135,3 +144,25 @@ def broken_links(store: Path, include_raw: bool = False) -> Dict[Path, List[str]
         if missing:
             broken[node.path] = missing
     return broken
+
+
+
+def _conversations_path(store: Path) -> Path:
+    return store / META_DIR / CONVERSATIONS_FILE
+
+
+def list_conversations(store: Path) -> List[str]:
+    path = _conversations_path(store)
+    if not path.exists():
+        return []
+    data = json.loads(path.read_text(encoding="utf-8"))
+    return [str(item) for item in data if str(item)]
+
+
+def add_conversation(store: Path, conversation: Path) -> None:
+    path = _conversations_path(store)
+    data = list_conversations(store)
+    conv = str(conversation)
+    if conv not in data:
+        data.append(conv)
+        path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")

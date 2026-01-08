@@ -140,11 +140,11 @@ If you provide `agent_cmds`, the command supports `{prompt}`, `{store}`, and
 uv venv
 uv pip install -e .
 
-cathedral init --store ./example-store
-cathedral web --store ./example-store
+uv run cathedral init --store ./example-store
+uv run cathedral web --store ./example-store
 ```
 
-Then open `http://127.0.0.1:1345`.
+Then open `http://127.0.0.1:1345`. The web UI uses the same store you pass on launch.
 
 Default model is `openrouter/google/gemini-2.5-pro` unless overridden by config or env.
 
@@ -161,7 +161,7 @@ Send a message (a new conversation directory is created inside
 `my-store/episodic-raw/` and printed):
 
 ```
-uv run cathedral create-conversation
+uv run cathedral create-conversation --store ./my-store
 # then send a message
 echo "hello" | uv run cathedral chat --store ./my-store --conversation /path/to/conv
 ```
@@ -181,7 +181,7 @@ uv run cathedral consolidate --store ./my-store --conversation /path/to/conv --a
 List hnt-chat conversations:
 
 ```
-uv run cathedral conversations
+uv run cathedral conversations --store ./my-store
 ```
 
 Consolidation copies the conversation directory into the store's `episodic-raw/` before running.

@@ -11,7 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from .config import load_config
 from .runtime import run_turn
 from . import hnt
-from .memory import read_node, resolve_title
+from .memory import read_node, resolve_title, list_conversations as list_store_conversations, add_conversation
 
 app = FastAPI()
 
@@ -41,7 +41,8 @@ def _model() -> str | None:
 
 
 def _resolve_conversation_id(conv_id: str) -> Path:
-    for path in hnt.list_conversations():
+    for conv in list_store_conversations(_store_path()):
+        path = Path(conv)
         if path.name == conv_id or str(path) == conv_id:
             return path
     raise HTTPException(status_code=404, detail="Conversation not found")
@@ -75,7 +76,8 @@ def styles() -> FileResponse:
 @app.get("/api/conversations")
 def list_conversations() -> JSONResponse:
     items = []
-    for path in hnt.list_conversations():
+    for conv in list_store_conversations(_store_path()):
+        path = Path(conv)
         items.append({"id": path.name, "path": str(path)})
     return JSONResponse(items)
 
@@ -83,6 +85,7 @@ def list_conversations() -> JSONResponse:
 @app.post("/api/conversations")
 def create_conversation() -> JSONResponse:
     path = hnt.new_conversation()
+    add_conversation(_store_path(), path)
     return JSONResponse({"id": path.name, "path": str(path)})
 
 
