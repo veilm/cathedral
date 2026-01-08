@@ -11,6 +11,8 @@ from pathlib import Path
 
 from .config import load_config
 from .memory import (
+    add_conversation,
+    list_conversations as list_store_conversations,
     backlinks,
     broken_links,
     init_store,
@@ -167,12 +169,15 @@ def cmd_chat(args: argparse.Namespace) -> None:
 
 
 def cmd_conversations(args: argparse.Namespace) -> None:
-    for path in hnt.list_conversations():
+    store = _store_from_args(args)
+    for path in list_store_conversations(store):
         print(path)
 
 
 def cmd_create_conversation(args: argparse.Namespace) -> None:
+    store = _store_from_args(args)
     conv = hnt.new_conversation()
+    add_conversation(store, conv)
     print(conv)
 
 
@@ -202,6 +207,7 @@ def cmd_consolidate(args: argparse.Namespace) -> None:
     cfg = load_config(Path(args.config) if args.config else None)
     store = _store_from_args(args)
     conversation = Path(args.conversation)
+    add_conversation(store, conversation)
     stored_conv = _copy_conversation(store, conversation)
 
     sleep_dir = _sleep_dir(store)
@@ -265,7 +271,6 @@ def cmd_web(args: argparse.Namespace) -> None:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="cathedral")
     parser.add_argument("--config", help="Path to cathedral.json")
-    parser.add_argument("--store", help="Memory store path")
 
     sub = parser.add_subparsers(dest="command", required=True)
 
@@ -274,53 +279,62 @@ def build_parser() -> argparse.ArgumentParser:
     init_p.set_defaults(func=cmd_init)
 
     read_p = sub.add_parser("read", help="Read a memory node by title")
+    read_p.add_argument("--store", required=True)
     read_p.add_argument("title")
     read_p.set_defaults(func=cmd_read)
 
     resolve_p = sub.add_parser("resolve", help="Resolve a title to a path")
+    resolve_p.add_argument("--store", required=True)
     resolve_p.add_argument("title")
     resolve_p.set_defaults(func=cmd_resolve)
 
     backlinks_p = sub.add_parser("backlinks", help="List backlinks to a node")
+    backlinks_p.add_argument("--store", required=True)
     backlinks_p.add_argument("title")
     backlinks_p.set_defaults(func=cmd_backlinks)
 
     orphans_p = sub.add_parser("orphans", help="List nodes with no incoming links")
+    orphans_p.add_argument("--store", required=True)
     orphans_p.set_defaults(func=cmd_orphans)
 
     broken_p = sub.add_parser("broken", help="List broken links")
+    broken_p.add_argument("--store", required=True)
     broken_p.set_defaults(func=cmd_broken)
 
     tokens_p = sub.add_parser("tokens", help="Estimate tokens for a file")
+    tokens_p.add_argument("--store", required=True)
     tokens_p.add_argument("path")
     tokens_p.set_defaults(func=cmd_tokens)
 
     create_p = sub.add_parser("create-conversation", help="Create a conversation")
+    create_p.add_argument("--store", required=True)
     create_p.add_argument("--config")
     create_p.set_defaults(func=cmd_create_conversation)
 
     conversations_p = sub.add_parser("conversations", help="List conversations in the store")
+    conversations_p.add_argument("--store", required=True)
     conversations_p.add_argument("--config")
-    conversations_p.add_argument("--store")
     conversations_p.set_defaults(func=cmd_conversations)
 
     chat_p = sub.add_parser("chat", help="Send one chat turn")
+    chat_p.add_argument("--store", required=True)
     chat_p.add_argument("--config")
-    chat_p.add_argument("--store")
     chat_p.add_argument("--conversation", required=True)
     chat_p.add_argument("--model")
     chat_p.add_argument("--runtime-prompt")
     chat_p.set_defaults(func=cmd_chat)
 
     consolidate_p = sub.add_parser("consolidate", help="Consolidate using an agent")
+    consolidate_p.add_argument("--store", required=True)
     consolidate_p.add_argument("--config")
-    consolidate_p.add_argument("--store")
     consolidate_p.add_argument("--conversation", required=True)
     consolidate_p.add_argument("--prompt")
     consolidate_p.add_argument("--agent", required=True)
     consolidate_p.set_defaults(func=cmd_consolidate)
 
     web_p = sub.add_parser("web", help="Run the web server")
+    web_p.add_argument("--store", required=True)
+    web_p.add_argument("--config")
     web_p.add_argument("--host", default="127.0.0.1")
     web_p.add_argument("--port", type=int, default=1345)
     web_p.add_argument("--model")
