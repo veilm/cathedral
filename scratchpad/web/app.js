@@ -8,6 +8,23 @@ const memoryView = document.getElementById("memoryView");
 const newConvBtn = document.getElementById("newConv");
 
 let currentConvId = null;
+const urlParams = new URLSearchParams(window.location.search);
+
+function setConvInUrl(convId) {
+  const params = new URLSearchParams(window.location.search);
+  if (convId) {
+    params.set("conv", convId);
+  } else {
+    params.delete("conv");
+  }
+  const query = params.toString();
+  const nextUrl = query ? `${window.location.pathname}?${query}` : window.location.pathname;
+  window.history.replaceState({}, "", nextUrl);
+}
+
+function getConvFromUrl() {
+  return urlParams.get("conv");
+}
 
 async function fetchJSON(url, options = {}) {
   const res = await fetch(url, options);
@@ -50,6 +67,7 @@ async function loadConversations() {
 
     btn.addEventListener("click", async () => {
       currentConvId = conv.id;
+      setConvInUrl(currentConvId);
       await loadConversation(conv.id);
       await loadConversations();
     });
@@ -91,16 +109,21 @@ memoryForm.addEventListener("submit", async (event) => {
 newConvBtn.addEventListener("click", async () => {
   const conv = await fetchJSON("/api/conversations", { method: "POST" });
   currentConvId = conv.id;
+  setConvInUrl(currentConvId);
   await loadConversations();
   await loadConversation(conv.id);
 });
 
 (async () => {
-  await loadConversations();
   const conversations = await fetchJSON("/api/conversations");
   if (conversations.length > 0) {
-    currentConvId = conversations[0].id;
+    const urlConv = getConvFromUrl();
+    const found = urlConv
+      ? conversations.find((conv) => conv.id === urlConv)
+      : null;
+    currentConvId = found ? found.id : conversations[0].id;
+    setConvInUrl(currentConvId);
     await loadConversation(currentConvId);
-    await loadConversations();
   }
+  await loadConversations();
 })();
