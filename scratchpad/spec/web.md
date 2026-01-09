@@ -49,6 +49,15 @@ Key behaviors:
   the conversation.
 - The memory panel reads a node by title via `/api/memory/read`.
 
+### Markdown rendering
+
+Message bodies are rendered with a small Markdown parser in `web/app.js`:
+- Escapes HTML for safety.
+- Supports headers, bold/italic, inline code, and fenced code blocks.
+- Preserves line breaks with `white-space: pre-wrap`.
+
+Recall tags like `<recall>Title</recall>` are replaced with a styled badge.
+
 ### URL persistence
 
 The active conversation ID is stored in the query string:
