@@ -3,14 +3,16 @@
 ## Runtime prompt
 
 Default runtime prompt lives at `prompts/runtime/default.md` and is injected as
-the first system message in a conversation. It defines a recall tag protocol:
+the first system message in a conversation. It contains:
 
-```
-<recall>Title</recall>
-```
+- A narrative role sentence for the assistant.
+- A short description of the memory wiki.
+- A conditional recall block:
+  `{{IF_INCLUDE_RECALL}} ... {{/IF_INCLUDE_RECALL}}`
+- A `__MEMORY_ROOT__` placeholder for the contents of `store/index.md`.
 
-The runtime prompt includes the content of `store/index.md` in place of the
-`__MEMORY_ROOT__` placeholder.
+The runtime removes or keeps the conditional block depending on whether the
+store has memory nodes beyond the root `index.md`.
 
 ## Conversation storage
 

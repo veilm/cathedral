@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Optional, Tuple
 
 from . import hnt
-from .memory import read_node
+from .memory import list_nodes, read_node
 
 MAX_READS = 3
 RECALL_RE = re.compile(r"<recall>(.*?)</recall>", re.IGNORECASE | re.DOTALL)
@@ -18,6 +18,26 @@ def _default_runtime_prompt() -> Path:
 
 def _init_marker(conversation: Path) -> Path:
     return conversation / "cathedral_init.json"
+
+
+def _has_memory_nodes(store: Path) -> bool:
+    index_path = store / "index.md"
+    for node in list_nodes(store, include_raw=False):
+        if node.path != index_path:
+            return True
+    return False
+
+
+def _apply_prompt_conditionals(text: str, include_recall: bool) -> str:
+    def replace_block(match: re.Match[str]) -> str:
+        content = match.group(1)
+        return content.strip() if include_recall else ""
+
+    return re.sub(
+        r"\{\{IF_INCLUDE_RECALL\}\}([\s\S]*?)\{\{\/IF_INCLUDE_RECALL\}\}",
+        replace_block,
+        text,
+    )
 
 
 def ensure_initialized(
@@ -33,7 +53,10 @@ def ensure_initialized(
     template = prompt_path.read_text(encoding="utf-8")
     index_path = store / "index.md"
     index_text = index_path.read_text(encoding="utf-8")
-    prompt_text = template.replace("__MEMORY_ROOT__", index_text.strip())
+    prompt_text = _apply_prompt_conditionals(
+        template, include_recall=_has_memory_nodes(store)
+    )
+    prompt_text = prompt_text.replace("__MEMORY_ROOT__", index_text.strip())
 
     hnt.add_message(conversation, "system", prompt_text)
 

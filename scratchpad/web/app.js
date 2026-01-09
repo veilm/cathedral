@@ -35,6 +35,186 @@ async function fetchJSON(url, options = {}) {
   return res.json();
 }
 
+function escapeHtml(unsafe) {
+  if (unsafe === null || unsafe === undefined) return "";
+  return unsafe
+    .toString()
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function parseMarkdownSimple(text) {
+  const result = [];
+  let i = 0;
+  let inBold = false;
+  let inItalic = false;
+  let boldMarker = null;
+  let italicMarker = null;
+
+  while (i < text.length) {
+    const char = text[i];
+    const nextChar = i + 1 < text.length ? text[i + 1] : null;
+    const prevChar = i > 0 ? text[i - 1] : null;
+
+    if (char === "*" || char === "_") {
+      let markerCount = 1;
+      let j = i + 1;
+      while (j < text.length && text[j] === char) {
+        markerCount++;
+        j++;
+      }
+
+      if (markerCount >= 3) {
+        if (inBold && inItalic && boldMarker === char && italicMarker === char) {
+          result.push("</em></strong>");
+          inBold = false;
+          inItalic = false;
+          boldMarker = null;
+          italicMarker = null;
+          i += 3;
+          continue;
+        } else if (!inBold && !inItalic) {
+          result.push("<strong><em>");
+          inBold = true;
+          inItalic = true;
+          boldMarker = char;
+          italicMarker = char;
+          i += 3;
+          continue;
+        }
+      }
+
+      if (markerCount >= 2) {
+        if (inBold && boldMarker === char) {
+          result.push("</strong>");
+          inBold = false;
+          boldMarker = null;
+          i += 2;
+          continue;
+        } else if (!inBold) {
+          result.push("<strong>");
+          inBold = true;
+          boldMarker = char;
+          i += 2;
+          continue;
+        }
+      }
+
+      if (markerCount === 1) {
+        if (char === "_") {
+          const atStart = i === 0 || /\s/.test(prevChar);
+          const nextIsSpace = !nextChar || /\s/.test(nextChar);
+
+          if (inItalic && italicMarker === "_") {
+            const afterIsSpace = i + 1 >= text.length || /\s/.test(text[i + 1]);
+            if (afterIsSpace || /[^\w]/.test(text[i + 1])) {
+              result.push("</em>");
+              inItalic = false;
+              italicMarker = null;
+              i++;
+              continue;
+            }
+          } else if (!inItalic && atStart && !nextIsSpace) {
+            result.push("<em>");
+            inItalic = true;
+            italicMarker = "_";
+            i++;
+            continue;
+          }
+        } else if (char === "*") {
+          const beforeSpace = i === 0 || /\s/.test(text[i - 1]);
+          const afterSpace = i + 1 >= text.length || /\s/.test(text[i + 1]);
+
+          if (beforeSpace && afterSpace) {
+            // Literal asterisk, no formatting.
+          } else if (inItalic && italicMarker === "*") {
+            if (!beforeSpace) {
+              result.push("</em>");
+              inItalic = false;
+              italicMarker = null;
+              i++;
+              continue;
+            }
+          } else if (!inItalic && !afterSpace) {
+            result.push("<em>");
+            inItalic = true;
+            italicMarker = "*";
+            i++;
+            continue;
+          }
+        }
+      }
+    }
+
+    result.push(char);
+    i++;
+  }
+
+  if (inItalic) result.push("</em>");
+  if (inBold) result.push("</strong>");
+
+  return result.join("");
+}
+
+function renderMarkdown(text) {
+  const recallTags = [];
+  const withTokens = text.replace(/<recall>([\s\S]*?)<\/recall>/gi, (match, title) => {
+    const token = `%%RECALL_${recallTags.length}%%`;
+    recallTags.push(title.trim());
+    return token;
+  });
+
+  let html = escapeHtml(withTokens);
+
+  html = html.replace(/^######\s+(.+)$/gm, "<h6>$1</h6>");
+  html = html.replace(/^#####\s+(.+)$/gm, "<h5>$1</h5>");
+  html = html.replace(/^####\s+(.+)$/gm, "<h4>$1</h4>");
+  html = html.replace(/^###\s+(.+)$/gm, "<h3>$1</h3>");
+  html = html.replace(/^##\s+(.+)$/gm, "<h2>$1</h2>");
+  html = html.replace(/^#\s+(.+)$/gm, "<h1>$1</h1>");
+  html = html.replace(/^\*\*\*$/gm, "<hr>");
+
+  const codeBlocks = [];
+  html = html.replace(/```([\s\S]*?)```/g, (match, code) => {
+    const placeholder = `%%CODE_BLOCK_${codeBlocks.length}%%`;
+    codeBlocks.push(`<pre><code>${code}</code></pre>`);
+    return placeholder;
+  });
+
+  const inlineCode = [];
+  html = html.replace(/`([^`]+)`/g, (match, code) => {
+    const placeholder = `%%INLINE_CODE_${inlineCode.length}%%`;
+    inlineCode.push(`<code>${code}</code>`);
+    return placeholder;
+  });
+
+  html = parseMarkdownSimple(html);
+
+  codeBlocks.forEach((code, i) => {
+    html = html.replace(`%%CODE_BLOCK_${i}%%`, code);
+  });
+  inlineCode.forEach((code, i) => {
+    html = html.replace(`%%INLINE_CODE_${i}%%`, code);
+  });
+
+  const paragraphs = html.split(/\n\n+/);
+  html = paragraphs
+    .filter((p) => p.trim())
+    .map((p) => `<p>${p}</p>`)
+    .join("");
+
+  recallTags.forEach((title, i) => {
+    const safeTitle = escapeHtml(title);
+    const badge = `<span class="badge badge-recall">&lt;recall&gt;${safeTitle}&lt;/recall&gt;</span>`;
+    html = html.replace(`%%RECALL_${i}%%`, badge);
+  });
+
+  return html;
+}
+
 function renderMessages(messages) {
   chatLogEl.innerHTML = "";
   messages.forEach((msg) => {
@@ -46,7 +226,8 @@ function renderMessages(messages) {
     role.textContent = msg.role;
 
     const body = document.createElement("div");
-    body.textContent = msg.content;
+    body.className = "msg-body";
+    body.innerHTML = renderMarkdown(msg.content);
 
     wrapper.appendChild(role);
     wrapper.appendChild(body);

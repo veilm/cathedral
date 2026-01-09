@@ -111,6 +111,91 @@ body {
   margin-bottom: 4px;
 }
 
+.chat .msg-body {
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.5;
+}
+
+.chat .msg-body h1,
+.chat .msg-body h2,
+.chat .msg-body h3,
+.chat .msg-body h4,
+.chat .msg-body h5,
+.chat .msg-body h6 {
+  margin: 1em 0 0.5em 0;
+  line-height: 1.2;
+}
+
+.chat .msg-body h1 {
+  font-size: 1.4em;
+}
+.chat .msg-body h2 {
+  font-size: 1.25em;
+}
+.chat .msg-body h3 {
+  font-size: 1.1em;
+}
+.chat .msg-body h4 {
+  font-size: 1em;
+}
+.chat .msg-body h5 {
+  font-size: 0.95em;
+}
+.chat .msg-body h6 {
+  font-size: 0.9em;
+}
+
+.chat .msg-body p {
+  margin: 0.4em 0;
+}
+
+.chat .msg-body code {
+  background: #efefea;
+  border: 1px solid #e2e2dc;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 0.9em;
+}
+
+.chat .msg-body pre {
+  background: #f2f2ed;
+  border: 1px solid #e0e0d8;
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin: 0.8em 0;
+  overflow-x: auto;
+}
+
+.chat .msg-body pre code {
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+
+.chat .msg-body strong {
+  font-weight: 600;
+}
+
+.chat .msg-body em {
+  font-style: italic;
+}
+
+.badge {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 999px;
+  font-size: 0.8em;
+  border: 1px solid var(--border);
+  background: #f0f0ea;
+  color: var(--accent);
+}
+
+.badge-recall {
+  font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+}
+
 .chat-form {
   display: grid;
   grid-template-columns: 1fr auto;
