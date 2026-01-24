@@ -48,6 +48,9 @@ Key behaviors:
 - Sending a message posts to `/api/conversations/{id}/message` and then reloads
   the conversation.
 - The memory panel reads a node by title via `/api/memory/read`.
+- The settings modal opens from the topbar, allowing theme changes.
+- Theme selection updates `data-theme` on the root element and persists in
+  `localStorage` under `cathedral-theme`.
 
 ### Markdown rendering
 
@@ -64,3 +67,9 @@ The active conversation ID is stored in the query string:
 - `?conv=<id>` is updated on selection or creation.
 - On page load, if `conv` matches an existing conversation, it is selected.
 - If the URL is missing or invalid, the first conversation is selected.
+
+### Themes
+
+The UI uses CSS variables with two available themes:
+- `monotone-light` (default)
+- `monotone-dark`

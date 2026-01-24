@@ -12,6 +12,9 @@
         <div class="brand">Cathedral v2</div>
         <div class="actions">
           <button id="newConv">New Conversation</button>
+          <button id="openSettings" class="icon-button" aria-label="Open settings">
+            ♧
+          </button>
         </div>
       </header>
 
@@ -39,6 +42,25 @@
           <pre id="memoryView" class="memory"></pre>
         </section>
       </main>
+    </div>
+
+    <div id="settingsModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+      <div class="modal-backdrop" data-close-settings></div>
+      <div class="modal-card">
+        <header class="modal-header">
+          <h2 id="settingsTitle">Settings</h2>
+          <button id="closeSettings" class="icon-button" aria-label="Close settings">Close</button>
+        </header>
+        <div class="modal-body">
+          <label class="field">
+            <span>Theme</span>
+            <select id="themeSelect">
+              <option value="monotone-light">Monotone Light</option>
+              <option value="monotone-dark">Monotone Dark</option>
+            </select>
+          </label>
+        </div>
+      </div>
     </div>
 
     <script src="/app.js"></script>

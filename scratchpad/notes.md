@@ -22,3 +22,12 @@ etc.
 
 TODO see if any signal
 	https://github.com/steipete/agent-scripts/blob/main/scripts/docs-list.ts
+	https://timkellogg.me/blog/2026/01/09/viable-systems
+	https://timkellogg.me/blog/2025/12/15/strix
+	https://timkellogg.me/blog/2025/12/30/memory-arch
+
+	https://andonlabs.com/evals/vending-bench-2
+
+	https://generative.ink/posts/methods-of-prompt-programming/
+	https://cyborgism.wiki/hypha/guide_to_inframodel_prompting
+	https://cyborgism.wiki/hypha/elwin-sydney_saga

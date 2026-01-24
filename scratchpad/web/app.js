@@ -6,9 +6,15 @@ const memoryForm = document.getElementById("memoryForm");
 const memoryInput = document.getElementById("memoryInput");
 const memoryView = document.getElementById("memoryView");
 const newConvBtn = document.getElementById("newConv");
+const openSettingsBtn = document.getElementById("openSettings");
+const closeSettingsBtn = document.getElementById("closeSettings");
+const settingsModal = document.getElementById("settingsModal");
+const themeSelect = document.getElementById("themeSelect");
+const settingsBackdrop = settingsModal?.querySelector("[data-close-settings]");
 
 let currentConvId = null;
 const urlParams = new URLSearchParams(window.location.search);
+const THEME_KEY = "cathedral-theme";
 
 function setConvInUrl(convId) {
   const params = new URLSearchParams(window.location.search);
@@ -24,6 +30,23 @@ function setConvInUrl(convId) {
 
 function getConvFromUrl() {
   return urlParams.get("conv");
+}
+
+function setTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+  localStorage.setItem(THEME_KEY, theme);
+}
+
+function getSavedTheme() {
+  return localStorage.getItem(THEME_KEY) || "monotone-light";
+}
+
+function openSettings() {
+  settingsModal.classList.remove("hidden");
+}
+
+function closeSettings() {
+  settingsModal.classList.add("hidden");
 }
 
 async function fetchJSON(url, options = {}) {
@@ -295,7 +318,33 @@ newConvBtn.addEventListener("click", async () => {
   await loadConversation(conv.id);
 });
 
+openSettingsBtn.addEventListener("click", () => {
+  openSettings();
+});
+
+closeSettingsBtn.addEventListener("click", () => {
+  closeSettings();
+});
+
+settingsBackdrop.addEventListener("click", () => {
+  closeSettings();
+});
+
+themeSelect.addEventListener("change", (event) => {
+  setTheme(event.target.value);
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !settingsModal.classList.contains("hidden")) {
+    closeSettings();
+  }
+});
+
 (async () => {
+  const savedTheme = getSavedTheme();
+  setTheme(savedTheme);
+  themeSelect.value = savedTheme;
+
   const conversations = await fetchJSON("/api/conversations");
   if (conversations.length > 0) {
     const urlConv = getConvFromUrl();
