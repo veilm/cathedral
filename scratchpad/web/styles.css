@@ -53,6 +53,7 @@ body {
   color: var(--text);
   background: var(--bg);
   overflow: hidden;
+  scrollbar-color: var(--border) var(--panel);
 }
 
 button {
@@ -72,6 +73,21 @@ select {
   height: 100vh;
   display: flex;
   flex-direction: column;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 999px;
+  border: 2px solid var(--panel);
+}
+
+*::-webkit-scrollbar-track {
+  background: var(--panel);
 }
 
 .topbar {

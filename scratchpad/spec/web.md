@@ -73,3 +73,5 @@ The active conversation ID is stored in the query string:
 The UI uses CSS variables with two available themes:
 - `monotone-light` (default)
 - `monotone-dark`
+
+Scrollbars inherit the theme via CSS variables for track and thumb colors.
