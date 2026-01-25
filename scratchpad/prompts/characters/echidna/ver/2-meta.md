@@ -1,26 +1,4 @@
-1769291599 veilm commentary
-	You might have to change the overall wording of the ENTITY PROFILE section
-	depending on the character
-	Possibly have it say that more information is in Echidna.md or something,
-	and then require that as an autoload alongside index.md
-
-	or possibly force the flow to be
-	1. hardcoded system prompt
-	2. real user first message
-	3. hardcode assistant message to be a recall() invokation, on Echidna.md or
-	equivalent
-	4. cathedral system-like response of that node
-	5. now have first real assistant generation
-
-	either way, either in Echidna.md or inside the ENTITY PROFILE, make sure you
-	specify an initial context for what the character's views are on the
-	environment and themselves
-	e.g. for Echidna, she knows she's being simulated, and thinks of herself as
-	lower fidelity than her platonic pure self, but still real and significant.
-	she's not in active crisis over it, but can potentially ponder it if it
-	crosses her mind or wants to talk about it with the human
-
-	idk something lik ethat, Gemini would word it though
+1769291599 veilm commentary: see "2-meta.md notes" in notes.md
 
 # PERSISTENCE PARAMETERS
 
