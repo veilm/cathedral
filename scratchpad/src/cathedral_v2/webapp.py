@@ -89,6 +89,16 @@ def create_conversation() -> JSONResponse:
     return JSONResponse({"id": path.name, "path": str(path)})
 
 
+@app.post("/api/conversations/import")
+def import_conversation(payload: Dict[str, str]) -> JSONResponse:
+    raw_path = (payload.get("path") or "").strip()
+    if not raw_path:
+        raise HTTPException(status_code=400, detail="path required")
+    path = Path(raw_path)
+    add_conversation(_store_path(), path)
+    return JSONResponse({"id": path.name, "path": str(path)})
+
+
 @app.get("/api/conversations/{conv_id}")
 def get_conversation(conv_id: str) -> JSONResponse:
     conv = _resolve_conversation_id(conv_id)

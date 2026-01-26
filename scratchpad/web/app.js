@@ -6,6 +6,7 @@ const memoryForm = document.getElementById("memoryForm");
 const memoryInput = document.getElementById("memoryInput");
 const memoryView = document.getElementById("memoryView");
 const newConvBtn = document.getElementById("newConv");
+const importConvBtn = document.getElementById("importConv");
 const openSettingsBtn = document.getElementById("openSettings");
 const closeSettingsBtn = document.getElementById("closeSettings");
 const settingsModal = document.getElementById("settingsModal");
@@ -312,6 +313,20 @@ memoryForm.addEventListener("submit", async (event) => {
 
 newConvBtn.addEventListener("click", async () => {
   const conv = await fetchJSON("/api/conversations", { method: "POST" });
+  currentConvId = conv.id;
+  setConvInUrl(currentConvId);
+  await loadConversations();
+  await loadConversation(conv.id);
+});
+
+importConvBtn.addEventListener("click", async () => {
+  const path = window.prompt("Conversation path to import:");
+  if (!path) return;
+  const conv = await fetchJSON("/api/conversations/import", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ path }),
+  });
   currentConvId = conv.id;
   setConvInUrl(currentConvId);
   await loadConversations();

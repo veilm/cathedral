@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 import re
 from pathlib import Path
 from typing import Optional, Tuple
@@ -16,14 +15,18 @@ def _default_runtime_prompt() -> Path:
     return Path(__file__).resolve().parents[2] / "prompts" / "runtime" / "default.md"
 
 
-def _init_marker(conversation: Path) -> Path:
-    return conversation / "cathedral_init.json"
-
-
 def _has_memory_nodes(store: Path) -> bool:
     index_path = store / "index.md"
     for node in list_nodes(store, include_raw=False):
         if node.path != index_path:
+            return True
+    return False
+
+
+def _has_system_message(conversation: Path) -> bool:
+    for path in conversation.glob("*.md"):
+        role = path.stem.split("-")[-1]
+        if role == "system":
             return True
     return False
 
@@ -45,8 +48,7 @@ def ensure_initialized(
     store: Path,
     runtime_prompt: Optional[Path] = None,
 ) -> None:
-    marker = _init_marker(conversation)
-    if marker.exists():
+    if _has_system_message(conversation):
         return
 
     prompt_path = runtime_prompt or _default_runtime_prompt()
@@ -59,17 +61,6 @@ def ensure_initialized(
     prompt_text = prompt_text.replace("__MEMORY_ROOT__", index_text.strip())
 
     hnt.add_message(conversation, "system", prompt_text)
-
-    marker.write_text(
-        json.dumps(
-            {
-                "store": str(store),
-                "runtime_prompt": str(prompt_path),
-            },
-            indent=2,
-        ),
-        encoding="utf-8",
-    )
 
 
 def _parse_recall(text: str) -> Optional[str]:

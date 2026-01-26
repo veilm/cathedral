@@ -8,6 +8,7 @@ The web server is a FastAPI app in `src/cathedral_v2/webapp.py` that serves:
 - `GET /styles.css` -> `web/styles.css`
 - `GET /api/conversations` -> list stored conversations
 - `POST /api/conversations` -> create a new conversation
+- `POST /api/conversations/import` -> add an existing conversation path
 - `GET /api/conversations/{id}` -> fetch messages in a conversation
 - `POST /api/conversations/{id}/message` -> send a message
 - `GET /api/memory/read?title=...` -> read a memory node
@@ -23,6 +24,8 @@ are persisted as full paths in `store/meta/conversations.json`.
 - Listing returns `{id, path}` items.
 - Creating a conversation calls `hnt-chat new` and adds the resulting path to
   the store metadata.
+- Importing a conversation accepts a `{path}` payload and adds it to the store
+  metadata without validation.
 - Sending a message calls the runtime loop (see `spec/runtime.md`) and returns
   `{output, memory_reads}`.
 
@@ -45,6 +48,7 @@ Key behaviors:
 - The conversation list is fetched from `/api/conversations`.
 - Clicking a conversation sets it as active, loads messages, and updates the UI.
 - New conversation creates one server-side and auto-selects it.
+- Import conversation prompts for a path, stores it server-side, and loads it.
 - Sending a message posts to `/api/conversations/{id}/message` and then reloads
   the conversation.
 - The memory panel reads a node by title via `/api/memory/read`.

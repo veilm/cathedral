@@ -22,8 +22,8 @@ Conversations are created and managed via `hnt-chat`:
 - Generate model output: `hnt-chat gen -c <conversation> --write --output-filename`
 
 Conversation directories contain Markdown message files written by `hnt-chat`.
-The runtime creates a marker file `cathedral_init.json` in the conversation
-directory after inserting the initial system prompt.
+The runtime injects the system prompt if the conversation has no existing
+system message.
 
 ## Runtime loop behavior
 
