@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from datetime import datetime
 from pathlib import Path
 from typing import Optional, Tuple
 
@@ -130,6 +131,14 @@ def _format_cathedral_notice(message: str) -> str:
     return f"<cathedral>\n{message.strip()}\n</cathedral>"
 
 
+def _format_human_message(message: str) -> str:
+    dt = datetime.now().astimezone()
+    offset = dt.strftime("%z")
+    offset = f"{offset[:3]}:{offset[3:]}" if len(offset) == 5 else offset
+    ts = dt.strftime("%Y-%m-%dT%H:%M ") + offset
+    return f"<human timestamp=\"{ts}\">\n{message.strip()}\n</human>"
+
+
 def run_turn(
     conversation: Path,
     store: Path,
@@ -137,7 +146,8 @@ def run_turn(
     model: Optional[str] = None,
     runtime_prompt: Optional[Path] = None,
 ) -> Tuple[str, int]:
-    hnt.add_message(conversation, "user", message)
+    human_message = _format_human_message(message)
+    hnt.add_message(conversation, "user", human_message)
 
     reads = 0
     seen_reads = set()
