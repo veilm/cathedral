@@ -51,6 +51,14 @@ Store initialization snapshots the currently active runtime prompt (default or
 The runtime loop is implemented in `src/cathedral_v2/runtime.py`:
 
 1. Append user message as role `user`.
+   - User-typed messages are wrapped as:
+
+```
+<human timestamp="YYYY-MM-DDTHH:MM ±HH:MM">
+...message...
+</human>
+```
+
 2. Generate model output using `hnt-chat gen`.
 3. If output contains `<recall>...</recall>`, resolve the title and inject a
    memory block as a new user message:
