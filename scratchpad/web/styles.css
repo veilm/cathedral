@@ -234,6 +234,11 @@ select {
   margin-bottom: 4px;
 }
 
+.chat .role.role-error {
+  color: #b00020;
+  font-weight: 700;
+}
+
 .chat .msg-body {
   white-space: pre-wrap;
   word-break: break-word;
