@@ -85,8 +85,6 @@ def run_turn(
     model: Optional[str] = None,
     runtime_prompt: Optional[Path] = None,
 ) -> Tuple[str, int]:
-    ensure_initialized(conversation, store, runtime_prompt=runtime_prompt)
-
     hnt.add_message(conversation, "user", message)
 
     reads = 0

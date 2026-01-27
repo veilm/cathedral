@@ -22,17 +22,16 @@ Conversations are created and managed via `hnt-chat`:
 - Generate model output: `hnt-chat gen -c <conversation> --write --output-filename`
 
 Conversation directories contain Markdown message files written by `hnt-chat`.
-The runtime injects the system prompt if the conversation has no existing
-system message.
+Initialization is explicit: the web app injects the system prompt when creating
+a new conversation. The runtime loop does not auto-initialize conversations.
 
 ## Runtime loop behavior
 
 The runtime loop is implemented in `src/cathedral_v2/runtime.py`:
 
-1. Ensure conversation is initialized (inject system prompt once).
-2. Append user message as role `user`.
-3. Generate model output using `hnt-chat gen`.
-4. If output contains `<recall>...</recall>`, resolve the title and inject a
+1. Append user message as role `user`.
+2. Generate model output using `hnt-chat gen`.
+3. If output contains `<recall>...</recall>`, resolve the title and inject a
    memory block as a new user message:
 
 ```
@@ -41,9 +40,9 @@ The runtime loop is implemented in `src/cathedral_v2/runtime.py`:
 </memory>
 ```
 
-5. If the title does not resolve, inject a `<cathedral>` notice instructing the
+4. If the title does not resolve, inject a `<cathedral>` notice instructing the
    model to only recall existing nodes.
-6. Loop until no recall tag is present.
+5. Loop until no recall tag is present.
 
 Limits and guards:
 - Max recalls per user turn: 3.

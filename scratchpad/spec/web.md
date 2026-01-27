@@ -22,8 +22,9 @@ Conversation IDs are the directory basename for a conversation. Conversations
 are persisted as full paths in `store/meta/conversations.json`.
 
 - Listing returns `{id, path}` items.
-- Creating a conversation calls `hnt-chat new` and adds the resulting path to
-  the store metadata.
+- Creating a conversation calls `hnt-chat new`, adds the resulting path to the
+  store metadata, and immediately injects the system prompt into that
+  conversation.
 - Importing a conversation accepts a `{path}` payload and adds it to the store
   metadata without validation.
 - Sending a message calls the runtime loop (see `spec/runtime.md`) and returns

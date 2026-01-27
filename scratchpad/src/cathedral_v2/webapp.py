@@ -9,7 +9,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from .config import load_config
-from .runtime import run_turn
+from .runtime import run_turn, ensure_initialized
 from . import hnt
 from .memory import read_node, resolve_title, list_conversations as list_store_conversations, add_conversation
 
@@ -84,8 +84,10 @@ def list_conversations() -> JSONResponse:
 
 @app.post("/api/conversations")
 def create_conversation() -> JSONResponse:
+    store = _store_path()
     path = hnt.new_conversation()
-    add_conversation(_store_path(), path)
+    add_conversation(store, path)
+    ensure_initialized(path, store, runtime_prompt=_runtime_prompt())
     return JSONResponse({"id": path.name, "path": str(path)})
 
 
