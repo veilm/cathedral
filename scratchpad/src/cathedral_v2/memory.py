@@ -180,3 +180,14 @@ def add_conversation(store: Path, conversation: Path) -> None:
     if conv not in data:
         data.append(conv)
         path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+
+
+def remove_conversation(store: Path, conversation: Path) -> bool:
+    path = _conversations_path(store)
+    data = list_conversations(store)
+    conv = str(conversation)
+    if conv not in data:
+        return False
+    data = [item for item in data if item != conv]
+    path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    return True

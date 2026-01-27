@@ -7,6 +7,9 @@ const memoryInput = document.getElementById("memoryInput");
 const memoryView = document.getElementById("memoryView");
 const newConvBtn = document.getElementById("newConv");
 const importConvBtn = document.getElementById("importConv");
+const deleteConvBtn = document.getElementById("deleteConv");
+const convMenuBtn = document.getElementById("convMenuBtn");
+const convMenu = document.getElementById("convMenu");
 const openSettingsBtn = document.getElementById("openSettings");
 const closeSettingsBtn = document.getElementById("closeSettings");
 const settingsModal = document.getElementById("settingsModal");
@@ -48,6 +51,21 @@ function openSettings() {
 
 function closeSettings() {
   settingsModal.classList.add("hidden");
+}
+
+function openConvMenu() {
+  convMenu.classList.remove("hidden");
+  convMenuBtn.setAttribute("aria-expanded", "true");
+}
+
+function closeConvMenu() {
+  convMenu.classList.add("hidden");
+  convMenuBtn.setAttribute("aria-expanded", "false");
+}
+
+function toggleConvMenu() {
+  if (convMenu.classList.contains("hidden")) openConvMenu();
+  else closeConvMenu();
 }
 
 async function fetchJSON(url, options = {}) {
@@ -312,6 +330,7 @@ memoryForm.addEventListener("submit", async (event) => {
 });
 
 newConvBtn.addEventListener("click", async () => {
+  closeConvMenu();
   const conv = await fetchJSON("/api/conversations", { method: "POST" });
   currentConvId = conv.id;
   setConvInUrl(currentConvId);
@@ -320,6 +339,7 @@ newConvBtn.addEventListener("click", async () => {
 });
 
 importConvBtn.addEventListener("click", async () => {
+  closeConvMenu();
   const path = window.prompt("Conversation path to import:");
   if (!path) return;
   const conv = await fetchJSON("/api/conversations/import", {
@@ -331,6 +351,38 @@ importConvBtn.addEventListener("click", async () => {
   setConvInUrl(currentConvId);
   await loadConversations();
   await loadConversation(conv.id);
+});
+
+deleteConvBtn.addEventListener("click", async () => {
+  closeConvMenu();
+  if (!currentConvId) return;
+  const ok = window.confirm(`Unlink conversation ${currentConvId}?`);
+  if (!ok) return;
+
+  await fetchJSON(`/api/conversations/${currentConvId}`, { method: "DELETE" });
+  const conversations = await fetchJSON("/api/conversations");
+  if (conversations.length === 0) {
+    currentConvId = null;
+    setConvInUrl(null);
+    renderMessages([]);
+    await loadConversations();
+    return;
+  }
+  currentConvId = conversations[0].id;
+  setConvInUrl(currentConvId);
+  await loadConversations();
+  await loadConversation(currentConvId);
+});
+
+convMenuBtn.addEventListener("click", (event) => {
+  event.stopPropagation();
+  toggleConvMenu();
+});
+
+document.addEventListener("click", (event) => {
+  if (!convMenu.contains(event.target) && event.target !== convMenuBtn) {
+    closeConvMenu();
+  }
 });
 
 openSettingsBtn.addEventListener("click", () => {
@@ -350,6 +402,10 @@ themeSelect.addEventListener("change", (event) => {
 });
 
 document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !convMenu.classList.contains("hidden")) {
+    closeConvMenu();
+    return;
+  }
   if (event.key === "Escape" && !settingsModal.classList.contains("hidden")) {
     closeSettings();
   }
@@ -361,6 +417,7 @@ document.addEventListener("keydown", (event) => {
   themeSelect.value = savedTheme;
 
   const conversations = await fetchJSON("/api/conversations");
+  closeConvMenu();
   if (conversations.length > 0) {
     const urlConv = getConvFromUrl();
     const found = urlConv

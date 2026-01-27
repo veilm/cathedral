@@ -108,10 +108,43 @@ select {
   display: flex;
   gap: 8px;
   align-items: center;
+  position: relative;
 }
 
 .actions button {
   padding: 6px 10px;
+}
+
+.menu {
+  position: relative;
+}
+
+.menu-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 200px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  box-shadow: 0 8px 20px var(--shadow);
+  z-index: 10;
+}
+
+.menu-panel button {
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  background: var(--panel-inset);
+}
+
+.menu-panel button:hover,
+.menu-panel button:focus-visible {
+  background: var(--panel-active);
+  outline: none;
 }
 
 .icon-button {
@@ -341,6 +374,10 @@ select {
 
 .modal.hidden {
   display: none;
+}
+
+.hidden {
+  display: none !important;
 }
 
 .modal-backdrop {

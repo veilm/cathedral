@@ -11,8 +11,16 @@
       <header class="topbar">
         <div class="brand">Cathedral v2</div>
         <div class="actions">
-          <button id="newConv">New Conversation</button>
-          <button id="importConv">Import Conversation</button>
+          <div class="menu">
+            <button id="convMenuBtn" class="icon-button" aria-haspopup="true" aria-expanded="false" aria-label="Conversation actions">
+              ...
+            </button>
+            <div id="convMenu" class="menu-panel hidden" role="menu">
+              <button id="newConv" role="menuitem">New Conversation</button>
+              <button id="importConv" role="menuitem">Import Conversation</button>
+              <button id="deleteConv" role="menuitem">Delete Conversation</button>
+            </div>
+          </div>
           <button id="openSettings" class="icon-button" aria-label="Open settings">
             ♧
           </button>

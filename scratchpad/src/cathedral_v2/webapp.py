@@ -11,7 +11,13 @@ from fastapi.staticfiles import StaticFiles
 from .config import load_config
 from .runtime import run_turn, ensure_initialized
 from . import hnt
-from .memory import read_node, resolve_title, list_conversations as list_store_conversations, add_conversation
+from .memory import (
+    read_node,
+    resolve_title,
+    list_conversations as list_store_conversations,
+    add_conversation,
+    remove_conversation,
+)
 
 app = FastAPI()
 
@@ -99,6 +105,16 @@ def import_conversation(payload: Dict[str, str]) -> JSONResponse:
     path = Path(raw_path)
     add_conversation(_store_path(), path)
     return JSONResponse({"id": path.name, "path": str(path)})
+
+
+@app.delete("/api/conversations/{conv_id}")
+def delete_conversation(conv_id: str) -> JSONResponse:
+    store = _store_path()
+    conv = _resolve_conversation_id(conv_id)
+    removed = remove_conversation(store, conv)
+    if not removed:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    return JSONResponse({"id": conv.name, "path": str(conv), "removed": True})
 
 
 @app.get("/api/conversations/{conv_id}")
