@@ -22,11 +22,16 @@ store/
   sleep/
   meta/
     conversations.json
+    system-runtime.md
 ```
 
 Notes:
 - Only `index.md` is required to start; subdirectories can be empty.
 - `meta/conversations.json` is a JSON array of conversation paths.
+- `meta/system-runtime.md` is a snapshot of the runtime system prompt captured
+  at store initialization.
+- The default `index.md` body text is:
+  "First instantiation. No memory has been gathered yet."
 
 ## Memory node format
 

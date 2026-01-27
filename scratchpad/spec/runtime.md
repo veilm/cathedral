@@ -14,6 +14,23 @@ the first system message in a conversation. It contains:
 The runtime removes or keeps the conditional block depending on whether the
 store has memory nodes beyond the root `index.md`.
 
+Runtime prompt selection precedence:
+- If `store/meta/system-runtime.md` exists, it is used.
+- Otherwise, the configured/runtime override is used.
+- If neither is provided, the default prompt is used.
+
+Runtime prompt templates support memory node injection:
+- `{{MEMORY_NODE:foo}}` is replaced with:
+
+```
+<memory node="foo">
+...contents...
+</memory>
+```
+
+- Resolution order for `foo.md` is:
+  `meta/` -> `semantic/` -> `episodic/` under the store root.
+
 ## Conversation storage
 
 Conversations are created and managed via `hnt-chat`:
@@ -24,6 +41,9 @@ Conversations are created and managed via `hnt-chat`:
 Conversation directories contain Markdown message files written by `hnt-chat`.
 Initialization is explicit: the web app injects the system prompt when creating
 a new conversation. The runtime loop does not auto-initialize conversations.
+
+Store initialization snapshots the currently active runtime prompt (default or
+`CATHEDRAL_RUNTIME_PROMPT`) into `store/meta/system-runtime.md`.
 
 ## Runtime loop behavior
 

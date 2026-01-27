@@ -24,7 +24,7 @@ are persisted as full paths in `store/meta/conversations.json`.
 - Listing returns `{id, path}` items.
 - Creating a conversation calls `hnt-chat new`, adds the resulting path to the
   store metadata, and immediately injects the system prompt into that
-  conversation.
+  conversation. If `store/meta/system-runtime.md` exists, that prompt is used.
 - Importing a conversation accepts a `{path}` payload and adds it to the store
   metadata without validation.
 - Sending a message calls the runtime loop (see `spec/runtime.md`) and returns

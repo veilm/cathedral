@@ -30,6 +30,20 @@ def init_store(store: Path) -> None:
     if not conv_file.exists():
         conv_file.write_text("[]\n", encoding="utf-8")
 
+    # Snapshot the active runtime prompt into the store on initialization.
+    system_runtime = meta_dir / "system-runtime.md"
+    if not system_runtime.exists():
+        env_prompt = os.environ.get("CATHEDRAL_RUNTIME_PROMPT")
+        prompt_path = (
+            Path(env_prompt).expanduser()
+            if env_prompt
+            else Path(__file__).resolve().parents[2]
+            / "prompts"
+            / "runtime"
+            / "default.md"
+        )
+        system_runtime.write_text(prompt_path.read_text(encoding="utf-8"), encoding="utf-8")
+
     index_path = store / "index.md"
     if not index_path.exists():
         today = date.today().isoformat()
@@ -39,7 +53,7 @@ def init_store(store: Path) -> None:
             f"updated: {today}\n"
             "---\n\n"
             "# Index\n\n"
-            "High-level memory entry point.\n",
+            "First instantiation. No memory has been gathered yet.\n",
             encoding="utf-8",
         )
 
