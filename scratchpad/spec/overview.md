@@ -94,7 +94,8 @@ The CLI is the primary interface besides the web app. Commands:
 - `chat --store PATH --conversation PATH`: send one chat turn via stdin.
 - `consolidate --store PATH --conversation PATH --agent NAME`: copy a
   conversation into `episodic-raw/` and invoke a consolidation agent.
-- `web --store PATH`: run the FastAPI web server.
+- `web --store PATH`: run the FastAPI web server (default host `0.0.0.0`,
+  port `1345`).
 
 ## Consolidation flow
 
