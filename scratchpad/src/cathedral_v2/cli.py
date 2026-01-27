@@ -335,7 +335,7 @@ def build_parser() -> argparse.ArgumentParser:
     web_p = sub.add_parser("web", help="Run the web server")
     web_p.add_argument("--store", required=True)
     web_p.add_argument("--config")
-    web_p.add_argument("--host", default="127.0.0.1")
+    web_p.add_argument("--host", default="0.0.0.0")
     web_p.add_argument("--port", type=int, default=1345)
     web_p.add_argument("--model")
     web_p.add_argument("--runtime-prompt")
