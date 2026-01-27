@@ -9,7 +9,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from .config import load_config
-from .runtime import run_turn, ensure_initialized
+from .runtime import append_human_message, ensure_initialized, generate_reply
 from . import hnt
 from .memory import (
     read_node,
@@ -130,14 +130,19 @@ def send_message(conv_id: str, payload: Dict[str, str]) -> JSONResponse:
     if not message:
         raise HTTPException(status_code=400, detail="message required")
 
-    output, reads = run_turn(
+    content = append_human_message(conv, message)
+    return JSONResponse({"ok": True, "message": {"role": "user", "content": content}})
+
+
+@app.post("/api/conversations/{conv_id}/generate")
+def generate_message(conv_id: str) -> JSONResponse:
+    conv = _resolve_conversation_id(conv_id)
+    output, reads = generate_reply(
         conversation=conv,
         store=_store_path(),
-        message=message,
         model=_model(),
-        runtime_prompt=_runtime_prompt(),
     )
-    return JSONResponse({"output": output, "memory_reads": reads})
+    return JSONResponse({"ok": True, "message": {"role": "assistant", "content": output}, "memory_reads": reads})
 
 
 @app.get("/api/memory/read")

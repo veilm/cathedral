@@ -17,6 +17,7 @@ const themeSelect = document.getElementById("themeSelect");
 const settingsBackdrop = settingsModal?.querySelector("[data-close-settings]");
 
 let currentConvId = null;
+let currentMessages = [];
 const urlParams = new URLSearchParams(window.location.search);
 const THEME_KEY = "cathedral-theme";
 
@@ -261,7 +262,8 @@ function renderMessages(messages) {
   chatLogEl.innerHTML = "";
   messages.forEach((msg) => {
     const wrapper = document.createElement("div");
-    wrapper.className = "msg";
+    wrapper.className = msg.loading ? "msg msg-loading" : "msg";
+    if (msg.role === "error") wrapper.classList.add("msg-error");
 
     const role = document.createElement("div");
     role.className = "role";
@@ -269,13 +271,39 @@ function renderMessages(messages) {
 
     const body = document.createElement("div");
     body.className = "msg-body";
-    body.innerHTML = renderMarkdown(msg.content);
+    if (msg.loading) {
+      body.innerHTML = '<span class="loading-dots" aria-label="Generating response"><span></span><span></span><span></span></span>';
+    } else {
+      body.innerHTML = renderMarkdown(msg.content || "");
+    }
 
     wrapper.appendChild(role);
     wrapper.appendChild(body);
     chatLogEl.appendChild(wrapper);
   });
   chatLogEl.scrollTop = chatLogEl.scrollHeight;
+}
+
+function appendMessage(msg) {
+  currentMessages.push(msg);
+  renderMessages(currentMessages);
+}
+
+function replaceLoadingMessage(msg) {
+  const index = currentMessages.findIndex((item) => item.loading);
+  if (index === -1) {
+    appendMessage(msg);
+    return;
+  }
+  currentMessages[index] = msg;
+  renderMessages(currentMessages);
+}
+
+function removeLoadingMessage() {
+  const index = currentMessages.findIndex((item) => item.loading);
+  if (index === -1) return;
+  currentMessages.splice(index, 1);
+  renderMessages(currentMessages);
 }
 
 async function loadConversations() {
@@ -300,17 +328,41 @@ async function loadConversations() {
 
 async function loadConversation(id) {
   const convo = await fetchJSON(`/api/conversations/${id}`);
-  renderMessages(convo.messages || []);
+  currentMessages = convo.messages || [];
+  renderMessages(currentMessages);
 }
 
 async function sendMessage(message) {
   if (!currentConvId) return;
-  await fetchJSON(`/api/conversations/${currentConvId}/message`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ message }),
-  });
-  await loadConversation(currentConvId);
+  try {
+    const appendRes = await fetchJSON(`/api/conversations/${currentConvId}/message`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message }),
+    });
+    appendMessage(appendRes.message);
+  } catch (err) {
+    appendMessage({
+      role: "error",
+      content: `<cathedral>\nFailed to write message: ${err.message}\n</cathedral>`,
+    });
+    return;
+  }
+
+  appendMessage({ role: "assistant", content: "", loading: true });
+
+  try {
+    const genRes = await fetchJSON(`/api/conversations/${currentConvId}/generate`, {
+      method: "POST",
+    });
+    replaceLoadingMessage(genRes.message);
+  } catch (err) {
+    removeLoadingMessage();
+    appendMessage({
+      role: "error",
+      content: `<cathedral>\nGeneration failed: ${err.message}\n</cathedral>`,
+    });
+  }
 }
 
 chatForm.addEventListener("submit", async (event) => {
@@ -363,6 +415,7 @@ deleteConvBtn.addEventListener("click", async () => {
   const conversations = await fetchJSON("/api/conversations");
   if (conversations.length === 0) {
     currentConvId = null;
+    currentMessages = [];
     setConvInUrl(null);
     renderMessages([]);
     await loadConversations();

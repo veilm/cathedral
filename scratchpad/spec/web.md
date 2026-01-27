@@ -9,8 +9,10 @@ The web server is a FastAPI app in `src/cathedral_v2/webapp.py` that serves:
 - `GET /api/conversations` -> list stored conversations
 - `POST /api/conversations` -> create a new conversation
 - `POST /api/conversations/import` -> add an existing conversation path
+- `DELETE /api/conversations/{id}` -> unlink a conversation path
 - `GET /api/conversations/{id}` -> fetch messages in a conversation
-- `POST /api/conversations/{id}/message` -> send a message
+- `POST /api/conversations/{id}/message` -> append a user message
+- `POST /api/conversations/{id}/generate` -> generate an assistant reply
 - `GET /api/memory/read?title=...` -> read a memory node
 - `GET /api/memory/resolve?title=...` -> resolve a title to a path
 
@@ -27,8 +29,12 @@ are persisted as full paths in `store/meta/conversations.json`.
   conversation. If `store/meta/system-runtime.md` exists, that prompt is used.
 - Importing a conversation accepts a `{path}` payload and adds it to the store
   metadata without validation.
-- Sending a message calls the runtime loop (see `spec/runtime.md`) and returns
-  `{output, memory_reads}`.
+- Deleting a conversation only unlinks it from `conversations.json`; it does
+  not delete the conversation directory.
+- Appending a message accepts `{message}` and returns `{ok, message}` where the
+  message content is the wrapped `<human ...>` block.
+- Generating a reply runs the runtime loop and returns
+  `{ok, message, memory_reads}`.
 
 ### Message listing
 
@@ -48,10 +54,16 @@ The frontend lives in `web/` and is plain HTML/CSS/JS.
 Key behaviors:
 - The conversation list is fetched from `/api/conversations`.
 - Clicking a conversation sets it as active, loads messages, and updates the UI.
+- Conversation actions (new/import/delete) live under a topbar `...` menu.
 - New conversation creates one server-side and auto-selects it.
 - Import conversation prompts for a path, stores it server-side, and loads it.
-- Sending a message posts to `/api/conversations/{id}/message` and then reloads
-  the conversation.
+- Delete conversation unlinks the current conversation and switches to the
+  first remaining conversation (if any).
+- Sending a message is incremental:
+  1) POST `/message` and append the returned user message locally.
+  2) Show a loading indicator.
+  3) POST `/generate` and replace the loading indicator with the reply.
+  Errors in either step are appended as an `error` message.
 - The memory panel reads a node by title via `/api/memory/read`.
 - The settings modal opens from the topbar, allowing theme changes.
 - Theme selection updates `data-theme` on the root element and persists in

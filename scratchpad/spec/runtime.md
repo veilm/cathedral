@@ -48,9 +48,9 @@ Store initialization snapshots the currently active runtime prompt (default or
 
 ## Runtime loop behavior
 
-The runtime loop is implemented in `src/cathedral_v2/runtime.py`:
+The runtime provides two phases in `src/cathedral_v2/runtime.py`:
 
-1. Append user message as role `user`.
+1. Append a user message as role `user`.
    - User-typed messages are wrapped as:
 
 ```
@@ -60,6 +60,8 @@ The runtime loop is implemented in `src/cathedral_v2/runtime.py`:
 ```
 
 2. Generate model output using `hnt-chat gen`.
+   - The web app calls this after a successful append.
+   - The CLI helper runs both phases together.
 3. If output contains `<recall>...</recall>`, resolve the title and inject a
    memory block as a new user message:
 
