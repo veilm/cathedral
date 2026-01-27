@@ -44,7 +44,7 @@ def init_store(store: Path) -> None:
         )
         system_runtime.write_text(prompt_path.read_text(encoding="utf-8"), encoding="utf-8")
 
-    index_path = store / "index.md"
+    index_path = meta_dir / "Index.md"
     if not index_path.exists():
         today = date.today().isoformat()
         index_path.write_text(

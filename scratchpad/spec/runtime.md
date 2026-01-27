@@ -9,10 +9,10 @@ the first system message in a conversation. It contains:
 - A short description of the memory wiki.
 - A conditional recall block:
   `{{IF_INCLUDE_RECALL}} ... {{/IF_INCLUDE_RECALL}}`
-- A `__MEMORY_ROOT__` placeholder for the contents of `store/index.md`.
+- A `__MEMORY_ROOT__` placeholder for the contents of `store/meta/Index.md`.
 
 The runtime removes or keeps the conditional block depending on whether the
-store has memory nodes beyond the root `index.md`.
+store has memory nodes beyond the root `meta/Index.md`.
 
 Runtime prompt selection precedence:
 - If `store/meta/system-runtime.md` exists, it is used.
@@ -30,6 +30,7 @@ Runtime prompt templates support memory node injection:
 
 - Resolution order for `foo.md` is:
   `meta/` -> `semantic/` -> `episodic/` under the store root.
+- If the node has YAML frontmatter, it is stripped before injection.
 
 ## Conversation storage
 

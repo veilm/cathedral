@@ -15,7 +15,6 @@ A memory store is a directory with this minimum structure:
 
 ```
 store/
-  index.md
   episodic/
   episodic-raw/
   semantic/
@@ -23,14 +22,15 @@ store/
   meta/
     conversations.json
     system-runtime.md
+    Index.md
 ```
 
 Notes:
-- Only `index.md` is required to start; subdirectories can be empty.
+- Only `meta/Index.md` is required to start; subdirectories can be empty.
 - `meta/conversations.json` is a JSON array of conversation paths.
 - `meta/system-runtime.md` is a snapshot of the runtime system prompt captured
   at store initialization.
-- The default `index.md` body text is:
+- The default `meta/Index.md` body text is:
   "First instantiation. No memory has been gathered yet."
 
 ## Memory node format

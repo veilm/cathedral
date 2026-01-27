@@ -21,7 +21,7 @@ def _store_runtime_prompt(store: Path) -> Path:
 
 
 def _has_memory_nodes(store: Path) -> bool:
-    index_path = store / "index.md"
+    index_path = store / "meta" / "Index.md"
     for node in list_nodes(store, include_raw=False):
         if node.path != index_path:
             return True
@@ -60,7 +60,8 @@ def _memory_node_candidates(store: Path, name: str) -> tuple[Path, ...]:
 def _read_named_memory_node(store: Path, name: str) -> str:
     for path in _memory_node_candidates(store, name):
         if path.exists():
-            return path.read_text(encoding="utf-8").strip()
+            text = path.read_text(encoding="utf-8")
+            return _strip_frontmatter(text).strip()
     raise FileNotFoundError(name)
 
 
@@ -80,6 +81,15 @@ def _inject_prompt_memory_nodes(store: Path, text: str) -> str:
     return PROMPT_MEMORY_NODE_RE.sub(replace_node, text)
 
 
+def _strip_frontmatter(text: str) -> str:
+    if not text.startswith("---"):
+        return text
+    end = text.find("---", 3)
+    if end == -1:
+        return text
+    return text[end + 3 :].lstrip("\n")
+
+
 def ensure_initialized(
     conversation: Path,
     store: Path,
@@ -94,7 +104,7 @@ def ensure_initialized(
     else:
         prompt_path = runtime_prompt or _default_runtime_prompt()
     template = prompt_path.read_text(encoding="utf-8")
-    index_path = store / "index.md"
+    index_path = store / "meta" / "Index.md"
     index_text = index_path.read_text(encoding="utf-8")
     prompt_text = _apply_prompt_conditionals(
         template, include_recall=_has_memory_nodes(store)
