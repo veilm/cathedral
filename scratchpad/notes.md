@@ -1,5 +1,9 @@
+
 for personal notes on e.g. viable SaaS clones or trading strategies see
 	/home/oboro/media/wiki/cathedral-personal.md
+
+- focus, for entropy, on what was surprising
+	or difficult to predict
 
 what if we gave up on internal narrative consistency? that's already a little
 janky because of lack of CoT access (well I do 1766952743 have it for 2.5 Pro
