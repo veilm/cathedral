@@ -139,16 +139,17 @@ def _format_human_message(message: str) -> str:
     return f"<human timestamp=\"{ts}\">\n{message.strip()}\n</human>"
 
 
-def run_turn(
-    conversation: Path,
-    store: Path,
-    message: str,
-    model: Optional[str] = None,
-    runtime_prompt: Optional[Path] = None,
-) -> Tuple[str, int]:
+def append_human_message(conversation: Path, message: str) -> str:
     human_message = _format_human_message(message)
     hnt.add_message(conversation, "user", human_message)
+    return human_message
 
+
+def generate_reply(
+    conversation: Path,
+    store: Path,
+    model: Optional[str] = None,
+) -> Tuple[str, int]:
     reads = 0
     seen_reads = set()
     while True:
@@ -183,3 +184,14 @@ def run_turn(
 
         seen_reads.add(recall)
         hnt.add_message(conversation, "user", memory_block)
+
+
+def run_turn(
+    conversation: Path,
+    store: Path,
+    message: str,
+    model: Optional[str] = None,
+    runtime_prompt: Optional[Path] = None,
+) -> Tuple[str, int]:
+    append_human_message(conversation, message)
+    return generate_reply(conversation, store, model=model)
