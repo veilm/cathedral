@@ -258,23 +258,57 @@ function renderMarkdown(text) {
   return html;
 }
 
+const HUMAN_TAG_RE = /^\s*<human\s+timestamp="([^"]+)"\s*>\s*\n?([\s\S]*?)\n?<\/human>\s*$/i;
+
+function normalizeMessage(msg) {
+  if (msg.role === "assistant") {
+    return { roleLabel: "model", content: msg.content, roleClass: "" };
+  }
+  if (msg.role !== "user") {
+    return { roleLabel: msg.role, content: msg.content, roleClass: "" };
+  }
+
+  const content = msg.content || "";
+  const humanMatch = content.match(HUMAN_TAG_RE);
+  if (humanMatch) {
+    const timestamp = humanMatch[1];
+    const inner = humanMatch[2] || "";
+    return {
+      roleLabel: `human · ${timestamp}`,
+      content: inner,
+      roleClass: "",
+    };
+  }
+
+  if (content.trim().startsWith("<")) {
+    return { roleLabel: "user:system", content, roleClass: "" };
+  }
+
+  return {
+    roleLabel: "XML NOT DETECTED",
+    content,
+    roleClass: "role-error",
+  };
+}
+
 function renderMessages(messages) {
   chatLogEl.innerHTML = "";
   messages.forEach((msg) => {
+    const view = normalizeMessage(msg);
     const wrapper = document.createElement("div");
     wrapper.className = msg.loading ? "msg msg-loading" : "msg";
     if (msg.role === "error") wrapper.classList.add("msg-error");
 
     const role = document.createElement("div");
-    role.className = "role";
-    role.textContent = msg.role;
+    role.className = view.roleClass ? `role ${view.roleClass}` : "role";
+    role.textContent = view.roleLabel;
 
     const body = document.createElement("div");
     body.className = "msg-body";
     if (msg.loading) {
       body.innerHTML = '<span class="loading-dots" aria-label="Generating response"><span></span><span></span><span></span></span>';
     } else {
-      body.innerHTML = renderMarkdown(msg.content || "");
+      body.innerHTML = renderMarkdown(view.content || "");
     }
 
     wrapper.appendChild(role);

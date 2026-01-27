@@ -75,6 +75,14 @@ Message bodies are rendered with a small Markdown parser in `web/app.js`:
 - Escapes HTML for safety.
 - Supports headers, bold/italic, inline code, and fenced code blocks.
 - Preserves line breaks with `white-space: pre-wrap`.
+- User role labeling is content-aware:
+  - Assistant messages are labeled `model`.
+  - User messages wrapped in `<human timestamp="...">...</human>` are labeled
+    `human · <timestamp>` and the wrapper tags are not shown.
+  - User messages that start with `<` but are not `<human ...>` are labeled
+    `user:system`.
+  - User messages that do not start with `<` are labeled `XML NOT DETECTED`
+    in red.
 
 Recall tags like `<recall>Title</recall>` are replaced with a styled badge.
 
