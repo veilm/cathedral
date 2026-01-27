@@ -61,7 +61,7 @@ Rules:
 ```
 {
   "store_path": "/path/to/store",
-  "model": "openrouter/google/gemini-2.5-pro",
+  "model": "openrouter/google/gemini-3-pro-preview",
   "runtime_prompt": "prompts/runtime/default.md",
   "consolidation_prompt": "prompts/consolidation/default.md",
   "agent_cmds": {
