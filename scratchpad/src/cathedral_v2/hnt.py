@@ -9,6 +9,11 @@ class HntError(RuntimeError):
     pass
 
 
+DEFAULT_REQUEST_PARAMS = (
+    Path(__file__).resolve().parents[2] / "assets" / "hnt-params.json"
+)
+
+
 def _run(args: List[str], input_text: Optional[str] = None, timeout: int = 300) -> str:
     proc = subprocess.run(
         args,
@@ -40,7 +45,11 @@ def add_message(conversation: Path, role: str, content: str) -> None:
     _run(["hnt-chat", "add", role, "-c", str(conversation)], input_text=content)
 
 
-def generate(conversation: Path, model: Optional[str] = None) -> str:
+def generate(
+    conversation: Path,
+    model: Optional[str] = None,
+    request_params: Optional[Path] = None,
+) -> str:
     args = [
         "hnt-chat",
         "gen",
@@ -51,6 +60,9 @@ def generate(conversation: Path, model: Optional[str] = None) -> str:
     ]
     if model:
         args += ["--model", model]
+    params_path = request_params or DEFAULT_REQUEST_PARAMS
+    if params_path and params_path.exists():
+        args += ["--request-params", f"@{params_path}"]
     filename = _run(args, timeout=300).strip()
     if not filename:
         raise HntError("hnt-chat gen did not return a filename")

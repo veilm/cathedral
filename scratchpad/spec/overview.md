@@ -3,6 +3,9 @@
 This spec describes the current implementation in this repo so it can be
 reconstructed with equivalent behavior.
 
+The default request params for `hnt-chat gen` live at `assets/hnt-params.json`
+and are passed via `--request-params` when the file exists.
+
 ## Purpose
 
 Cathedral is a minimalist memory system for LLMs. Memory is stored as plaintext

@@ -38,6 +38,7 @@ Conversations are created and managed via `hnt-chat`:
 - New conversation path: `hnt-chat new`
 - Add message: `hnt-chat add <role> -c <conversation>`
 - Generate model output: `hnt-chat gen -c <conversation> --write --output-filename`
+  with `--request-params @assets/hnt-params.json` if that file exists.
 
 Conversation directories contain Markdown message files written by `hnt-chat`.
 Initialization is explicit: the web app injects the system prompt when creating
