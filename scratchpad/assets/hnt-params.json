@@ -1,0 +1,15 @@
+{
+  "extra_body": {
+    "google": {
+      "thinking_config": {
+        "include_thoughts": true,
+        "thinking_level": "high"
+      }
+    }
+  },
+  "include_reasoning": true,
+  "reasoning": {
+    "effort": "high",
+    "enabled": true
+  }
+}
