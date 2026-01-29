@@ -37,7 +37,13 @@
         </div>
       </header>
 
-      <main class="main">
+      <div class="mobile-tabs" role="tablist" aria-label="Panels">
+        <button type="button" class="tab active" data-panel="conversations" aria-pressed="true">Conversations</button>
+        <button type="button" class="tab" data-panel="chat" aria-pressed="false">Chat</button>
+        <button type="button" class="tab" data-panel="memory" aria-pressed="false">Memory</button>
+      </div>
+
+      <main id="mainPanels" class="main" data-active-panel="chat">
         <section class="panel panel-left">
           <div class="panel-header">Conversations</div>
           <div id="convList" class="list"></div>

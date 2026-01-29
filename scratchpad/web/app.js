@@ -15,6 +15,8 @@ const closeSettingsBtn = document.getElementById("closeSettings");
 const settingsModal = document.getElementById("settingsModal");
 const themeSelect = document.getElementById("themeSelect");
 const settingsBackdrop = settingsModal?.querySelector("[data-close-settings]");
+const mainPanels = document.getElementById("mainPanels");
+const mobileTabs = document.querySelectorAll(".mobile-tabs .tab");
 
 let currentConvId = null;
 let currentMessages = [];
@@ -40,6 +42,20 @@ function getConvFromUrl() {
 function setTheme(theme) {
   document.documentElement.dataset.theme = theme;
   localStorage.setItem(THEME_KEY, theme);
+}
+
+function setActivePanel(panel) {
+  if (!mainPanels) return;
+  mainPanels.dataset.activePanel = panel;
+  mobileTabs.forEach((tab) => {
+    const isActive = tab.dataset.panel === panel;
+    tab.classList.toggle("active", isActive);
+    tab.setAttribute("aria-pressed", isActive ? "true" : "false");
+  });
+}
+
+function isMobile() {
+  return window.matchMedia("(max-width: 960px)").matches;
 }
 
 function getSavedTheme() {
@@ -355,6 +371,7 @@ async function loadConversations() {
       setConvInUrl(currentConvId);
       await loadConversation(conv.id);
       await loadConversations();
+      if (isMobile()) setActivePanel("chat");
     });
     convListEl.appendChild(btn);
   });
@@ -422,6 +439,7 @@ newConvBtn.addEventListener("click", async () => {
   setConvInUrl(currentConvId);
   await loadConversations();
   await loadConversation(conv.id);
+  if (isMobile()) setActivePanel("chat");
 });
 
 importConvBtn.addEventListener("click", async () => {
@@ -437,6 +455,7 @@ importConvBtn.addEventListener("click", async () => {
   setConvInUrl(currentConvId);
   await loadConversations();
   await loadConversation(conv.id);
+  if (isMobile()) setActivePanel("chat");
 });
 
 deleteConvBtn.addEventListener("click", async () => {
@@ -459,6 +478,13 @@ deleteConvBtn.addEventListener("click", async () => {
   setConvInUrl(currentConvId);
   await loadConversations();
   await loadConversation(currentConvId);
+  if (isMobile()) setActivePanel("chat");
+});
+
+mobileTabs.forEach((tab) => {
+  tab.addEventListener("click", () => {
+    setActivePanel(tab.dataset.panel);
+  });
 });
 
 convMenuBtn.addEventListener("click", (event) => {
@@ -502,6 +528,7 @@ document.addEventListener("keydown", (event) => {
   const savedTheme = getSavedTheme();
   setTheme(savedTheme);
   themeSelect.value = savedTheme;
+  setActivePanel("chat");
 
   const conversations = await fetchJSON("/api/conversations");
   closeConvMenu();
