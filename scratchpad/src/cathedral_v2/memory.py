@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import subprocess
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
@@ -56,6 +57,8 @@ def init_store(store: Path) -> None:
             "First instantiation. No memory has been gathered yet.\n",
             encoding="utf-8",
         )
+
+    _init_git_repo(store)
 
 
 def _iter_md_files(store: Path, include_raw: bool = False) -> Iterable[Path]:
@@ -158,6 +161,53 @@ def broken_links(store: Path, include_raw: bool = False) -> Dict[Path, List[str]
         if missing:
             broken[node.path] = missing
     return broken
+
+
+def _init_git_repo(store: Path) -> None:
+    _run_git(store, ["init"])
+    _run_git(store, ["add", "."])
+    try:
+        _run_git(store, ["commit", "-m", "Initialize memory store"])
+    except RuntimeError as exc:
+        msg = str(exc)
+        if "nothing to commit" in msg or "no changes added to commit" in msg:
+            return
+        if (
+            "user.name" in msg
+            or "user.email" in msg
+            or "Please tell me who you are." in msg
+            or "identity" in msg
+        ):
+            _run_git(
+                store,
+                [
+                    "-c",
+                    "user.name=cathedral",
+                    "-c",
+                    "user.email=cathedral@localhost",
+                    "commit",
+                    "-m",
+                    "Initialize memory store",
+                ],
+            )
+            return
+        raise
+
+
+def _run_git(store: Path, args: List[str]) -> None:
+    result = subprocess.run(
+        ["git", *args],
+        cwd=store,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        output = "\n".join(
+            part for part in [result.stdout.strip(), result.stderr.strip()] if part
+        )
+        detail = f": {output}" if output else ""
+        raise RuntimeError(f"git {' '.join(args)} failed{detail}")
 
 
 
