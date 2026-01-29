@@ -174,6 +174,25 @@ select {
   min-height: 0;
 }
 
+.mobile-tabs {
+  display: none;
+  gap: 8px;
+  padding: 8px 12px 0;
+}
+
+.mobile-tabs .tab {
+  flex: 1;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text);
+}
+
+.mobile-tabs .tab.active {
+  border-color: var(--accent);
+  background: var(--panel-active);
+}
+
 .panel {
   background: var(--panel);
   border: 1px solid var(--border);
@@ -487,7 +506,45 @@ select {
 }
 
 @media (max-width: 960px) {
+  body {
+    overflow: auto;
+  }
+
+  .app {
+    height: auto;
+    min-height: 100vh;
+  }
+
   .main {
     grid-template-columns: 1fr;
+    min-height: auto;
+  }
+
+  .mobile-tabs {
+    display: flex;
+  }
+
+  .main[data-active-panel="conversations"] .panel-center,
+  .main[data-active-panel="conversations"] .panel-right {
+    display: none;
+  }
+
+  .main[data-active-panel="chat"] .panel-left,
+  .main[data-active-panel="chat"] .panel-right {
+    display: none;
+  }
+
+  .main[data-active-panel="memory"] .panel-left,
+  .main[data-active-panel="memory"] .panel-center {
+    display: none;
+  }
+
+  .chat {
+    overflow: visible;
+  }
+
+  .list,
+  .memory {
+    max-height: none;
   }
 }

@@ -64,6 +64,8 @@ Key behaviors:
   2) Show a loading indicator.
   3) POST `/generate` and replace the loading indicator with the reply.
   Errors in either step are appended as an `error` message.
+- On small screens (<= 960px) the UI shows mobile tabs (Conversations/Chat/Memory)
+  and only the active panel is visible at a time.
 - The memory panel reads a node by title via `/api/memory/read`.
 - The settings modal opens from the topbar, allowing theme changes.
 - Theme selection updates `data-theme` on the root element and persists in
