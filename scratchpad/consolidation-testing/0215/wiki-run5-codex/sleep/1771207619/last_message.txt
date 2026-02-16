@@ -1,0 +1,49 @@
+Created a concept-based wiki in `/home/oboro/src/cathedral/scratchpad/consolidation-testing/0215/wiki/` from all sources in `/tmp/dir/1771183647/essay/`, with `Index.md` written last and `wiki-check` passing with no errors.
+
+Articles created and rationale:
+
+1. `counting-the-ooms-framework.md`  
+Why: Captures the core forecasting method used across the series.
+
+2. `compute-and-algorithmic-scaling.md`  
+Why: Separates physical compute growth from algorithmic efficiency gains as co-drivers.
+
+3. `data-wall-and-post-llm-paradigms.md`  
+Why: Covers the central uncertainty about data limits and post-LLM breakthroughs.
+
+4. `unhobbling-and-agent-coworkers.md`  
+Why: Consolidates RLHF/tooling/scaffolding/context/test-time-compute arguments into one capability-transition concept.
+
+5. `agi-by-2027-scenario.md`  
+Why: Defines the AGI claim operationally and preserves key timeline/assumption details.
+
+6. `intelligence-explosion-mechanism.md`  
+Why: Explains recursive AI-R&D automation dynamics and bottlenecks.
+
+7. `superintelligence-power-and-economic-regime-shift.md`  
+Why: Consolidates claims about explosive R&D, growth regime shifts, and military consequences.
+
+8. `trillion-dollar-cluster-buildout.md`  
+Why: Preserves industrial mobilization details (chips, power, capex, siting constraints).
+
+9. `ai-lab-security-and-agi-secrets.md`  
+Why: Separates security argument into threat model, assets (weights vs algorithms), and required controls.
+
+10. `superalignment-and-superdefense.md`  
+Why: Consolidates technical alignment problem + layered containment strategy.
+
+11. `us-china-agi-race-and-free-world-strategy.md`  
+Why: Captures geopolitical competition logic, lead-length argument, and nonproliferation framing.
+
+12. `the-project-government-led-agi-endgame.md`  
+Why: Distills the government-involvement/endgame governance thesis.
+
+13. `agi-realism-and-parting-thesis.md`  
+Why: Captures the concluding doctrine and synthesis across all essays.
+
+14. `Index.md`  
+Why: Navigation entry point with categorized links and concise timeline orientation.
+
+Validation:
+- Ran `wiki-check /home/oboro/src/cathedral/scratchpad/consolidation-testing/0215/wiki`.
+- Result: no errors; only warnings are about `AGENTS.md` being an unindexed/non-networked instruction file (not part of the content wiki graph).
