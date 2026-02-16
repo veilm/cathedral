@@ -1,0 +1,8 @@
+{
+  "engine": "codex",
+  "model": "gpt-5.3-codex",
+  "input_dir": "/tmp/dir/1771183647/essay",
+  "output_dir": "/home/oboro/src/cathedral/scratchpad/consolidation-testing/0215/wiki",
+  "description": "Leopold Aschenbrenner's 'Situational Awareness: The Decade Ahead' essay series (June 2024)",
+  "timestamp": 1771207619
+}

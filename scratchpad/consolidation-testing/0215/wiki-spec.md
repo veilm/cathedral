@@ -14,13 +14,13 @@ implicit through links, like Wikipedia.
 ### Index.md
 The entry point. An LLM reading from this wiki always starts here.
 
-Index.md is a NAVIGATION PAGE, not a content page. It contains ONLY:
+Index.md is primarily a NAVIGATION PAGE. It contains:
 - A 2-3 sentence summary of what this wiki covers
 - A categorized list of article links with 1-sentence descriptions each
+- Optionally, a brief "key concepts" or "key timeline" section to orient the
+  reader before they dive into articles — but keep this concise
 
-Index.md must NOT contain substantive content like timelines, arguments,
-definitions, or analysis. All such content belongs in articles. Keep Index.md
-under 400 words.
+Index.md word limit: 1500 words.
 
 ### Articles
 Each article covers one concept, entity, argument, or event. Articles are named
@@ -38,8 +38,10 @@ An article contains:
 5. **See also** — (optional) a short list of related articles at the bottom.
 
 ### Article sizing
-Target 300-600 words per article. If a topic needs more than 600 words,
-split it into multiple articles that link to each other.
+Target 400-700 words per article. Articles under 300 words are too thin —
+they should preserve specific numbers, calculations, quotes, and evidence,
+not just summarize what the argument is. If a topic needs more than 700
+words, split it into multiple articles that link to each other.
 
 ### What becomes an article
 - **Concepts** — technical ideas, frameworks, key terms
@@ -48,7 +50,9 @@ split it into multiple articles that link to each other.
 - **Events** — notable occurrences with dates and context
 
 ### Linking rules
-- Use `[[article-name]]` syntax. Do NOT use `[[name|display text]]` format.
+- Use `[[article-name]]` syntax to link to other articles in this wiki.
+  You may optionally use `[[article-name|display text]]` if you want
+  different display text.
 - ONLY link to articles you have actually written as .md files. If a concept
   does not have its own article, just write it in plain text — do not create
   a link to a nonexistent article.
@@ -65,4 +69,3 @@ split it into multiple articles that link to each other.
 - Don't create stub articles with only 1-2 sentences. Either flesh them out
   or merge them.
 - Don't use categories or tags — the link graph IS the categorization.
-- Don't put substantive content in Index.md — it's navigation only.

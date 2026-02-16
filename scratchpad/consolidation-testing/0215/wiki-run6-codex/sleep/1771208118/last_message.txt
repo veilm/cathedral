@@ -1,0 +1,39 @@
+Created a concept-based wiki in `/home/oboro/src/cathedral/scratchpad/consolidation-testing/0215/wiki/` from all source files in `/tmp/dir/1771183647/essay/`.
+
+Articles created and rationale:
+
+1. `situational-awareness-overview.md`  
+   Unifies the full series thesis, timeline, and argument structure so readers can orient before diving into subtopics.
+
+2. `counting-the-ooms.md`  
+   Captures the forecasting framework (compute + algorithmic efficiency + unhobbling), including key numeric estimates and caveats.
+
+3. `intelligence-explosion.md`  
+   Explains the recursive automation argument (automating AI research), bottlenecks, and why AGI is not treated as a stable endpoint.
+
+4. `trillion-dollar-clusters.md`  
+   Consolidates industrial mobilization claims: capex trajectory, datacenter economics, power bottlenecks, and chip-supply scaling.
+
+5. `agi-security-and-espionage.md`  
+   Covers algorithm-vs-weight theft timelines, state-actor threat model, and required “supersecurity” posture.
+
+6. `superalignment.md`  
+   Distills the control problem for superhuman systems, proposed technical path, and defense-in-depth strategy.
+
+7. `us-china-superintelligence-race.md`  
+   Consolidates the geopolitical/military race logic, Chinese competitiveness pathways, and lead-length safety implications.
+
+8. `the-project.md`  
+   Captures the governance endgame claim: transition to a government-led national-security structure in late 2020s.
+
+9. `agi-realism.md`  
+   Encodes the series’ ideological synthesis (“AGI Realism”) linking national-security realism with safety discipline.
+
+10. `Index.md`  
+    Written last as the navigation entry point, with categorized links and reading order across all concept articles.
+
+Validation:
+
+- Ran `wiki-check /home/oboro/src/cathedral/scratchpad/consolidation-testing/0215/wiki`.
+- Fixed all **errors** (including broken placeholder links in pre-existing `AGENTS.md`).
+- Final check passes with **0 errors**; only warnings are about `AGENTS.md` being an instruction file, not a wiki article.
