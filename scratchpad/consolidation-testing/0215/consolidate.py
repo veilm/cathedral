@@ -24,8 +24,8 @@ BIN_DIR = os.path.join(SCRIPT_DIR, "bin")
 PROMPTS_DIR = os.path.join(SCRIPT_DIR, "prompts")
 
 
-def build_codex_agents_md(input_dir, output_dir):
-    """Build AGENTS.md from template with paths filled in."""
+def build_codex_prompt(input_dir, output_dir):
+    """Build the full codex user prompt from template with paths filled in."""
     template_path = os.path.join(PROMPTS_DIR, "codex-agents.md")
     with open(template_path) as f:
         template = f.read()
@@ -58,16 +58,7 @@ def setup_sleep_dir(output_dir):
 
 def run_codex(input_dir, output_dir, sleep_dir, args):
     """Run consolidation via codex exec."""
-    # Write AGENTS.md into the output dir so codex picks it up
-    agents_md = build_codex_agents_md(input_dir, output_dir)
-    agents_path = os.path.join(output_dir, "AGENTS.md")
-    with open(agents_path, "w") as f:
-        f.write(agents_md)
-
-    prompt = (
-        f"Read all source files in {input_dir}/ and consolidate them "
-        f"into a wiki. Write output to {output_dir}/."
-    )
+    prompt = build_codex_prompt(input_dir, output_dir)
     if args.description:
         prompt += f"\n\nThe source material is: {args.description}"
 
@@ -204,11 +195,6 @@ def main():
     print(f"\nExit code: {proc.returncode}")
     print(f"Raw log:   {raw_log_path}")
     print(f"Sleep dir: {sleep_dir}")
-
-    # clean up AGENTS.md from output dir (it's for codex, not wiki content)
-    agents_path = os.path.join(output_dir, "AGENTS.md")
-    if os.path.exists(agents_path):
-        os.remove(agents_path)
 
     return proc.returncode
 
