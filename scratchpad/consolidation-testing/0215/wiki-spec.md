@@ -38,8 +38,7 @@ An article contains:
 5. **See also** — (optional) a short list of related articles at the bottom.
 
 ### Article sizing
-Hard limit: 300-600 words per article. Prefer more articles at shorter length
-over fewer articles at longer length. If a topic needs more than 600 words,
+Target 300-600 words per article. If a topic needs more than 600 words,
 split it into multiple articles that link to each other.
 
 ### What becomes an article
