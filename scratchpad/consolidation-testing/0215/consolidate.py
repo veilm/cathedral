@@ -48,7 +48,7 @@ def setup_sleep_dir(output_dir):
 
 def run_codex(input_dir, output_dir, sleep_dir, args):
     """Run consolidation via codex exec."""
-    template = os.path.join(PROMPTS_DIR, "codex-agents.md")
+    template = os.path.join(PROMPTS_DIR, "consolidation-prompt.md")
     prompt = build_prompt(template, input_dir, output_dir, args.lens)
     if args.description:
         prompt += f"\n\nThe source material is: {args.description}"
@@ -76,13 +76,8 @@ def run_codex(input_dir, output_dir, sleep_dir, args):
 
 def run_claude(input_dir, output_dir, sleep_dir, args):
     """Run consolidation via claude --print."""
-    template = os.path.join(PROMPTS_DIR, "claude-system.md")
-    system_prompt = build_prompt(template, input_dir, output_dir, args.lens)
-
-    prompt = (
-        f"Read all source files in {input_dir}/ and consolidate them "
-        f"into a wiki. Write output to {output_dir}/."
-    )
+    template = os.path.join(PROMPTS_DIR, "consolidation-prompt.md")
+    prompt = build_prompt(template, input_dir, output_dir, args.lens)
     if args.description:
         prompt += f"\n\nThe source material is: {args.description}"
 
@@ -93,7 +88,6 @@ def run_claude(input_dir, output_dir, sleep_dir, args):
     cmd = [
         "claude",
         "--print",
-        "--system-prompt", system_prompt,
         "--model", args.model,
         "--dangerously-skip-permissions",
         "--output-format", "text",
