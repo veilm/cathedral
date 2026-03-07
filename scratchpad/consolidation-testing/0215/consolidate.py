@@ -34,7 +34,7 @@ def build_prompt(template_path, input_dir, output_dir, lens):
         input_dir=input_dir,
         output_dir=output_dir,
         lens=lens,
-        examples_dir=os.path.join(REFERENCE_DIR, "examples"),
+        examples_dir=os.path.join(REFERENCE_DIR, "wiki-examples", "0-energy"),
     )
 
 
@@ -106,7 +106,7 @@ def main():
     parser.add_argument("input_dir", help="Directory containing source material")
     parser.add_argument("output_dir", help="Directory to write wiki into")
     parser.add_argument("--lens", "-l",
-                        default=os.path.join(REFERENCE_DIR, "meta", "lens.md"),
+                        default=os.path.join(REFERENCE_DIR, "wiki-examples", "0-energy", "meta", "lens.md"),
                         help="Path to memory lens (meta/lens.md)")
     parser.add_argument("--description", "-d", default=None,
                         help="Brief description of what the input material is")
