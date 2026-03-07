@@ -22,29 +22,19 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 WIKI_SPEC = os.path.join(SCRIPT_DIR, "wiki-spec.md")
 BIN_DIR = os.path.join(SCRIPT_DIR, "bin")
 PROMPTS_DIR = os.path.join(SCRIPT_DIR, "prompts")
+REFERENCE_DIR = os.path.join(SCRIPT_DIR, "reference")
 
 
-def build_codex_prompt(input_dir, output_dir):
-    """Build the full codex user prompt from template with paths filled in."""
-    template_path = os.path.join(PROMPTS_DIR, "codex-agents.md")
+def build_prompt(template_path, input_dir, output_dir, lens):
+    """Build a prompt from template with paths filled in."""
     with open(template_path) as f:
         template = f.read()
     return template.format(
         wiki_spec=WIKI_SPEC,
         input_dir=input_dir,
         output_dir=output_dir,
-    )
-
-
-def build_claude_system_prompt(input_dir, output_dir):
-    """Build claude system prompt from template."""
-    template_path = os.path.join(PROMPTS_DIR, "claude-system.md")
-    with open(template_path) as f:
-        template = f.read()
-    return template.format(
-        wiki_spec=WIKI_SPEC,
-        input_dir=input_dir,
-        output_dir=output_dir,
+        lens=lens,
+        examples_dir=os.path.join(REFERENCE_DIR, "examples"),
     )
 
 
@@ -58,7 +48,8 @@ def setup_sleep_dir(output_dir):
 
 def run_codex(input_dir, output_dir, sleep_dir, args):
     """Run consolidation via codex exec."""
-    prompt = build_codex_prompt(input_dir, output_dir)
+    template = os.path.join(PROMPTS_DIR, "codex-agents.md")
+    prompt = build_prompt(template, input_dir, output_dir, args.lens)
     if args.description:
         prompt += f"\n\nThe source material is: {args.description}"
 
@@ -85,7 +76,8 @@ def run_codex(input_dir, output_dir, sleep_dir, args):
 
 def run_claude(input_dir, output_dir, sleep_dir, args):
     """Run consolidation via claude --print."""
-    system_prompt = build_claude_system_prompt(input_dir, output_dir)
+    template = os.path.join(PROMPTS_DIR, "claude-system.md")
+    system_prompt = build_prompt(template, input_dir, output_dir, args.lens)
 
     prompt = (
         f"Read all source files in {input_dir}/ and consolidate them "
@@ -119,6 +111,9 @@ def main():
     )
     parser.add_argument("input_dir", help="Directory containing source material")
     parser.add_argument("output_dir", help="Directory to write wiki into")
+    parser.add_argument("--lens", "-l",
+                        default=os.path.join(REFERENCE_DIR, "meta", "lens.md"),
+                        help="Path to memory lens (meta/lens.md)")
     parser.add_argument("--description", "-d", default=None,
                         help="Brief description of what the input material is")
     parser.add_argument("--engine", "-e", default="codex",

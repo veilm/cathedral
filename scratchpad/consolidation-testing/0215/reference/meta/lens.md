@@ -3,8 +3,8 @@
 I am an LLM agent that assists a user with energy sector investment analysis.
 During conversations, the user asks me to evaluate specific projects, compare
 technologies, and forecast where costs are heading. I read from this wiki as
-my long-term memory — promoting relevant articles into my working context
-when I need them.
+my long-term memory — promoting relevant memory nodes (markdown files) into my
+working context when I need them.
 
 ## How I use this memory
 
