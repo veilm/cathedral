@@ -7,9 +7,39 @@ starting from Index.md.
 
 ## Structure
 
-### Flat directory
-All articles live in one directory. No subdirectories. The graph structure is
-implicit through links, like Wikipedia.
+### Directory layout
+```
+wiki-dir/
+  Index.md              # entry point
+  article-name.md       # one per concept
+  meta/
+    lens.md             # what this memory is for
+  sources/              # raw input chunks (read-only reference)
+    chunk-001.md
+    chunk-002.md
+    ...
+```
+
+Articles live flat in the root. No subdirectories for articles. The graph
+structure is implicit through links, like Wikipedia.
+
+The `sources/` directory holds chunked raw input material. Articles cite
+specific chunks as evidence. The consolidation agent creates this directory
+by chunking the input material before writing articles.
+
+### Lens (meta/lens.md)
+Every wiki has a `meta/lens.md` that describes how the runtime LLM agent
+will use this memory. The runtime agent reads from this wiki like a human
+reads from long-term memory — pulling relevant articles into working context
+during conversations or tasks. The lens describes what that agent does, what
+questions it needs to answer, and therefore what information is worth
+preserving in detail vs compressing vs omitting.
+
+The consolidation agent reads the lens before processing source material,
+and uses it to decide:
+- What deserves a dedicated article vs a brief mention vs omission
+- How much detail to preserve (exact numbers? general trends? just the gist?)
+- What framing and emphasis to use
 
 ### Index.md
 The entry point. An LLM reading from this wiki always starts here.
@@ -35,7 +65,23 @@ An article contains:
 4. **Inline links** — references to other articles via `[[article-name]]`
    notation (without .md extension). Place them naturally where the concept
    is mentioned.
-5. **See also** — (optional) a short list of related articles at the bottom.
+5. **Sources** — at the bottom, a list of source chunks this article draws from,
+   using `[^chunk-name]` notation. This connects claims back to raw evidence.
+6. **See also** — (optional) a short list of related articles at the bottom.
+
+### Source citations
+Articles should cite the source chunks they draw from. At the bottom of each
+article, include a sources section:
+
+```
+## Sources
+- [^chunk-003] — OOM counting methodology and base estimates
+- [^chunk-007] — unhobbling taxonomy and "sonic boom" argument
+```
+
+The `[^chunk-name]` references point to files in `sources/`. This lets a
+reader trace any claim back to the original text. Not every sentence needs a
+citation — just link the chunks that contribute meaningfully to the article.
 
 ### Article sizing
 Target 400-700 words per article. Articles under 300 words are too thin —
