@@ -16,7 +16,7 @@ roles
 pivot: make memory more objective and external. then the user-facing memory
 navigator will be prompted to simulate a character that believes the memory
 directly
-	https://x.com/sucralose__/status/2005180826972016663
+	https://x.com/mislocating/status/2005180826972016663
 
 use Codex or Claude Code as backends for consolidations instead of hand-rolling
 a process with our few steps. then just have a doc as a single description of

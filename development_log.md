@@ -1,5 +1,5 @@
 # Initial state
-(written manually by sucralose)
+(written manually by veilm)
 
 - Researched and brainstormed initial overview of plaintext memory idea, documented in ./README.md
 - Created a cathedral CLI with basic commands for creating/switching memory stores (empty initialized memories)
@@ -61,7 +61,7 @@ save to index.md based on the content of a given conversation
 	[...]" etc
 	- Claude 4 Opus and Sonnet in the API through OR seemed to find it easy
 	enough to accept as a system prompt + my opening
-		https://x.com/sucralose__/status/1956479571965943978
+		https://x.com/mislocating/status/1956479571965943978
 		So it's likely claude.ai's system prompt ruins its potential, which is a
 		major minus on expected success of incorporating Claude at all then,
 		which is really sad

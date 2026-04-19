@@ -25,7 +25,7 @@
 		MVP
 
 	- Option B: have a concise high-signal artificial roll of messages
-		https://x.com/sucralose__/status/1958203709801828752
+		https://x.com/mislocating/status/1958203709801828752
 
 		1. system: main memory injection
 		2. user: artificial init
