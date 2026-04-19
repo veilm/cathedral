@@ -25,7 +25,19 @@ PROMPTS_DIR = os.path.join(SCRIPT_DIR, "prompts")
 REFERENCE_DIR = os.path.join(SCRIPT_DIR, "reference")
 
 
-def build_prompt(template_path, input_dir, output_dir, lens):
+def make_session_name(output_dir):
+    """Generate a session name like 2025-01-04:0 based on today's date."""
+    from datetime import date
+    today = date.today().isoformat()
+    percepts_dir = os.path.join(output_dir, "percepts")
+    idx = 0
+    if os.path.isdir(percepts_dir):
+        existing = [d for d in os.listdir(percepts_dir) if d.startswith(today + ":")]
+        idx = len(existing)
+    return f"{today}:{idx}"
+
+
+def build_prompt(template_path, input_dir, output_dir, lens, session):
     """Build a prompt from template with paths filled in."""
     with open(template_path) as f:
         template = f.read()
@@ -34,6 +46,7 @@ def build_prompt(template_path, input_dir, output_dir, lens):
         input_dir=input_dir,
         output_dir=output_dir,
         lens=lens,
+        session=session,
         examples_dir=os.path.join(REFERENCE_DIR, "wiki-examples", "0-energy"),
     )
 
@@ -49,7 +62,8 @@ def setup_sleep_dir(output_dir):
 def run_codex(input_dir, output_dir, sleep_dir, args):
     """Run consolidation via codex exec."""
     template = os.path.join(PROMPTS_DIR, "consolidation-prompt.md")
-    prompt = build_prompt(template, input_dir, output_dir, args.lens)
+    session = make_session_name(output_dir)
+    prompt = build_prompt(template, input_dir, output_dir, args.lens, session)
     if args.description:
         prompt += f"\n\nThe source material is: {args.description}"
 
@@ -77,7 +91,8 @@ def run_codex(input_dir, output_dir, sleep_dir, args):
 def run_claude(input_dir, output_dir, sleep_dir, args):
     """Run consolidation via claude --print."""
     template = os.path.join(PROMPTS_DIR, "consolidation-prompt.md")
-    prompt = build_prompt(template, input_dir, output_dir, args.lens)
+    session = make_session_name(output_dir)
+    prompt = build_prompt(template, input_dir, output_dir, args.lens, session)
     if args.description:
         prompt += f"\n\nThe source material is: {args.description}"
 

@@ -4,13 +4,7 @@ Levelized cost of electricity (LCOE) benchmarks for 2025 show a notable divergen
 
 ## 2025 Figures
 
-From BNEF's 2025 data:
-- **Fixed-tilt solar PV**: $39/MWh (up 6% from 2024)
-- **Onshore wind**: $40/MWh (also rose)
-- **Offshore wind**: $100/MWh
-- **Battery storage (BESS)**: $78/MWh (down 27% YoY)
-- **Combined cycle gas**: $102/MWh
-- **Conventional nuclear**: $258/MWh
+From BNEF's 2025 data: fixed-tilt solar PV $39/MWh (up 6% from 2024), onshore wind $40/MWh (also rose), offshore wind $100/MWh, battery storage (BESS) $78/MWh (down 27% YoY), combined cycle gas $102/MWh, conventional nuclear $258/MWh.
 
 Lazard's 2025 range for US utility-scale solar is broader: $38-78/MWh, averaging $58/MWh — a 4% YoY decrease by their methodology. The discrepancy with BNEF reflects different assumptions about financing, capacity factors, and geographic mix.
 
@@ -22,8 +16,8 @@ Chase characterized the increase as "anomalous" — a financing-environment arti
 
 ## Battery Divergence
 
-The 27% BESS cost decline stands out against the solar/wind increases. This reflects continued lithium-ion manufacturing scale-up, the LFP chemistry shift (LFP pack prices hit $70/kWh in 2025, down 45% from 2024), and emerging competition from [[sodium-ion-batteries]]. At $78/MWh, grid batteries are now cheaper than combined cycle gas ($102/MWh) for peaking applications. The crossover is recent and significant — see [[iron-air-batteries]] for how long-duration storage economics differ from these short-duration benchmarks.
+The 27% BESS cost decline stands out against the solar/wind increases. This reflects continued lithium-ion manufacturing scale-up, the LFP chemistry shift (LFP pack prices hit $70/kWh in 2025, down 45% from 2024), and emerging competition from [[Sodium Ion Batteries]]. At $78/MWh, grid batteries are now cheaper than combined cycle gas ($102/MWh) for peaking applications. The crossover is recent and significant — see [[Iron Air Batteries]] for how long-duration storage economics differ from these short-duration benchmarks.
 
 ## Sources
-- [^chunk-003] — BNEF 2025 LCOE data, solar anomaly analysis, BESS decline
-- [^chunk-002] — LFP price context, sodium-ion cost trajectory
+- [^lcoe-2025-and-form-energy] — BNEF 2025 LCOE data, solar anomaly analysis, BESS decline
+- [^catl-sodium-ion] — LFP price context, sodium-ion cost trajectory

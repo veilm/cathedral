@@ -1,4 +1,4 @@
-# Sodium-Ion Batteries
+# Sodium Ion Batteries
 
 Sodium-ion batteries are an emerging alternative to lithium-ion that replaces lithium with sodium — an element roughly 1,000x more abundant in the Earth's crust. They target grid-scale storage and low-cost EVs, with the core advantage being supply chain independence from lithium, cobalt, and nickel.
 
@@ -14,7 +14,7 @@ CATL announced at its December 2025 supplier conference that sodium-ion deployme
 
 ## Where Sodium-Ion Fits
 
-Sodium-ion competes directly with LFP lithium-ion in the 2-4 hour grid storage segment. Its advantages are material abundance and cold-weather performance; its disadvantage is that it's earlier on the manufacturing learning curve. If the $35/kWh cell cost projection for 2030 holds, sodium-ion would undercut even LFP significantly, potentially becoming the default chemistry for stationary storage. For long-duration storage (8-100+ hours), sodium-ion offers no structural advantage over lithium-ion — both scale cost linearly with duration, which is where [[iron-air-batteries]] target a different cost structure entirely. For current generation cost context, see [[lcoe-benchmarks-2025]].
+Sodium-ion competes directly with LFP lithium-ion in the 2-4 hour grid storage segment. Its advantages are material abundance and cold-weather performance; its disadvantage is that it's earlier on the manufacturing learning curve. If the $35/kWh cell cost projection for 2030 holds, sodium-ion would undercut even LFP significantly, potentially becoming the default chemistry for stationary storage. For long-duration storage (8-100+ hours), sodium-ion offers no structural advantage over lithium-ion — both scale cost linearly with duration, which is where [[Iron Air Batteries]] target a different cost structure entirely. For current generation cost context, see [[LCOE Benchmarks 2025]].
 
 ## Sources
-- [^chunk-002] — CATL specs, cost data, Peak Energy deployment, "dual-star" framing
+- [^catl-sodium-ion] — CATL specs, cost data, Peak Energy deployment, "dual-star" framing
