@@ -1,5 +1,0 @@
-#!/usr/bin/env ush
-date=[date "+%Y-%m-%dT%H:%M %:z"]
-
-printf "<human timestamp=\"$date\">"
-echo "</human>"
