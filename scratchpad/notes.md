@@ -1,7 +1,3 @@
-
-for personal notes on e.g. viable SaaS clones or trading strategies see
-	/home/light/media/wiki/cathedral-personal.md
-
 - focus, for entropy, on what was surprising
 	or difficult to predict
 

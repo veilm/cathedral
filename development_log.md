@@ -20,7 +20,7 @@ save to index.md based on the content of a given conversation
 	guidelines which slightly helped, but in the ended we accepted it and just
 	went for the 50% detail intention
 	- Final prompt for now: ./grimoire/06-write-memory-detailed.md
-- I tested a few real past conversations in /home/light/media/wiki/cathedral
+- I tested a few real past conversations in /tmp/cathedral
 	- Received some Claude 4.1 Opus feedback
 	- Considered enforcing a deliberate "Left off / current mental status / next
 	steps" section in index.md but decided against the additional complexity for
