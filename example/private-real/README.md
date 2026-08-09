@@ -1,1 +1,1 @@
-use /home/oboro/media/wiki/cathedral/
+use /home/light/media/wiki/cathedral/

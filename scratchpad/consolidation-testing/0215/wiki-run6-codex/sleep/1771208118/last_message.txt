@@ -1,4 +1,4 @@
-Created a concept-based wiki in `/home/oboro/src/cathedral/scratchpad/consolidation-testing/0215/wiki/` from all source files in `/tmp/dir/1771183647/essay/`.
+Created a concept-based wiki in `/home/light/src/cathedral/scratchpad/consolidation-testing/0215/wiki/` from all source files in `/tmp/dir/1771183647/essay/`.
 
 Articles created and rationale:
 
@@ -34,6 +34,6 @@ Articles created and rationale:
 
 Validation:
 
-- Ran `wiki-check /home/oboro/src/cathedral/scratchpad/consolidation-testing/0215/wiki`.
+- Ran `wiki-check /home/light/src/cathedral/scratchpad/consolidation-testing/0215/wiki`.
 - Fixed all **errors** (including broken placeholder links in pre-existing `AGENTS.md`).
 - Final check passes with **0 errors**; only warnings are about `AGENTS.md` being an instruction file, not a wiki article.

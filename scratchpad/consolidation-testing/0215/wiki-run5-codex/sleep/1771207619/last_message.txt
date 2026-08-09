@@ -1,4 +1,4 @@
-Created a concept-based wiki in `/home/oboro/src/cathedral/scratchpad/consolidation-testing/0215/wiki/` from all sources in `/tmp/dir/1771183647/essay/`, with `Index.md` written last and `wiki-check` passing with no errors.
+Created a concept-based wiki in `/home/light/src/cathedral/scratchpad/consolidation-testing/0215/wiki/` from all sources in `/tmp/dir/1771183647/essay/`, with `Index.md` written last and `wiki-check` passing with no errors.
 
 Articles created and rationale:
 
@@ -45,5 +45,5 @@ Why: Captures the concluding doctrine and synthesis across all essays.
 Why: Navigation entry point with categorized links and concise timeline orientation.
 
 Validation:
-- Ran `wiki-check /home/oboro/src/cathedral/scratchpad/consolidation-testing/0215/wiki`.
+- Ran `wiki-check /home/light/src/cathedral/scratchpad/consolidation-testing/0215/wiki`.
 - Result: no errors; only warnings are about `AGENTS.md` being an unindexed/non-networked instruction file (not part of the content wiki graph).

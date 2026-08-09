@@ -68,7 +68,7 @@ def run_codex(input_dir, output_dir, sleep_dir, args):
         prompt += f"\n\nThe source material is: {args.description}"
 
     env = os.environ.copy()
-    env["CODEX_HOME"] = "/home/oboro/.local/share/codex/chatgpt-msk1411"
+    env["CODEX_HOME"] = "/home/light/.local/share/codex/chatgpt-msk1411"
     env["PATH"] = BIN_DIR + ":" + env.get("PATH", "")
 
     cmd = [

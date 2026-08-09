@@ -5,11 +5,11 @@ llm_name="Gemini-C"
 
 # =================================================
 
-hnt_chat_dir=/home/oboro/.local/share/hinata/chat/conversations/$input
+hnt_chat_dir=/home/light/.local/share/hinata/chat/conversations/$input
 title=$(cat $hnt_chat_dir/title.txt | sd " " "_")
 title="$input-$title"
 
-cd "/home/oboro/media/wiki/cathedral"
+cd "/home/light/media/wiki/cathedral"
 [ -d "$title" ] && . err
 
 cathedral create-store "$title"
