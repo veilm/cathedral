@@ -1,4 +1,4 @@
-# Iron Air Batteries
+# Iron-Air Batteries
 
 Iron-air batteries are an emerging long-duration energy storage technology that uses the reversible oxidation of iron (rusting and un-rusting) to store and release electricity. They target 100-hour storage durations at dramatically lower cost per kWh than lithium-ion, potentially filling the multi-day storage gap that current 2-4 hour batteries cannot address.
 
@@ -16,7 +16,7 @@ Ore Energy, a Dutch startup (~40 employees, ~$23M in funding), brought the first
 
 ## Investment Implications
 
-If Form Energy's $20/kWh target holds at scale, iron-air would make multi-day storage economically viable for the first time. Current [[Sodium Ion Batteries]] and LFP lithium-ion compete well at 2-4 hour durations, but their costs scale linearly with duration — a 100-hour lithium-ion system is economically absurd. Iron-air's value is in the durations nothing else can reach cheaply. The risk is execution: manufacturing scale-up, real-world cycle performance, and whether the 2028-2030 volume ramp materializes. The technology is no longer theoretical — grid-connected units exist — but commercial-scale validation is still 2-3 years away. See [[LCOE Benchmarks 2025]] for how storage costs compare to generation.
+If Form Energy's $20/kWh target holds at scale, iron-air would make multi-day storage economically viable for the first time. Current [[Sodium-Ion Batteries]] and LFP lithium-ion compete well at 2-4 hour durations, but their costs scale linearly with duration — a 100-hour lithium-ion system is economically absurd. Iron-air's value is in the durations nothing else can reach cheaply. The risk is execution: manufacturing scale-up, real-world cycle performance, and whether the 2028-2030 volume ramp materializes. The technology is no longer theoretical — grid-connected units exist — but commercial-scale validation is still 2-3 years away. See [[LCOE Benchmarks 2025]] for how storage costs compare to generation.
 
 ## Sources
 - [^ore-energy-pilot] — Ore Energy pilot details, specifications, EU-first claim

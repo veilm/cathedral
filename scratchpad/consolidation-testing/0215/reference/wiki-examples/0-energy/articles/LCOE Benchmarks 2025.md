@@ -16,7 +16,7 @@ Chase characterized the increase as "anomalous" — a financing-environment arti
 
 ## Battery Divergence
 
-The 27% BESS cost decline stands out against the solar/wind increases. This reflects continued lithium-ion manufacturing scale-up, the LFP chemistry shift (LFP pack prices hit $70/kWh in 2025, down 45% from 2024), and emerging competition from [[Sodium Ion Batteries]]. At $78/MWh, grid batteries are now cheaper than combined cycle gas ($102/MWh) for peaking applications. The crossover is recent and significant — see [[Iron Air Batteries]] for how long-duration storage economics differ from these short-duration benchmarks.
+The 27% BESS cost decline stands out against the solar/wind increases. This reflects continued lithium-ion manufacturing scale-up, the LFP chemistry shift (LFP pack prices hit $70/kWh in 2025, down 45% from 2024), and emerging competition from [[Sodium-Ion Batteries]]. At $78/MWh, grid batteries are now cheaper than combined cycle gas ($102/MWh) for peaking applications. The crossover is recent and significant — see [[Iron-Air Batteries]] for how long-duration storage economics differ from these short-duration benchmarks.
 
 ## Sources
 - [^lcoe-2025-and-form-energy] — BNEF 2025 LCOE data, solar anomaly analysis, BESS decline
