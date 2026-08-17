@@ -1,0 +1,7 @@
+# Command prefix used to invoke Codex. Cathedral appends `exec` and its required
+# non-interactive flags. Shell quoting is supported, but shell syntax is not.
+codex_command = "codex"
+
+# Default upper bound for deterministic recall bundles.
+max_recall_nodes = 6
+
