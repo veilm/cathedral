@@ -60,7 +60,7 @@ Ingestion copies files or directories unchanged into a dated inbox item. On name
 
 Consolidation starts a fresh headless Codex agent in the store directory. The agent reads the store's guidelines, source trust configuration, index, related nodes, and requested inbox items; it then rewrites current memory, archives processed inputs, validates the graph, commits the change, and prints its short report.
 
-Cathedral uses the officially supported [`codex exec` non-interactive interface](https://learn.chatgpt.com/docs/non-interactive-mode), with an ephemeral session and `workspace-write` sandbox. Codex progress remains on stderr and its final report becomes Cathedral's stdout. The command prefix is configurable:
+Cathedral uses the officially supported [`codex exec` non-interactive interface](https://learn.chatgpt.com/docs/non-interactive-mode), with an ephemeral session and `workspace-write` sandbox. Codex progress remains on stderr, while `--output-last-message` isolates its final report from any stdout noise produced by a custom launcher. The command prefix is configurable:
 
 ```console
 # One run

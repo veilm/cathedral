@@ -139,7 +139,8 @@ class ConsolidationTest(unittest.TestCase):
 
     def test_custom_codex_command_mutates_archives_commits_and_reports(self) -> None:
         result = consolidate(self.store, [], str(self.fake_codex))
-        self.assertIn("Created Design Principles", result.report)
+        self.assertEqual(result.report, "Created Design Principles; archived design chat.")
+        self.assertNotIn("wrapper noise", result.report)
         self.assertTrue((self.store / "nodes" / "Design Principles.md").is_file())
         self.assertTrue((self.store / "archive" / "2026-08-17-design-chat").is_file())
         self.assertFalse((self.store / "inbox" / "2026-08-17-design-chat").exists())
@@ -172,6 +173,7 @@ import sys
 
 arguments = sys.argv[1:]
 store = pathlib.Path(arguments[arguments.index("--cd") + 1])
+report = pathlib.Path(arguments[arguments.index("--output-last-message") + 1])
 item = store / "inbox" / "2026-08-17-design-chat"
 archive = store / "archive" / item.name
 shutil.move(item, archive)
@@ -187,7 +189,8 @@ subprocess.run(["git", "-C", str(store), "config", "user.email", "test@example.c
 subprocess.run(["git", "-C", str(store), "config", "user.name", "Test"], check=True)
 subprocess.run(["git", "-C", str(store), "add", "Index.md", "nodes", "inbox", "archive", "meta"], check=True)
 subprocess.run(["git", "-C", str(store), "commit", "--quiet", "-m", "consolidate: test memory"], check=True)
-print("Created Design Principles; archived design chat.")
+report.write_text("Created Design Principles; archived design chat.\\n")
+print("wrapper noise from a custom launcher")
 """
 
 

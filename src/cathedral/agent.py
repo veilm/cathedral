@@ -83,20 +83,31 @@ def staged_changes_exist(store: Path) -> bool:
 def run_codex(store: Path, names: list[str], command_value: str) -> tuple[str, list[str]]:
     prefix = command_prefix(command_value)
     prompt = task_prompt(names, set(names) == {path.name for path in (store / "inbox").iterdir()})
-    command = [
-        *prefix,
-        "exec",
-        "--sandbox",
-        "workspace-write",
-        "--ephemeral",
-        "--cd",
-        str(store),
-        prompt,
-    ]
-    result = subprocess.run(command, text=True, stdout=subprocess.PIPE)
-    if result.returncode != 0:
-        raise CathedralError(f"Codex consolidation failed with exit status {result.returncode}")
-    return result.stdout.rstrip(), command
+    with tempfile.NamedTemporaryFile(prefix="cathedral-report-", delete=False) as report_file:
+        report_path = Path(report_file.name)
+    try:
+        command = [
+            *prefix,
+            "exec",
+            "--sandbox",
+            "workspace-write",
+            "--ephemeral",
+            "--cd",
+            str(store),
+            "--output-last-message",
+            str(report_path),
+            prompt,
+        ]
+        result = subprocess.run(command, text=True, stdout=subprocess.PIPE)
+        if result.returncode != 0:
+            raise CathedralError(f"Codex consolidation failed with exit status {result.returncode}")
+        report = report_path.read_text(encoding="utf-8").rstrip()
+        if not report:
+            report = result.stdout.rstrip()
+        display_command = ["<temporary-report>" if part == str(report_path) else part for part in command]
+        return report, display_command
+    finally:
+        report_path.unlink(missing_ok=True)
 
 
 def consolidate(
