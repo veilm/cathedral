@@ -4,19 +4,26 @@ Cathedral is a filesystem-first memory system for LLMs. It turns raw source mate
 
 Markdown is the canonical memory, links provide structure, archived inputs provide provenance, and Git provides history. The CLI handles lossless ingestion, Codex-driven consolidation, deterministic recall, and structural validation.
 
-## Install
+## Build and install
 
-Cathedral requires Python 3.11 or newer and has no runtime dependencies.
+Cathedral is a single Go binary with no runtime dependencies. Build it with:
 
 ```console
-uv tool install --editable .
+go build -o bin/cathedral .
 ```
 
-For repository-local development:
+Run it directly or copy it somewhere in `PATH`:
 
 ```console
-PYTHONPATH=src python -m cathedral --help
-PYTHONPATH=src python -m unittest discover -s tests -v
+./bin/cathedral --help
+install -Dm755 bin/cathedral ~/.local/bin/cathedral
+```
+
+For development:
+
+```console
+go test ./...
+go vet ./...
 ```
 
 ## Create a store
