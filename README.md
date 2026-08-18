@@ -132,7 +132,7 @@ export CATHEDRAL_CODEX_COMMAND=cdx
 
 Cathedral parses a custom prefix as shell-style words but does not invoke a shell. It appends `exec` and the required flags itself. A wrapper can override those flags; for example, Delirium's `cdx` currently opts into unrestricted execution.
 
-`--test-run` copies the store to a retained directory under `/tmp/cathedral/test-runs/`, performs a real Codex consolidation there, and leaves the copied `store/` available for inspection without changing the original store. It still consumes an LLM invocation. The command prints only the directory containing the run artifacts.
+`--test-run` copies the store to a retained directory under `/tmp/cathedral/test-runs/`, performs a real Codex consolidation there, and leaves the copied `store/` available for inspection without changing the original store. It still consumes an LLM invocation. Cathedral prints a few lifecycle lines (the run directory, copying, and Codex launch) without mixing in raw Codex stderr, reports, or diffs.
 
 Cathedral refuses a real consolidation when the containing Git repository already has staged changes, preventing the agent's commit from accidentally including them.
 

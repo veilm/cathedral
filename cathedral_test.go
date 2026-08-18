@@ -274,7 +274,7 @@ func TestConsolidationCLIPrintsOnlyArtifactDirectory(t *testing.T) {
 	store, fake := consolidationFixture(t)
 	var output, errors bytes.Buffer
 	code := run([]string{"--store", store, "consolidate", "--codex-command", fake, "--test-run"}, strings.NewReader(""), &output, &errors)
-	if code != 0 || errors.Len() != 0 {
+	if code != 0 {
 		t.Fatalf("test run failed: code=%d output=%q errors=%q", code, output.String(), errors.String())
 	}
 	directory := strings.TrimSpace(strings.TrimPrefix(output.String(), "Consolidation output: "))
@@ -286,6 +286,14 @@ func TestConsolidationCLIPrintsOnlyArtifactDirectory(t *testing.T) {
 		if strings.Contains(output.String(), unwanted) {
 			t.Errorf("CLI printed transient run content %q: %s", unwanted, output.String())
 		}
+	}
+	for _, want := range []string{"Test run: ", "Copying store into the test run.", "Launching headless Codex. Event log: "} {
+		if !strings.Contains(errors.String(), want) {
+			t.Errorf("CLI status is missing %q: %s", want, errors.String())
+		}
+	}
+	if strings.Contains(errors.String(), "Reading additional input from standard in") {
+		t.Errorf("raw Codex stderr leaked into CLI status: %s", errors.String())
 	}
 }
 

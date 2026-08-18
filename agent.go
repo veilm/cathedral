@@ -136,7 +136,13 @@ func stagedChangesExist(store string) bool {
 	return false
 }
 
-func runCodex(store, logDirectory string, metadata runMetadata, names []string, commandValue string) (string, []string, string, error) {
+func statusf(status io.Writer, format string, values ...any) {
+	if status != nil {
+		fmt.Fprintf(status, format, values...)
+	}
+}
+
+func runCodex(store, logDirectory string, metadata runMetadata, names []string, commandValue string, status io.Writer) (string, []string, string, error) {
 	prefix, err := shellSplit(commandValue)
 	if err != nil {
 		return "", nil, "", err
@@ -178,6 +184,7 @@ func runCodex(store, logDirectory string, metadata runMetadata, names []string, 
 	// Codex's own progress messages can refer to its optional stdin support and
 	// are not useful as Cathedral status. Keep them in the durable run log.
 	command.Stderr = stderrFile
+	statusf(status, "Launching headless Codex. Event log: %s\n", filepath.Join(logDirectory, "events.jsonl"))
 	if err := command.Run(); err != nil {
 		exitCode := -1
 		if exit, ok := err.(*exec.ExitError); ok {
@@ -201,6 +208,10 @@ func runCodex(store, logDirectory string, metadata runMetadata, names []string, 
 }
 
 func consolidateStore(store string, requested []string, commandOverride string, testRun bool) (consolidationResult, error) {
+	return consolidateStoreWithStatus(store, requested, commandOverride, testRun, io.Discard)
+}
+
+func consolidateStoreWithStatus(store string, requested []string, commandOverride string, testRun bool, status io.Writer) (consolidationResult, error) {
 	names, err := selectedInboxItems(store, requested)
 	if err != nil {
 		return consolidationResult{}, err
@@ -227,11 +238,12 @@ func consolidateStore(store string, requested []string, commandOverride string, 
 		if err != nil {
 			return consolidationResult{}, err
 		}
+		statusf(status, "Consolidation run: %s\n", logDirectory)
 		baseline, err := gitRevision(store)
 		if err != nil {
 			return consolidationResult{}, err
 		}
-		report, command, logDirectory, err := runCodex(store, logDirectory, metadata, names, commandValue)
+		report, command, logDirectory, err := runCodex(store, logDirectory, metadata, names, commandValue, status)
 		if err != nil {
 			return consolidationResult{}, fmt.Errorf("%w; log: %s", err, logDirectory)
 		}
@@ -246,7 +258,9 @@ func consolidateStore(store string, requested []string, commandOverride string, 
 	if err != nil {
 		return consolidationResult{}, err
 	}
+	statusf(status, "Test run: %s\n", logDirectory)
 	preview := filepath.Join(logDirectory, "store")
+	statusf(status, "Copying store into the test run.\n")
 	if err := copyStoreForPreview(store, preview); err != nil {
 		_ = finishRunLog(logDirectory, metadata, "failed", -1, "")
 		return consolidationResult{}, err
@@ -256,7 +270,7 @@ func consolidateStore(store string, requested []string, commandOverride string, 
 		_ = finishRunLog(logDirectory, metadata, "failed", -1, "")
 		return consolidationResult{}, err
 	}
-	report, command, logDirectory, err := runCodex(preview, logDirectory, metadata, names, commandValue)
+	report, command, logDirectory, err := runCodex(preview, logDirectory, metadata, names, commandValue, status)
 	if err != nil {
 		return consolidationResult{}, fmt.Errorf("%w; log: %s", err, logDirectory)
 	}

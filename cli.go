@@ -359,7 +359,7 @@ func run(arguments []string, stdin io.Reader, stdout, stderr io.Writer) int {
 			return emitError(errors.New("--dry-run has been renamed to --test-run"), format, stdout, stderr)
 		}
 		testRun, items := takeBool(items, "--test-run")
-		result, err := consolidateStore(store, items, codexCommand, testRun)
+		result, err := consolidateStoreWithStatus(store, items, codexCommand, testRun, stderr)
 		if err != nil {
 			return emitError(err, format, stdout, stderr)
 		}
