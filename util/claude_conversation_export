@@ -1,0 +1,233 @@
+#!/usr/bin/python
+"""Export a Claude web conversation from an existing CDP browser tab."""
+
+import argparse
+import datetime
+import json
+import os
+import pathlib
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+import time
+import urllib.parse
+import xml.etree.ElementTree as ET
+
+
+FETCH_JS = r"""
+return (async () => {
+  const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+  const conversationId = location.pathname.match(/^\/chat\/([^/]+)/)?.[1];
+  if (!conversationId) throw new Error('This tab is not a Claude conversation');
+  const deadline = Date.now() + 30000;
+  let endpoint;
+  while (!endpoint) {
+    const urls = performance.getEntriesByType('resource').map(entry => entry.name);
+    endpoint = urls.find(url => url.includes(`/chat_conversations/${conversationId}`)
+      && !url.includes('/versions'));
+    if (!endpoint) {
+      const organizationUrl = urls.find(url => url.includes('/api/organizations/'));
+      const organizationId = organizationUrl?.match(/\/api\/organizations\/([^/]+)/)?.[1];
+      if (organizationId)
+        endpoint = `${location.origin}/api/organizations/${organizationId}/chat_conversations/${conversationId}`;
+    }
+    if (Date.now() > deadline) throw new Error('Could not discover Claude conversation endpoint');
+    await sleep(200);
+  }
+  const response = await fetch(endpoint, {credentials: 'include'});
+  if (!response.ok) throw new Error(`Claude conversation request failed: HTTP ${response.status}`);
+  return await response.json();
+})();
+"""
+
+
+def run_cdp(*args, input_text=None, check=True):
+    command = ["cdp", *map(str, args)]
+    return subprocess.run(
+        command,
+        input=input_text,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=check,
+    )
+
+
+def connect(url, session):
+    result = run_cdp("connect", "--session", session, "--url", url, check=False)
+    if result.returncode == 0:
+        return
+    opened = run_cdp("tabs", "open", url, check=False)
+    if opened.returncode != 0:
+        raise RuntimeError(opened.stderr.strip() or f"Could not open {url}")
+    result = run_cdp("connect", "--session", session, "--url", url, check=False)
+    if result.returncode != 0:
+        raise RuntimeError(result.stderr.strip() or f"Could not connect to {url}")
+
+
+def extract(session):
+    result = run_cdp("eval", "--session", session, "--json", "--body", FETCH_JS, check=False)
+    if result.returncode != 0:
+        raise RuntimeError(result.stderr.strip() or "Claude DOM extraction failed")
+    return json.loads(result.stdout)
+
+
+def safe_line(text):
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def local_minute(timestamp):
+    if not timestamp:
+        return "timestamp unavailable"
+    try:
+        parsed = datetime.datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+        return parsed.astimezone().strftime("%Y-%m-%d %H:%M")
+    except ValueError:
+        return timestamp
+
+
+def active_branch(data):
+    messages = {message["uuid"]: message for message in data.get("chat_messages", [])}
+    branch = []
+    message_id = data.get("current_leaf_message_uuid")
+    seen = set()
+    while message_id and message_id in messages and message_id not in seen:
+        seen.add(message_id)
+        message = messages[message_id]
+        branch.append(message)
+        message_id = message.get("parent_message_uuid")
+    branch.reverse()
+    if not branch and messages:
+        branch = sorted(messages.values(), key=lambda message: message.get("index", 0))
+    return branch
+
+
+def attachment_markdown(attachment):
+    name = attachment.get("file_name") or "Pasted text"
+    details = [f"### Attachment: {safe_line(name)}", ""]
+    if attachment.get("created_at"):
+        details.extend([f"Attached: {local_minute(attachment['created_at'])}", ""])
+    content = attachment.get("extracted_content")
+    if content:
+        language = attachment.get("file_type") or "text"
+        fence = "~~~" if "~~~" not in content else "````"
+        details.extend([f"{fence}{language}", content.rstrip(), fence, ""])
+    return details
+
+
+def as_markdown(data, source_url):
+    branch = active_branch(data)
+    lines = [
+        f"# {safe_line(data['name'])}",
+        "",
+        f"Source: {source_url}",
+    ]
+    for message in branch:
+        sender = "Human" if message.get("sender") == "human" else "Model"
+        created = local_minute(message.get("created_at"))
+        lines.extend(["", f"## {sender}: {created}", ""])
+        for attachment in message.get("attachments", []):
+            lines.extend(attachment_markdown(attachment))
+        text_blocks = [
+            block.get("text", "") for block in message.get("content", [])
+            if block.get("type") == "text" and block.get("text")
+        ]
+        if text_blocks:
+            lines.append("\n\n".join(text_blocks).rstrip())
+        tool_names = [
+            block.get("name") for block in message.get("content", [])
+            if block.get("type") == "tool_use" and block.get("name")
+        ]
+        if tool_names:
+            lines.extend(["", "_Tool activity: " + ", ".join(map(safe_line, tool_names)) + "_"])
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def as_xml(data, source_url, exported_at):
+    root = ET.Element("conversation", {
+        "title": data.get("name", ""),
+        "source": source_url,
+        "created": local_minute(data.get("created_at")),
+        "updated": local_minute(data.get("updated_at")),
+        "exported": str(exported_at),
+    })
+    for message in active_branch(data):
+        role = "human" if message.get("sender") == "human" else "model"
+        message_element = ET.SubElement(root, "message", {
+            "role": role,
+            "timestamp": local_minute(message.get("created_at")),
+        })
+        for attachment in message.get("attachments", []):
+            attachment_element = ET.SubElement(message_element, "attachment", {
+                "name": attachment.get("file_name") or "Pasted text",
+                "type": attachment.get("file_type") or "",
+                "timestamp": local_minute(attachment.get("created_at")),
+            })
+            attachment_element.text = attachment.get("extracted_content") or ""
+        for block in message.get("content", []):
+            if block.get("type") == "text" and block.get("text"):
+                ET.SubElement(message_element, "text").text = block["text"]
+            elif block.get("type") == "tool_use" and block.get("name"):
+                ET.SubElement(message_element, "tool", {"name": block["name"]})
+    ET.indent(root, space="  ")
+    return ET.tostring(root, encoding="unicode", xml_declaration=True) + "\n"
+
+
+def default_output(url, output_format):
+    conversation_id = pathlib.PurePosixPath(urllib.parse.urlparse(url).path).name or str(int(time.time()))
+    suffix = {"markdown": ".md", "json": ".json", "xml": ".xml"}[output_format]
+    return pathlib.Path(tempfile.gettempdir()) / f"claude-conversation-{conversation_id}{suffix}"
+
+
+def write_output(path, content):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(content, encoding="utf-8")
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Read Claude's page-load conversation data and export it without modifying the conversation."
+    )
+    parser.add_argument("url", help="claude.ai/chat/... conversation URL")
+    parser.add_argument("-o", "--output", type=pathlib.Path, help="output path (default: file under /tmp)")
+    parser.add_argument("--format", choices=("markdown", "json", "xml"), default="markdown")
+    args = parser.parse_args()
+
+    parsed = urllib.parse.urlparse(args.url)
+    if parsed.scheme != "https" or parsed.hostname != "claude.ai" or not parsed.path.startswith("/chat/"):
+        parser.error("URL must be an https://claude.ai/chat/... conversation")
+    if not shutil.which("cdp"):
+        parser.error("cdp is required; install it from https://github.com/veilm/cdp-cli, then re-run this command")
+
+    output = args.output or default_output(args.url, args.format)
+    session = f"claude-export-{os.getpid()}-{time.time_ns()}"
+    try:
+        connect(args.url, session)
+        data = extract(session)
+        exported_at = int(time.time())
+        if args.format == "json":
+            data["_export"] = {
+                "source_url": args.url,
+                "exported_at": exported_at,
+                "active_branch_message_uuids": [message["uuid"] for message in active_branch(data)],
+            }
+            content = json.dumps(data, ensure_ascii=False, indent=2) + "\n"
+        elif args.format == "markdown":
+            content = as_markdown(data, args.url)
+        else:
+            content = as_xml(data, args.url, exported_at)
+        write_output(output, content)
+    except (RuntimeError, subprocess.SubprocessError, json.JSONDecodeError) as error:
+        print(f"claude_conversation_export: {error}", file=sys.stderr)
+        return 1
+    finally:
+        run_cdp("disconnect", "--session", session, check=False)
+
+    print(output)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

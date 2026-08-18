@@ -64,6 +64,28 @@ memory/
 
 `init` creates a Git repository with a clean `Initialize Cathedral store` baseline commit unless the destination is already inside an existing repository. Use `--no-git` to opt out, though consolidation itself requires Git. Cathedral uses a commit-local generated identity for this baseline and does not change your Git configuration.
 
+## Import a Claude conversation
+
+`util/claude_conversation_export` is an optional, read-only importer for a
+conversation already available in a Chromium-based browser. It needs Python 3
+and the [`cdp` CLI](https://github.com/veilm/cdp-cli) in `PATH`; configure that
+CLI normally for the browser's DevTools port and logged-in profile.
+
+```console
+./util/claude_conversation_export 'https://claude.ai/chat/CONVERSATION_ID'
+./util/claude_conversation_export URL --format json --output conversation.json
+./util/claude_conversation_export URL --format xml --output conversation.xml
+cathedral ingest conversation.md
+```
+
+The utility reads Claude's page-load conversation data through the already
+authenticated browser and never types, clicks, sends a message, or changes a
+conversation. It opens the requested URL only when it is not already open.
+Markdown and XML follow the current conversation branch and show local-time
+message timestamps to the minute. JSON preserves the complete raw message graph,
+including alternate branches. Without `--output`, it writes to the platform's
+temporary directory.
+
 ## Capture and consolidate
 
 ```console
