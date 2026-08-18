@@ -46,12 +46,15 @@ Create a Cathedral memory store. PATH defaults to the current directory.
 options:
   --operator NAME          name of the store operator (required)
   --codex-command COMMAND  Codex command prefix (default: codex)
+  --model MODEL            Codex model (default: gpt-5.6-terra)
+  --reasoning-effort LEVEL Codex reasoning effort (default: high)
   --no-git                 do not initialize Git
   -h, --help               print this help
 
 examples:
   cathedral init ~/memory --operator Light
   cathedral init ~/memory --operator Light --codex-command cdx
+  cathedral init ~/memory --operator Light --model gpt-5.6-terra --reasoning-effort high
 `
 
 const ingestHelp = `usage: cathedral ingest [--slug SLUG] [--date YYYY-MM-DD] INPUT...
@@ -89,6 +92,8 @@ Git index. A test run performs the same Codex work in a retained copy.
 
 options:
   --codex-command COMMAND  Codex command prefix for this run
+  --model MODEL            Codex model for this run (default: store configuration)
+  --reasoning-effort LEVEL Codex reasoning effort for this run (default: store configuration)
   --test-run                run Codex in a retained temporary copy and save its artifacts
   -h, --help                print this help
 
@@ -96,6 +101,7 @@ examples:
   cathedral consolidate
   cathedral consolidate 2026-08-17-research-session
   cathedral consolidate --codex-command 'cdx chl' --test-run
+  cathedral consolidate --model gpt-5.6-terra --reasoning-effort high
 `
 
 const recallHelp = `usage: cathedral recall QUERY [--max-nodes COUNT]
@@ -260,7 +266,21 @@ func run(arguments []string, stdin io.Reader, stdout, stderr io.Writer) int {
 			return emitError(err, format, stdout, stderr)
 		}
 		if codexCommand == "" {
-			codexCommand = "codex"
+			codexCommand = defaultCodexCommand
+		}
+		codexModel, remaining, err := takeValue(remaining, "--model")
+		if err != nil {
+			return emitError(err, format, stdout, stderr)
+		}
+		if codexModel == "" {
+			codexModel = defaultCodexModel
+		}
+		codexReasoningEffort, remaining, err := takeValue(remaining, "--reasoning-effort")
+		if err != nil {
+			return emitError(err, format, stdout, stderr)
+		}
+		if codexReasoningEffort == "" {
+			codexReasoningEffort = defaultCodexReasoningEffort
 		}
 		noGit, remaining := takeBool(remaining, "--no-git")
 		if len(remaining) > 1 {
@@ -270,14 +290,14 @@ func run(arguments []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		if len(remaining) == 1 {
 			path = remaining[0]
 		}
-		result, err := initializeStore(path, operator, codexCommand, !noGit)
+		result, err := initializeStoreWithConfig(path, operator, codexCommand, codexModel, codexReasoningEffort, !noGit)
 		if err != nil {
 			return emitError(err, format, stdout, stderr)
 		}
 		if format == "json" {
 			emitJSON(stdout, result)
 		} else {
-			fmt.Fprintf(stdout, "Initialized Cathedral store at %s\nOperator: %s\nCodex command: %s\n", result["store"], operator, codexCommand)
+			fmt.Fprintf(stdout, "Initialized Cathedral store at %s\nOperator: %s\nCodex command: %s\nCodex model: %s\nCodex reasoning effort: %s\n", result["store"], operator, codexCommand, codexModel, codexReasoningEffort)
 			if result["initial_commit"] == true {
 				fmt.Fprintln(stdout, "Git: initialized with baseline commit")
 			}
@@ -354,12 +374,20 @@ func run(arguments []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		if err != nil {
 			return emitError(err, format, stdout, stderr)
 		}
+		codexModel, items, err := takeValue(items, "--model")
+		if err != nil {
+			return emitError(err, format, stdout, stderr)
+		}
+		codexReasoningEffort, items, err := takeValue(items, "--reasoning-effort")
+		if err != nil {
+			return emitError(err, format, stdout, stderr)
+		}
 		legacyDryRun, items := takeBool(items, "--dry-run")
 		if legacyDryRun {
 			return emitError(errors.New("--dry-run has been renamed to --test-run"), format, stdout, stderr)
 		}
 		testRun, items := takeBool(items, "--test-run")
-		result, err := consolidateStoreWithStatus(store, items, codexCommand, testRun, stderr)
+		result, err := consolidateStoreWithStatus(store, items, codexCommand, codexModel, codexReasoningEffort, testRun, stderr)
 		if err != nil {
 			return emitError(err, format, stdout, stderr)
 		}

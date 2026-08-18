@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"unicode"
 )
@@ -142,7 +143,7 @@ func statusf(status io.Writer, format string, values ...any) {
 	}
 }
 
-func runCodex(store, logDirectory string, metadata runMetadata, names []string, commandValue string, status io.Writer) (string, []string, string, error) {
+func runCodex(store, logDirectory string, metadata runMetadata, names []string, commandValue, model, reasoningEffort string, status io.Writer) (string, []string, string, error) {
 	prefix, err := shellSplit(commandValue)
 	if err != nil {
 		return "", nil, "", err
@@ -157,7 +158,8 @@ func runCodex(store, logDirectory string, metadata runMetadata, names []string, 
 	}
 	defer os.Remove(reportPath)
 	arguments := append(append([]string{}, prefix[1:]...),
-		"exec", "--sandbox", "workspace-write", "--ephemeral", "--cd", store,
+		"exec", "--model", model, "--config", "model_reasoning_effort="+strconv.Quote(reasoningEffort),
+		"--sandbox", "workspace-write", "--ephemeral", "--cd", store,
 		"--json", "--output-last-message", reportPath, taskPrompt(store, names))
 	display := append([]string{prefix[0]}, arguments...)
 	for index, argument := range display {
@@ -215,10 +217,10 @@ func runCodex(store, logDirectory string, metadata runMetadata, names []string, 
 }
 
 func consolidateStore(store string, requested []string, commandOverride string, testRun bool) (consolidationResult, error) {
-	return consolidateStoreWithStatus(store, requested, commandOverride, testRun, io.Discard)
+	return consolidateStoreWithStatus(store, requested, commandOverride, "", "", testRun, io.Discard)
 }
 
-func consolidateStoreWithStatus(store string, requested []string, commandOverride string, testRun bool, status io.Writer) (consolidationResult, error) {
+func consolidateStoreWithStatus(store string, requested []string, commandOverride, modelOverride, reasoningEffortOverride string, testRun bool, status io.Writer) (consolidationResult, error) {
 	names, err := selectedInboxItems(store, requested)
 	if err != nil {
 		return consolidationResult{}, err
@@ -233,6 +235,14 @@ func consolidateStoreWithStatus(store string, requested []string, commandOverrid
 	}
 	if commandValue == "" {
 		commandValue = settings.CodexCommand
+	}
+	model := modelOverride
+	if model == "" {
+		model = settings.CodexModel
+	}
+	reasoningEffort := reasoningEffortOverride
+	if reasoningEffort == "" {
+		reasoningEffort = settings.CodexReasoningEffort
 	}
 	if !testRun {
 		if !insideGitRepository(store) {
@@ -250,7 +260,7 @@ func consolidateStoreWithStatus(store string, requested []string, commandOverrid
 		if err != nil {
 			return consolidationResult{}, err
 		}
-		report, command, logDirectory, err := runCodex(store, logDirectory, metadata, names, commandValue, status)
+		report, command, logDirectory, err := runCodex(store, logDirectory, metadata, names, commandValue, model, reasoningEffort, status)
 		if err != nil {
 			return consolidationResult{}, fmt.Errorf("%w; log: %s", err, logDirectory)
 		}
@@ -277,7 +287,7 @@ func consolidateStoreWithStatus(store string, requested []string, commandOverrid
 		_ = finishRunLog(logDirectory, metadata, "failed", -1, "")
 		return consolidationResult{}, err
 	}
-	report, command, logDirectory, err := runCodex(preview, logDirectory, metadata, names, commandValue, status)
+	report, command, logDirectory, err := runCodex(preview, logDirectory, metadata, names, commandValue, model, reasoningEffort, status)
 	if err != nil {
 		return consolidationResult{}, fmt.Errorf("%w; log: %s", err, logDirectory)
 	}

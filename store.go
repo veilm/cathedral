@@ -38,9 +38,17 @@ type listedItem struct {
 }
 
 type config struct {
-	CodexCommand   string
-	MaxRecallNodes int
+	CodexCommand         string
+	CodexModel           string
+	CodexReasoningEffort string
+	MaxRecallNodes       int
 }
+
+const (
+	defaultCodexCommand         = "codex"
+	defaultCodexModel           = "gpt-5.6-terra"
+	defaultCodexReasoningEffort = "high"
+)
 
 func isStore(path string) bool {
 	markers := []string{"Index.md", "nodes", "inbox", "archive", "meta/Guidelines.md", "meta/Sources.md"}
@@ -102,6 +110,10 @@ func absolutePath(path string) (string, error) {
 }
 
 func initializeStore(path, operator, codexCommand string, initializeGit bool) (map[string]any, error) {
+	return initializeStoreWithConfig(path, operator, codexCommand, defaultCodexModel, defaultCodexReasoningEffort, initializeGit)
+}
+
+func initializeStoreWithConfig(path, operator, codexCommand, codexModel, codexReasoningEffort string, initializeGit bool) (map[string]any, error) {
 	path, err := absolutePath(path)
 	if err != nil {
 		return nil, err
@@ -129,7 +141,7 @@ func initializeStore(path, operator, codexCommand string, initializeGit bool) (m
 		"meta/Guidelines.md":    guidelines,
 		"meta/Consolidation.md": consolidation,
 		"meta/Sources.md":       []byte(fmt.Sprintf("# Sources\n\n## %s\n- role: operator\n- salience: highest — their statements, decisions, and syntheses are remembered preferentially in any context.\n", operator)),
-		"meta/Config.toml":      []byte(fmt.Sprintf("# Command prefix used to invoke Codex. Cathedral appends `exec` and its required\n# non-interactive flags. Shell quoting is supported, but shell syntax is not.\ncodex_command = %s\n\n# Default upper bound for deterministic recall bundles.\nmax_recall_nodes = 6\n", strconv.Quote(codexCommand))),
+		"meta/Config.toml":      []byte(fmt.Sprintf("# Command prefix used to invoke Codex. Cathedral appends `exec` and its required\n# non-interactive flags. Shell quoting is supported, but shell syntax is not.\ncodex_command = %s\n\n# Model and reasoning effort for Codex consolidation. They can be overridden for\n# one run with `cathedral consolidate --model MODEL --reasoning-effort EFFORT`.\ncodex_model = %s\ncodex_reasoning_effort = %s\n\n# Default upper bound for deterministic recall bundles.\nmax_recall_nodes = 6\n", strconv.Quote(codexCommand), strconv.Quote(codexModel), strconv.Quote(codexReasoningEffort))),
 	}
 	for name, contents := range files {
 		if err := os.WriteFile(filepath.Join(path, name), contents, 0o644); err != nil {
@@ -147,7 +159,7 @@ func initializeStore(path, operator, codexCommand string, initializeGit bool) (m
 			return nil, err
 		}
 	}
-	return map[string]any{"store": path, "operator": operator, "codex_command": codexCommand, "git_initialized": gitInitialized, "initial_commit": gitInitialized}, nil
+	return map[string]any{"store": path, "operator": operator, "codex_command": codexCommand, "codex_model": codexModel, "codex_reasoning_effort": codexReasoningEffort, "git_initialized": gitInitialized, "initial_commit": gitInitialized}, nil
 }
 
 func commitInitialStore(path string) error {
@@ -172,7 +184,7 @@ func insideGitRepository(path string) bool {
 }
 
 func loadConfig(store string) (config, error) {
-	result := config{CodexCommand: "codex", MaxRecallNodes: 6}
+	result := config{CodexCommand: defaultCodexCommand, CodexModel: defaultCodexModel, CodexReasoningEffort: defaultCodexReasoningEffort, MaxRecallNodes: 6}
 	contents, err := os.ReadFile(filepath.Join(store, "meta", "Config.toml"))
 	if os.IsNotExist(err) {
 		return result, nil
@@ -181,6 +193,8 @@ func loadConfig(store string) (config, error) {
 		return result, err
 	}
 	commandPattern := regexp.MustCompile(`(?m)^\s*codex_command\s*=\s*("(?:\\.|[^"])*")\s*$`)
+	modelPattern := regexp.MustCompile(`(?m)^\s*codex_model\s*=\s*("(?:\\.|[^"])*")\s*$`)
+	reasoningPattern := regexp.MustCompile(`(?m)^\s*codex_reasoning_effort\s*=\s*("(?:\\.|[^"])*")\s*$`)
 	maxPattern := regexp.MustCompile(`(?m)^\s*max_recall_nodes\s*=\s*(\d+)\s*$`)
 	if match := commandPattern.FindSubmatch(contents); match != nil {
 		if value, parseErr := strconv.Unquote(string(match[1])); parseErr == nil {
@@ -188,6 +202,26 @@ func loadConfig(store string) (config, error) {
 		} else {
 			return result, fmt.Errorf("invalid meta/Config.toml codex_command: %w", parseErr)
 		}
+	}
+	if match := modelPattern.FindSubmatch(contents); match != nil {
+		value, parseErr := strconv.Unquote(string(match[1]))
+		if parseErr != nil {
+			return result, fmt.Errorf("invalid meta/Config.toml codex_model: %w", parseErr)
+		}
+		if strings.TrimSpace(value) == "" {
+			return result, errors.New("invalid meta/Config.toml codex_model: must not be empty")
+		}
+		result.CodexModel = value
+	}
+	if match := reasoningPattern.FindSubmatch(contents); match != nil {
+		value, parseErr := strconv.Unquote(string(match[1]))
+		if parseErr != nil {
+			return result, fmt.Errorf("invalid meta/Config.toml codex_reasoning_effort: %w", parseErr)
+		}
+		if strings.TrimSpace(value) == "" {
+			return result, errors.New("invalid meta/Config.toml codex_reasoning_effort: must not be empty")
+		}
+		result.CodexReasoningEffort = value
 	}
 	if match := maxPattern.FindSubmatch(contents); match != nil {
 		value, _ := strconv.Atoi(string(match[1]))

@@ -110,6 +110,7 @@ cathedral inbox
 cathedral consolidate
 cathedral consolidate 2026-08-17-research-session
 cathedral consolidate --test-run
+cathedral consolidate --model gpt-5.6-terra --reasoning-effort high
 ```
 
 Ingestion copies files or directories unchanged into a dated inbox item. On name collisions it adds the local time and, if necessary, a counter.
@@ -125,12 +126,22 @@ cathedral consolidate --codex-command 'cdx chl'
 
 # One store: edit meta/Config.toml
 codex_command = "cdx"
+codex_model = "gpt-5.6-terra"
+codex_reasoning_effort = "high"
 
 # Process environment
 export CATHEDRAL_CODEX_COMMAND=cdx
 ```
 
 Cathedral parses a custom prefix as shell-style words but does not invoke a shell. It appends `exec` and the required flags itself. A wrapper can override those flags; for example, Delirium's `cdx` currently opts into unrestricted execution.
+
+New stores default to `gpt-5.6-terra` with `high` reasoning effort. Override either setting for one consolidation without changing the store:
+
+```console
+cathedral consolidate --model gpt-5.6-sol --reasoning-effort xhigh
+```
+
+The model is passed with Codex's `--model` option and the reasoning level with its `model_reasoning_effort` configuration override. Per-run options take precedence over `meta/Config.toml`; `CATHEDRAL_CODEX_COMMAND` continues to override only the command prefix.
 
 `--test-run` copies the store to a retained directory under `/tmp/cathedral/test-runs/`, performs a real Codex consolidation there, and leaves the copied `store/` available for inspection without changing the original store. It still consumes an LLM invocation. Cathedral prints a few lifecycle lines (the run directory, copying, and Codex launch) without mixing in raw Codex stderr, reports, or diffs.
 

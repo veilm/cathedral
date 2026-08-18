@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -34,6 +35,13 @@ func TestInitializeStore(t *testing.T) {
 	guidelines, _ := os.ReadFile(filepath.Join(store, "meta", "Guidelines.md"))
 	if !bytes.Contains(guidelines, []byte("untrusted source material")) {
 		t.Error("embedded guidelines are missing source-data safety rules")
+	}
+	settings, err := loadConfig(store)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if settings.CodexModel != defaultCodexModel || settings.CodexReasoningEffort != defaultCodexReasoningEffort {
+		t.Fatalf("unexpected default Codex settings: %#v", settings)
 	}
 	if _, err := os.Stat(filepath.Join(store, ".git")); err != nil {
 		t.Error("Git repository was not initialized")
@@ -255,6 +263,53 @@ func TestConsolidationCustomCommandAndReportIsolation(t *testing.T) {
 	if strings.TrimSpace(string(commit)) != "consolidate: test memory" {
 		t.Fatalf("unexpected commit: %s", commit)
 	}
+}
+
+func TestConsolidationUsesConfiguredAndOverriddenModelSettings(t *testing.T) {
+	store, fake := consolidationFixture(t)
+	configPath := filepath.Join(store, "meta", "Config.toml")
+	contents, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	contents = []byte(strings.ReplaceAll(string(contents), "codex_model = \"gpt-5.6-terra\"\ncodex_reasoning_effort = \"high\"", "codex_model = \"gpt-5.6-luna\"\ncodex_reasoning_effort = \"medium\""))
+	if err := os.WriteFile(configPath, contents, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	configured, err := consolidateStore(store, nil, fake, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(configured.Log) })
+	if !containsArguments(configured.Command, "--model", "gpt-5.6-luna", "--config", `model_reasoning_effort="medium"`) {
+		t.Fatalf("configured model settings missing from command: %#v", configured.Command)
+	}
+
+	overridden, err := consolidateStoreWithStatus(store, nil, fake, "gpt-5.6-sol", "xhigh", true, io.Discard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(overridden.Log) })
+	if !containsArguments(overridden.Command, "--model", "gpt-5.6-sol", "--config", `model_reasoning_effort="xhigh"`) {
+		t.Fatalf("overridden model settings missing from command: %#v", overridden.Command)
+	}
+}
+
+func containsArguments(arguments []string, values ...string) bool {
+	for index := 0; index+len(values) <= len(arguments); index++ {
+		matches := true
+		for offset, value := range values {
+			if arguments[index+offset] != value {
+				matches = false
+				break
+			}
+		}
+		if matches {
+			return true
+		}
+	}
+	return false
 }
 
 func TestConsolidationTestRunLeavesOriginalUntouched(t *testing.T) {
