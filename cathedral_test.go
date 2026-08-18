@@ -153,6 +153,31 @@ func TestCLIStatusJSONAndNestedCommands(t *testing.T) {
 	}
 }
 
+func TestCLICommandHelpDoesNotRequireStoreOrArguments(t *testing.T) {
+	tests := []struct {
+		args string
+		want string
+	}{
+		{"init --help", "usage: cathedral init [PATH] --operator NAME [OPTIONS]"},
+		{"ingest --help", "usage: cathedral ingest [--slug SLUG] INPUT..."},
+		{"consolidate --help", "usage: cathedral consolidate [OPTIONS] [ITEM...]"},
+		{"node show --help", "usage: cathedral node show NAME"},
+		{"source edit --help", "usage: cathedral source edit NAME"},
+		{"archive show --help", "usage: cathedral archive show NAME"},
+		{"log show --help", "usage: cathedral log show [RUN_ID] [--raw]"},
+		{"help recall", "usage: cathedral recall QUERY [--max-nodes COUNT]"},
+	}
+	for _, test := range tests {
+		t.Run(test.args, func(t *testing.T) {
+			var output, errors bytes.Buffer
+			code := run(strings.Fields(test.args), strings.NewReader(""), &output, &errors)
+			if code != 0 || !strings.Contains(output.String(), test.want) || errors.Len() != 0 {
+				t.Fatalf("help failed: code=%d output=%q errors=%q", code, output.String(), errors.String())
+			}
+		})
+	}
+}
+
 func TestConsolidationCustomCommandAndReportIsolation(t *testing.T) {
 	store, fake := consolidationFixture(t)
 	result, err := consolidateStore(store, nil, fake, false)

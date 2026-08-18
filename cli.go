@@ -30,11 +30,194 @@ commands:
   archive       inspect processed raw material
   log           inspect Codex consolidation event logs
 
+run "cathedral COMMAND --help" for command-specific help.
+
 global options may appear before or after a command:
   --store PATH          store path (default: cwd or CATHEDRAL_STORE)
   --format text|json    output format (default: text)
   --version             print the version
   -h, --help            print this help
+`
+
+const initHelp = `usage: cathedral init [PATH] --operator NAME [OPTIONS]
+
+Create a Cathedral memory store. PATH defaults to the current directory.
+
+options:
+  --operator NAME          name of the store operator (required)
+  --codex-command COMMAND  Codex command prefix (default: codex)
+  --no-git                 do not initialize Git
+  -h, --help               print this help
+
+examples:
+  cathedral init ~/memory --operator Light
+  cathedral init ~/memory --operator Light --codex-command cdx
+`
+
+const ingestHelp = `usage: cathedral ingest [--slug SLUG] INPUT...
+
+Copy raw files or directories unchanged into the store inbox. Use - to read
+one item from standard input.
+
+options:
+  --slug SLUG  name for standard input or override the input-derived name
+  -h, --help   print this help
+
+examples:
+  cathedral ingest conversation.md
+  cathedral ingest notes/ --slug project-notes
+  command | cathedral ingest - --slug research-session
+`
+
+const statusHelp = `usage: cathedral status
+
+Summarize nodes, inbox items, archived items, validation findings, and Git state.
+`
+
+const inboxHelp = `usage: cathedral inbox
+
+List raw items waiting for consolidation.
+`
+
+const consolidateHelp = `usage: cathedral consolidate [OPTIONS] [ITEM...]
+
+Run a headless Codex agent in the store to consolidate every inbox item, or
+only the named items. A real run requires a clean Git index.
+
+options:
+  --codex-command COMMAND  Codex command prefix for this run
+  --dry-run                 run in a temporary copy and print the proposed diff
+  -h, --help                print this help
+
+examples:
+  cathedral consolidate
+  cathedral consolidate 2026-08-17-research-session
+  cathedral consolidate --codex-command 'cdx chl' --dry-run
+`
+
+const recallHelp = `usage: cathedral recall QUERY [--max-nodes COUNT]
+
+Build a deterministic, local context bundle from the most relevant memory nodes.
+
+options:
+  --max-nodes COUNT  maximum selected nodes (default: store configuration)
+  -h, --help         print this help
+
+examples:
+  cathedral recall "current open questions"
+  cathedral recall "Alice's position on Cathedral" --max-nodes 6
+`
+
+const checkHelp = `usage: cathedral check
+
+Validate store structure, local links, node reachability, and conventions.
+`
+
+const nodeHelp = `usage: cathedral node COMMAND [OPTIONS]
+
+Inspect or deliberately edit memory nodes.
+
+commands:
+  list          list node names
+  show NAME     print a node
+  edit NAME     open a node in $VISUAL, $EDITOR, or vi
+
+Run "cathedral node COMMAND --help" for subcommand usage.
+`
+
+const nodeListHelp = `usage: cathedral node list
+
+List all node names.
+`
+
+const nodeShowHelp = `usage: cathedral node show NAME
+
+Print the Markdown content of NAME.
+`
+
+const nodeEditHelp = `usage: cathedral node edit NAME
+
+Open NAME in $VISUAL, $EDITOR, or vi.
+`
+
+const sourceHelp = `usage: cathedral source COMMAND [OPTIONS]
+
+Inspect or deliberately edit source trust and salience entries.
+
+commands:
+  list          list configured sources
+  show NAME     print a source entry
+  edit NAME     open meta/Sources.md in $VISUAL, $EDITOR, or vi
+
+Run "cathedral source COMMAND --help" for subcommand usage.
+`
+
+const sourceListHelp = `usage: cathedral source list
+
+List configured source names.
+`
+
+const sourceShowHelp = `usage: cathedral source show NAME
+
+Print the trust and salience entry for NAME.
+`
+
+const sourceEditHelp = `usage: cathedral source edit NAME
+
+Verify NAME exists, then open meta/Sources.md in $VISUAL, $EDITOR, or vi.
+`
+
+const archiveHelp = `usage: cathedral archive COMMAND [OPTIONS]
+
+Inspect raw material already processed by consolidation.
+
+commands:
+  list          list archived items
+  show NAME     print an archived file or directory manifest
+
+Run "cathedral archive COMMAND --help" for subcommand usage.
+`
+
+const archiveListHelp = `usage: cathedral archive list
+
+List archived raw items.
+`
+
+const archiveShowHelp = `usage: cathedral archive show NAME
+
+Print an archived file or a manifest of an archived directory.
+`
+
+const logHelp = `usage: cathedral log COMMAND [OPTIONS]
+
+Inspect durable event logs from Codex consolidation attempts.
+
+commands:
+  list            list consolidation runs
+  show [RUN_ID]    render the latest or named run
+  path [RUN_ID]    print the latest or named run directory
+
+Run "cathedral log COMMAND --help" for subcommand usage.
+`
+
+const logListHelp = `usage: cathedral log list
+
+List recorded consolidation runs.
+`
+
+const logShowHelp = `usage: cathedral log show [RUN_ID] [--raw]
+
+Render the latest or named consolidation run. --raw prints the exact Codex
+event stream and custom-launcher stdout.
+
+options:
+  --raw       print events.jsonl without rendering
+  -h, --help  print this help
+`
+
+const logPathHelp = `usage: cathedral log path [RUN_ID]
+
+Print the directory containing the latest or named consolidation run.
 `
 
 func run(arguments []string, stdin io.Reader, stdout, stderr io.Writer) int {
@@ -52,6 +235,14 @@ func run(arguments []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	}
 	command := args[0]
 	args = args[1:]
+	if command == "help" {
+		fmt.Fprint(stdout, commandHelp(args))
+		return 0
+	}
+	if hasHelp(args) {
+		fmt.Fprint(stdout, commandHelp(append([]string{command}, args...)))
+		return 0
+	}
 
 	if command == "init" {
 		operator, remaining, err := takeValue(args, "--operator")
@@ -233,6 +424,86 @@ func run(arguments []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		return emitError(fmt.Errorf("unknown command: %s", command), format, stdout, stderr)
 	}
 	return 0
+}
+
+func hasHelp(args []string) bool {
+	for _, arg := range args {
+		if arg == "-h" || arg == "--help" {
+			return true
+		}
+	}
+	return false
+}
+
+func commandHelp(args []string) string {
+	if len(args) == 0 {
+		return helpText
+	}
+	command := args[0]
+	subcommand := ""
+	if len(args) > 1 {
+		subcommand = args[1]
+	}
+	switch command {
+	case "init":
+		return initHelp
+	case "ingest":
+		return ingestHelp
+	case "status":
+		return statusHelp
+	case "inbox":
+		return inboxHelp
+	case "consolidate":
+		return consolidateHelp
+	case "recall":
+		return recallHelp
+	case "check":
+		return checkHelp
+	case "node":
+		switch subcommand {
+		case "list":
+			return nodeListHelp
+		case "show":
+			return nodeShowHelp
+		case "edit":
+			return nodeEditHelp
+		default:
+			return nodeHelp
+		}
+	case "source":
+		switch subcommand {
+		case "list":
+			return sourceListHelp
+		case "show":
+			return sourceShowHelp
+		case "edit":
+			return sourceEditHelp
+		default:
+			return sourceHelp
+		}
+	case "archive":
+		switch subcommand {
+		case "list":
+			return archiveListHelp
+		case "show":
+			return archiveShowHelp
+		default:
+			return archiveHelp
+		}
+	case "log":
+		switch subcommand {
+		case "list":
+			return logListHelp
+		case "show":
+			return logShowHelp
+		case "path":
+			return logPathHelp
+		default:
+			return logHelp
+		}
+	default:
+		return helpText
+	}
 }
 
 func logCommand(store string, args []string, format string, stdout, stderr io.Writer) int {

@@ -6,7 +6,18 @@ Markdown is the canonical memory, links provide structure, archived inputs provi
 
 ## Build and install
 
-Cathedral is a single Go binary with no runtime dependencies. Build it with:
+Cathedral is a single Go binary with no runtime dependencies. Clone the repository
+and run the installer (it prompts for sudo and requires Go only):
+
+```console
+git clone https://github.com/veilm/cathedral
+./cathedral/install.sh
+cathedral --help
+```
+
+The installer builds Cathedral and atomically installs it to `/usr/local/bin/cathedral`.
+
+For local development, build it with:
 
 ```console
 go build -o bin/cathedral .
@@ -25,6 +36,9 @@ For development:
 go test ./...
 go vet ./...
 ```
+
+Use `cathedral <command> --help` for a structured command reference, including
+nested commands such as `cathedral node show --help` and `cathedral log show --help`.
 
 ## Create a store
 
