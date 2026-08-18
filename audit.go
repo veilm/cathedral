@@ -20,7 +20,7 @@ type runMetadata struct {
 	EndedAt   *int64   `json:"ended_at"`
 	Status    string   `json:"status"`
 	Store     string   `json:"store"`
-	DryRun    bool     `json:"dry_run"`
+	TestRun   bool     `json:"test_run"`
 	Items     []string `json:"items"`
 	Command   []string `json:"command"`
 	ExitCode  *int     `json:"exit_code"`
@@ -43,7 +43,7 @@ func auditRoot(store string) (string, error) {
 	return strings.TrimSpace(string(output)), nil
 }
 
-func createRunLog(store string, items []string, dryRun bool) (string, runMetadata, error) {
+func createRunLog(store string, items []string, testRun bool) (string, runMetadata, error) {
 	root, err := auditRoot(store)
 	if err != nil {
 		return "", runMetadata{}, err
@@ -53,7 +53,7 @@ func createRunLog(store string, items []string, dryRun bool) (string, runMetadat
 	if err := os.MkdirAll(directory, 0o700); err != nil {
 		return "", runMetadata{}, err
 	}
-	metadata := runMetadata{ID: id, StartedAt: time.Now().Unix(), Status: "running", Store: store, DryRun: dryRun, Items: append([]string{}, items...), Command: []string{}}
+	metadata := runMetadata{ID: id, StartedAt: time.Now().Unix(), Status: "running", Store: store, TestRun: testRun, Items: append([]string{}, items...), Command: []string{}}
 	if err := writeRunMetadata(directory, metadata); err != nil {
 		return "", runMetadata{}, err
 	}
@@ -127,6 +127,16 @@ func readRunMetadata(directory string) (runMetadata, error) {
 	if err := json.Unmarshal(contents, &metadata); err != nil {
 		return runMetadata{}, err
 	}
+	// Runs created before --test-run used the old dry_run key. Preserve their
+	// meaning when rendering historical logs.
+	if !metadata.TestRun {
+		var legacy struct {
+			DryRun bool `json:"dry_run"`
+		}
+		if json.Unmarshal(contents, &legacy) == nil {
+			metadata.TestRun = legacy.DryRun
+		}
+	}
 	return metadata, nil
 }
 
@@ -199,7 +209,7 @@ func renderRunLog(output io.Writer, log runLog, raw bool) {
 		fmt.Fprint(output, string(contents))
 		return
 	}
-	fmt.Fprintf(output, "Run: %s\nStatus: %s\nStarted: %d\nStore: %s\nDry run: %t\nItems: %s\n\n", log.Metadata.ID, log.Metadata.Status, log.Metadata.StartedAt, log.Metadata.Store, log.Metadata.DryRun, strings.Join(log.Metadata.Items, ", "))
+	fmt.Fprintf(output, "Run: %s\nStatus: %s\nStarted: %d\nStore: %s\nTest run: %t\nItems: %s\n\n", log.Metadata.ID, log.Metadata.Status, log.Metadata.StartedAt, log.Metadata.Store, log.Metadata.TestRun, strings.Join(log.Metadata.Items, ", "))
 	for _, value := range log.Events {
 		event, ok := value.(map[string]any)
 		if !ok {

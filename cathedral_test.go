@@ -253,7 +253,7 @@ func TestConsolidationCustomCommandAndReportIsolation(t *testing.T) {
 	}
 }
 
-func TestConsolidationDryRunLeavesOriginalUntouched(t *testing.T) {
+func TestConsolidationTestRunLeavesOriginalUntouched(t *testing.T) {
 	store, fake := consolidationFixture(t)
 	original, _ := os.ReadFile(filepath.Join(store, "inbox", "2026-08-17-design-chat"))
 	result, err := consolidateStore(store, nil, fake, true)
@@ -266,6 +266,41 @@ func TestConsolidationDryRunLeavesOriginalUntouched(t *testing.T) {
 	current, err := os.ReadFile(filepath.Join(store, "inbox", "2026-08-17-design-chat"))
 	if err != nil || !bytes.Equal(original, current) || pathExists(filepath.Join(store, "archive", "2026-08-17-design-chat")) {
 		t.Error("dry run mutated original store")
+	}
+}
+
+func TestConsolidationProgressIsCathedralOwned(t *testing.T) {
+	store, fake := consolidationFixture(t)
+	var progress bytes.Buffer
+	if _, err := consolidateStoreWithProgress(store, nil, fake, true, &progress); err != nil {
+		t.Fatal(err)
+	}
+	got := progress.String()
+	for _, want := range []string{
+		"Preparing a disposable test-run copy at:",
+		"Creating a temporary Git baseline for the test run.",
+		"Launching headless Codex in the test-run copy:",
+		"Recording Codex activity in:",
+		"Waiting for Codex to finish…",
+		"Codex finished.",
+		"Test run finished; its proposed changes are shown below.",
+		"Discarding test-run copy:",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("progress is missing %q:\n%s", want, got)
+		}
+	}
+	if strings.Contains(got, "Reading additional input from standard in") {
+		t.Fatalf("raw Codex stderr leaked into Cathedral progress: %s", got)
+	}
+}
+
+func TestConsolidateRejectsRenamedDryRunFlag(t *testing.T) {
+	store := testStore(t)
+	var output, errors bytes.Buffer
+	code := run([]string{"--store", store, "consolidate", "--dry-run"}, strings.NewReader(""), &output, &errors)
+	if code != 2 || !strings.Contains(errors.String(), "renamed to --test-run") {
+		t.Fatalf("old flag did not provide migration help: code=%d output=%q errors=%q", code, output.String(), errors.String())
 	}
 }
 
@@ -349,6 +384,7 @@ git -C "$store" add Index.md nodes inbox archive meta
 git -C "$store" commit --quiet -m 'consolidate: test memory'
 printf '%s\n' 'Created Design Principles; archived design chat.' > "$report"
 printf '%s\n' 'wrapper noise from a custom launcher'
+printf '%s\n' 'Reading additional input from standard in' >&2
 printf '%s\n' '{"type":"thread.started","thread_id":"test-thread"}'
 printf '%s\n' '{"type":"item.completed","item":{"id":"item-1","type":"agent_message","text":"Created Design Principles"}}'
 printf '%s\n' '{"type":"item.completed","item":{"id":"item-2","type":"command_execution","command":"cathedral check","aggregated_output":"Store is valid.","status":"completed"}}'

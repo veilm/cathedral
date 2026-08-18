@@ -84,17 +84,18 @@ List raw items waiting for consolidation.
 const consolidateHelp = `usage: cathedral consolidate [OPTIONS] [ITEM...]
 
 Run a headless Codex agent in the store to consolidate every inbox item, or
-only the named items. A real run requires a clean Git index.
+only the named items. An ordinary run changes the store and requires a clean
+Git index. A test run performs the same Codex work in a disposable copy.
 
 options:
   --codex-command COMMAND  Codex command prefix for this run
-  --dry-run                 run in a temporary copy and print the proposed diff
+  --test-run                run Codex in a temporary copy and print the proposed diff
   -h, --help                print this help
 
 examples:
   cathedral consolidate
   cathedral consolidate 2026-08-17-research-session
-  cathedral consolidate --codex-command 'cdx chl' --dry-run
+  cathedral consolidate --codex-command 'cdx chl' --test-run
 `
 
 const recallHelp = `usage: cathedral recall QUERY [--max-nodes COUNT]
@@ -353,8 +354,12 @@ func run(arguments []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		if err != nil {
 			return emitError(err, format, stdout, stderr)
 		}
-		dryRun, items := takeBool(items, "--dry-run")
-		result, err := consolidateStore(store, items, codexCommand, dryRun)
+		legacyDryRun, items := takeBool(items, "--dry-run")
+		if legacyDryRun {
+			return emitError(errors.New("--dry-run has been renamed to --test-run"), format, stdout, stderr)
+		}
+		testRun, items := takeBool(items, "--test-run")
+		result, err := consolidateStoreWithProgress(store, items, codexCommand, testRun, stderr)
 		if err != nil {
 			return emitError(err, format, stdout, stderr)
 		}
@@ -368,7 +373,7 @@ func run(arguments []string, stdin io.Reader, stdout, stderr io.Writer) int {
 			}
 			fmt.Fprintf(stdout, "\nValidation: %d errors, %d warnings\n", result.ValidationErrors, result.ValidationWarnings)
 			fmt.Fprintf(stdout, "Log: %s\n", result.Log)
-			if result.DryRun {
+			if result.TestRun {
 				fmt.Fprintln(stdout, "\n# Proposed changes")
 				if result.Diff == nil || *result.Diff == "" {
 					fmt.Fprintln(stdout, "\nNo file changes proposed.")
@@ -542,8 +547,8 @@ func logCommand(store string, args []string, format string, stdout, stderr io.Wr
 		} else {
 			for _, run := range runs {
 				mode := "run"
-				if run.DryRun {
-					mode = "dry-run"
+				if run.TestRun {
+					mode = "test-run"
 				}
 				fmt.Fprintf(stdout, "%s\t%s\t%s\t%d\t%s\n", run.ID, run.Status, mode, run.StartedAt, strings.Join(run.Items, ","))
 			}

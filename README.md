@@ -109,7 +109,7 @@ some-command | cathedral ingest - --slug research-session
 cathedral inbox
 cathedral consolidate
 cathedral consolidate 2026-08-17-research-session
-cathedral consolidate --dry-run
+cathedral consolidate --test-run
 ```
 
 Ingestion copies files or directories unchanged into a dated inbox item. On name collisions it adds the local time and, if necessary, a counter.
@@ -132,13 +132,13 @@ export CATHEDRAL_CODEX_COMMAND=cdx
 
 Cathedral parses a custom prefix as shell-style words but does not invoke a shell. It appends `exec` and the required flags itself. A wrapper can override those flags; for example, Delirium's `cdx` currently opts into unrestricted execution.
 
-`--dry-run` copies the store to a temporary Git repository, performs a real Codex consolidation there, and prints the resulting unified diff without changing the original store. It still consumes an LLM invocation.
+`--test-run` copies the store to a temporary Git repository, performs a real Codex consolidation there, and prints the resulting unified diff without changing the original store. It still consumes an LLM invocation. Cathedral prints clear lifecycle status while the agent runs; raw Codex stderr and its complete JSONL event stream are retained in the run log rather than mixed into terminal output.
 
 Cathedral refuses a real consolidation when the containing Git repository already has staged changes, preventing the agent's commit from accidentally including them.
 
 ## Consolidation logs
 
-Every attempted Codex run—successful, failed, or dry-run—gets a durable local audit directory containing:
+Every attempted Codex run—successful, failed, or test run—gets a durable local audit directory containing:
 
 ```text
 run.json       # status, timestamps, inputs, command, exit code, final report

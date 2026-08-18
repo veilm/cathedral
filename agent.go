@@ -14,7 +14,7 @@ import (
 type consolidationResult struct {
 	Report             string   `json:"report"`
 	Command            []string `json:"command"`
-	DryRun             bool     `json:"dry_run"`
+	TestRun            bool     `json:"test_run"`
 	Diff               *string  `json:"diff"`
 	ValidationErrors   int      `json:"validation_errors"`
 	ValidationWarnings int      `json:"validation_warnings"`
@@ -136,12 +136,18 @@ func stagedChangesExist(store string) bool {
 	return false
 }
 
-func runCodex(store, auditStore string, names []string, commandValue string, dryRun bool) (string, []string, string, error) {
+func progressf(progress io.Writer, format string, values ...any) {
+	if progress != nil {
+		fmt.Fprintf(progress, format, values...)
+	}
+}
+
+func runCodex(store, auditStore string, names []string, commandValue string, testRun bool, progress io.Writer) (string, []string, string, error) {
 	prefix, err := shellSplit(commandValue)
 	if err != nil {
 		return "", nil, "", err
 	}
-	logDirectory, metadata, err := createRunLog(auditStore, names, dryRun)
+	logDirectory, metadata, err := createRunLog(auditStore, names, testRun)
 	if err != nil {
 		return "", nil, "", err
 	}
@@ -167,6 +173,13 @@ func runCodex(store, auditStore string, names []string, commandValue string, dry
 	if err := writeRunMetadata(logDirectory, metadata); err != nil {
 		return "", nil, logDirectory, err
 	}
+	if testRun {
+		progressf(progress, "Launching headless Codex in the test-run copy: %s\n", store)
+	} else {
+		progressf(progress, "Launching headless Codex in the store: %s\n", store)
+	}
+	progressf(progress, "Recording Codex activity in: %s\n", logDirectory)
+	progressf(progress, "Waiting for Codex to finish…\n")
 	eventsFile, err := os.OpenFile(filepath.Join(logDirectory, "events.jsonl"), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
 	if err != nil {
 		return "", nil, logDirectory, err
@@ -179,7 +192,9 @@ func runCodex(store, auditStore string, names []string, commandValue string, dry
 	defer stderrFile.Close()
 	command := exec.Command(prefix[0], arguments...)
 	command.Stdout = eventsFile
-	command.Stderr = io.MultiWriter(os.Stderr, stderrFile)
+	// Codex's own progress messages can refer to its optional stdin support and
+	// are not useful as Cathedral status. Keep them in the durable run log.
+	command.Stderr = stderrFile
 	if err := command.Run(); err != nil {
 		exitCode := -1
 		if exit, ok := err.(*exec.ExitError); ok {
@@ -199,10 +214,15 @@ func runCodex(store, auditStore string, names []string, commandValue string, dry
 	if err := finishRunLog(logDirectory, metadata, "completed", 0, reportText); err != nil {
 		return "", nil, logDirectory, err
 	}
+	progressf(progress, "Codex finished.\n")
 	return reportText, display, logDirectory, nil
 }
 
-func consolidateStore(store string, requested []string, commandOverride string, dryRun bool) (consolidationResult, error) {
+func consolidateStore(store string, requested []string, commandOverride string, testRun bool) (consolidationResult, error) {
+	return consolidateStoreWithProgress(store, requested, commandOverride, testRun, io.Discard)
+}
+
+func consolidateStoreWithProgress(store string, requested []string, commandOverride string, testRun bool, progress io.Writer) (consolidationResult, error) {
 	names, err := selectedInboxItems(store, requested)
 	if err != nil {
 		return consolidationResult{}, err
@@ -218,34 +238,39 @@ func consolidateStore(store string, requested []string, commandOverride string, 
 	if commandValue == "" {
 		commandValue = settings.CodexCommand
 	}
-	if !dryRun {
+	if !testRun {
 		if !insideGitRepository(store) {
 			return consolidationResult{}, errors.New("consolidation requires a Git repository; run git init in the store or recreate it without --no-git")
 		}
 		if stagedChangesExist(store) {
 			return consolidationResult{}, errors.New("refusing to consolidate while the Git repository has staged changes")
 		}
-		report, command, logDirectory, err := runCodex(store, store, names, commandValue, false)
+		report, command, logDirectory, err := runCodex(store, store, names, commandValue, false, progress)
 		if err != nil {
 			return consolidationResult{}, fmt.Errorf("%w; log: %s", err, logDirectory)
 		}
 		errorsCount, warningsCount := findingCounts(checkStore(store))
 		return consolidationResult{report, command, false, nil, errorsCount, warningsCount, logDirectory}, nil
 	}
-	temporary, err := os.MkdirTemp("", "cathedral-dry-run-")
+	temporary, err := os.MkdirTemp("", "cathedral-test-run-")
 	if err != nil {
 		return consolidationResult{}, err
 	}
-	defer os.RemoveAll(temporary)
+	defer func() {
+		progressf(progress, "Discarding test-run copy: %s\n", temporary)
+		_ = os.RemoveAll(temporary)
+	}()
 	preview := filepath.Join(temporary, "store")
+	progressf(progress, "Preparing a disposable test-run copy at: %s\n", preview)
 	if err := copyStoreForPreview(store, preview); err != nil {
 		return consolidationResult{}, err
 	}
+	progressf(progress, "Creating a temporary Git baseline for the test run.\n")
 	baseline, err := initializePreviewGit(preview)
 	if err != nil {
 		return consolidationResult{}, err
 	}
-	report, command, logDirectory, err := runCodex(preview, store, names, commandValue, true)
+	report, command, logDirectory, err := runCodex(preview, store, names, commandValue, true, progress)
 	if err != nil {
 		return consolidationResult{}, fmt.Errorf("%w; log: %s", err, logDirectory)
 	}
@@ -261,6 +286,7 @@ func consolidateStore(store string, requested []string, commandOverride string, 
 		}
 	}
 	errorsCount, warningsCount := findingCounts(checkStore(preview))
+	progressf(progress, "Test run finished; its proposed changes are shown below.\n")
 	return consolidationResult{report, command, true, &diff, errorsCount, warningsCount, logDirectory}, nil
 }
 
@@ -300,7 +326,7 @@ func initializePreviewGit(store string) (string, error) {
 		{"config", "user.email", "cathedral-preview@localhost"},
 		{"config", "user.name", "Cathedral preview"},
 		{"add", "-A"},
-		{"commit", "--quiet", "-m", "Cathedral dry-run baseline"},
+		{"commit", "--quiet", "-m", "Cathedral test-run baseline"},
 	}
 	for _, arguments := range commands {
 		command := exec.Command("git", append([]string{"-C", store}, arguments...)...)
