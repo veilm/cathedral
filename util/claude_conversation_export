@@ -12,6 +12,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import unicodedata
 import urllib.parse
 import xml.etree.ElementTree as ET
 
@@ -88,6 +89,14 @@ def local_minute(timestamp):
         return timestamp
 
 
+def local_date(timestamp):
+    try:
+        parsed = datetime.datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+    except (AttributeError, ValueError) as error:
+        raise ValueError(f"invalid Claude message timestamp: {timestamp!r}") from error
+    return parsed.astimezone().strftime("%Y-%m-%d")
+
+
 def active_branch(data):
     messages = {message["uuid"]: message for message in data.get("chat_messages", [])}
     branch = []
@@ -102,6 +111,20 @@ def active_branch(data):
     if not branch and messages:
         branch = sorted(messages.values(), key=lambda message: message.get("index", 0))
     return branch
+
+
+def conversation_date(data):
+    timestamps = [message.get("created_at") for message in active_branch(data) if message.get("created_at")]
+    timestamp = max(timestamps, default=data.get("updated_at") or data.get("created_at"))
+    if not timestamp:
+        raise ValueError("conversation has no message timestamp")
+    return local_date(timestamp)
+
+
+def conversation_slug(data):
+    title = unicodedata.normalize("NFKD", data.get("name", "")).encode("ascii", "ignore").decode()
+    slug = re.sub(r"[^a-z0-9]+", "-", title.lower()).strip("-")
+    return slug or "claude-conversation"
 
 
 def attachment_markdown(attachment):
@@ -181,18 +204,53 @@ def default_output(url, output_format):
     return pathlib.Path(tempfile.gettempdir()) / f"claude-conversation-{conversation_id}{suffix}"
 
 
+def temporary_output(output_format):
+    suffix = {"markdown": ".md", "json": ".json", "xml": ".xml"}[output_format]
+    handle = tempfile.NamedTemporaryFile(prefix="cathedral-claude-", suffix=suffix, delete=False)
+    handle.close()
+    return pathlib.Path(handle.name)
+
+
 def write_output(path, content):
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content, encoding="utf-8")
 
 
+def store_root(path):
+    return path.parent if path.name == "inbox" else path
+
+
+def import_into_store(store, source, date, slug):
+    command = [
+        "cathedral", "--store", str(store_root(store)), "ingest",
+        "--slug", slug, "--date", date, str(source),
+    ]
+    result = subprocess.run(command, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
+    if result.returncode != 0:
+        detail = result.stderr.strip() or result.stdout.strip() or f"exit status {result.returncode}"
+        raise RuntimeError(f"cathedral ingest failed: {detail}")
+    return result.stdout
+
+
+def requested_date(value):
+    try:
+        parsed = datetime.datetime.strptime(value, "%Y-%m-%d")
+    except ValueError as error:
+        raise ValueError("--date must be YYYY-MM-DD") from error
+    if parsed.strftime("%Y-%m-%d") != value:
+        raise ValueError("--date must be YYYY-MM-DD")
+    return value
+
+
 def main():
     parser = argparse.ArgumentParser(
-        description="Read Claude's page-load conversation data and export it without modifying the conversation."
+        description="Read Claude's conversation data without modifying it, optionally importing it into a Cathedral store."
     )
     parser.add_argument("url", help="claude.ai/chat/... conversation URL")
-    parser.add_argument("-o", "--output", type=pathlib.Path, help="output path (default: file under /tmp)")
-    parser.add_argument("--format", choices=("markdown", "json", "xml"), default="markdown")
+    parser.add_argument("--store", type=pathlib.Path, help="Cathedral store or its inbox directory; imports through cathedral ingest")
+    parser.add_argument("--date", metavar="YYYY-MM-DD", help="inbox date prefix (default: latest active-branch message, local time)")
+    parser.add_argument("-o", "--output", type=pathlib.Path, help="also retain the export at this path")
+    parser.add_argument("--format", choices=("markdown", "json", "xml"), help="default: XML with --store, Markdown otherwise")
     args = parser.parse_args()
 
     parsed = urllib.parse.urlparse(args.url)
@@ -200,32 +258,50 @@ def main():
         parser.error("URL must be an https://claude.ai/chat/... conversation")
     if not shutil.which("cdp"):
         parser.error("cdp is required; install it from https://github.com/veilm/cdp-cli, then re-run this command")
+    if args.store and not shutil.which("cathedral"):
+        parser.error("cathedral is required with --store; install it from this repository with ./install.sh, then re-run this command")
+    if args.date and not args.store:
+        parser.error("--date requires --store")
 
-    output = args.output or default_output(args.url, args.format)
+    output_format = args.format or ("xml" if args.store else "markdown")
+    import_date = requested_date(args.date) if args.date else None
+    remove_temporary_output = args.store is not None and args.output is None
+    output = args.output or (temporary_output(output_format) if remove_temporary_output else default_output(args.url, output_format))
+
     session = f"claude-export-{os.getpid()}-{time.time_ns()}"
     try:
         connect(args.url, session)
         data = extract(session)
         exported_at = int(time.time())
-        if args.format == "json":
+        if output_format == "json":
             data["_export"] = {
                 "source_url": args.url,
                 "exported_at": exported_at,
                 "active_branch_message_uuids": [message["uuid"] for message in active_branch(data)],
             }
             content = json.dumps(data, ensure_ascii=False, indent=2) + "\n"
-        elif args.format == "markdown":
+        elif output_format == "markdown":
             content = as_markdown(data, args.url)
         else:
             content = as_xml(data, args.url, exported_at)
         write_output(output, content)
-    except (RuntimeError, subprocess.SubprocessError, json.JSONDecodeError) as error:
+        if args.store:
+            result = import_into_store(args.store, output, import_date or conversation_date(data), conversation_slug(data))
+            print(result, end="")
+            if args.output:
+                print(output)
+        else:
+            print(output)
+    except (OSError, RuntimeError, ValueError, subprocess.SubprocessError, json.JSONDecodeError) as error:
         print(f"claude_conversation_export: {error}", file=sys.stderr)
         return 1
     finally:
         run_cdp("disconnect", "--session", session, check=False)
-
-    print(output)
+        if remove_temporary_output:
+            try:
+                output.unlink()
+            except FileNotFoundError:
+                pass
     return 0
 
 

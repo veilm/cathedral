@@ -161,13 +161,36 @@ func TestCLIStatusJSONAndNestedCommands(t *testing.T) {
 	}
 }
 
+func TestCLIIngestDate(t *testing.T) {
+	root := t.TempDir()
+	store := filepath.Join(root, "memory")
+	if _, err := initializeStore(store, "Alice", "codex", true); err != nil {
+		t.Fatal(err)
+	}
+	source := filepath.Join(root, "conversation.xml")
+	if err := os.WriteFile(source, []byte("<conversation/>\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var output, errors bytes.Buffer
+	code := run([]string{"--store", store, "ingest", "--slug", "project-chat", "--date", "2026-08-18", source}, strings.NewReader(""), &output, &errors)
+	if code != 0 || !pathExists(filepath.Join(store, "inbox", "2026-08-18-project-chat")) {
+		t.Fatalf("dated ingest failed: code=%d output=%q errors=%q", code, output.String(), errors.String())
+	}
+	output.Reset()
+	errors.Reset()
+	code = run([]string{"--store", store, "ingest", "--date", "18-08-2026", source}, strings.NewReader(""), &output, &errors)
+	if code != 2 || !strings.Contains(errors.String(), "--date must be YYYY-MM-DD") {
+		t.Fatalf("invalid date was accepted: code=%d output=%q errors=%q", code, output.String(), errors.String())
+	}
+}
+
 func TestCLICommandHelpDoesNotRequireStoreOrArguments(t *testing.T) {
 	tests := []struct {
 		args string
 		want string
 	}{
 		{"init --help", "usage: cathedral init [PATH] --operator NAME [OPTIONS]"},
-		{"ingest --help", "usage: cathedral ingest [--slug SLUG] INPUT..."},
+		{"ingest --help", "usage: cathedral ingest [--slug SLUG] [--date YYYY-MM-DD] INPUT..."},
 		{"consolidate --help", "usage: cathedral consolidate [OPTIONS] [ITEM...]"},
 		{"node show --help", "usage: cathedral node show NAME"},
 		{"source edit --help", "usage: cathedral source edit NAME"},

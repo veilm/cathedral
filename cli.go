@@ -54,18 +54,20 @@ examples:
   cathedral init ~/memory --operator Light --codex-command cdx
 `
 
-const ingestHelp = `usage: cathedral ingest [--slug SLUG] INPUT...
+const ingestHelp = `usage: cathedral ingest [--slug SLUG] [--date YYYY-MM-DD] INPUT...
 
 Copy raw files or directories unchanged into the store inbox. Use - to read
 one item from standard input.
 
 options:
-  --slug SLUG  name for standard input or override the input-derived name
-  -h, --help   print this help
+  --slug SLUG         name for standard input or override the input-derived name
+  --date YYYY-MM-DD   date prefix for the inbox item (default: today, local time)
+  -h, --help          print this help
 
 examples:
   cathedral ingest conversation.md
   cathedral ingest notes/ --slug project-notes
+  cathedral ingest conversation.xml --slug project-chat --date 2026-08-18
   command | cathedral ingest - --slug research-session
 `
 
@@ -292,10 +294,21 @@ func run(arguments []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		if err != nil {
 			return emitError(err, format, stdout, stderr)
 		}
+		dateValue, inputs, err := takeValue(inputs, "--date")
+		if err != nil {
+			return emitError(err, format, stdout, stderr)
+		}
 		if len(inputs) == 0 {
 			return emitError(errors.New("ingest requires at least one file, directory, or -"), format, stdout, stderr)
 		}
-		items, err := ingestInputs(store, inputs, slug, stdin, time.Now())
+		ingestTime := time.Now()
+		if dateValue != "" {
+			ingestTime, err = time.ParseInLocation("2006-01-02", dateValue, time.Local)
+			if err != nil {
+				return emitError(errors.New("--date must be YYYY-MM-DD"), format, stdout, stderr)
+			}
+		}
+		items, err := ingestInputs(store, inputs, slug, stdin, ingestTime)
 		if err != nil {
 			return emitError(err, format, stdout, stderr)
 		}

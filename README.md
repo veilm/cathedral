@@ -75,7 +75,8 @@ CLI normally for the browser's DevTools port and logged-in profile.
 ./util/claude_conversation_export 'https://claude.ai/chat/CONVERSATION_ID'
 ./util/claude_conversation_export URL --format json --output conversation.json
 ./util/claude_conversation_export URL --format xml --output conversation.xml
-cathedral ingest conversation.md
+./util/claude_conversation_export URL --store ~/memory
+./util/claude_conversation_export URL --store ~/memory/inbox --date 2026-08-18
 ```
 
 The utility reads Claude's page-load conversation data through the already
@@ -85,6 +86,14 @@ Markdown and XML follow the current conversation branch and show local-time
 message timestamps to the minute. JSON preserves the complete raw message graph,
 including alternate branches. Without `--output`, it writes to the platform's
 temporary directory.
+
+With `--store`, the utility defaults to XML and hands the rendered file to
+`cathedral ingest`. The argument may name either a store or its `inbox/`
+directory. The inbox item is named from the latest message on the active branch,
+using its local date and the conversation title (for example,
+`2026-08-18-project-planning`); `--date YYYY-MM-DD` overrides that date. The
+temporary rendered export is removed after a successful or failed import unless
+you pass `--output` to retain it.
 
 ## Capture and consolidate
 
