@@ -136,18 +136,8 @@ func stagedChangesExist(store string) bool {
 	return false
 }
 
-func progressf(progress io.Writer, format string, values ...any) {
-	if progress != nil {
-		fmt.Fprintf(progress, format, values...)
-	}
-}
-
-func runCodex(store, auditStore string, names []string, commandValue string, testRun bool, progress io.Writer) (string, []string, string, error) {
+func runCodex(store, logDirectory string, metadata runMetadata, names []string, commandValue string) (string, []string, string, error) {
 	prefix, err := shellSplit(commandValue)
-	if err != nil {
-		return "", nil, "", err
-	}
-	logDirectory, metadata, err := createRunLog(auditStore, names, testRun)
 	if err != nil {
 		return "", nil, "", err
 	}
@@ -173,13 +163,6 @@ func runCodex(store, auditStore string, names []string, commandValue string, tes
 	if err := writeRunMetadata(logDirectory, metadata); err != nil {
 		return "", nil, logDirectory, err
 	}
-	if testRun {
-		progressf(progress, "Launching headless Codex in the test-run copy: %s\n", store)
-	} else {
-		progressf(progress, "Launching headless Codex in the store: %s\n", store)
-	}
-	progressf(progress, "Recording Codex activity in: %s\n", logDirectory)
-	progressf(progress, "Waiting for Codex to finish…\n")
 	eventsFile, err := os.OpenFile(filepath.Join(logDirectory, "events.jsonl"), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
 	if err != nil {
 		return "", nil, logDirectory, err
@@ -214,15 +197,10 @@ func runCodex(store, auditStore string, names []string, commandValue string, tes
 	if err := finishRunLog(logDirectory, metadata, "completed", 0, reportText); err != nil {
 		return "", nil, logDirectory, err
 	}
-	progressf(progress, "Codex finished.\n")
 	return reportText, display, logDirectory, nil
 }
 
 func consolidateStore(store string, requested []string, commandOverride string, testRun bool) (consolidationResult, error) {
-	return consolidateStoreWithProgress(store, requested, commandOverride, testRun, io.Discard)
-}
-
-func consolidateStoreWithProgress(store string, requested []string, commandOverride string, testRun bool, progress io.Writer) (consolidationResult, error) {
 	names, err := selectedInboxItems(store, requested)
 	if err != nil {
 		return consolidationResult{}, err
@@ -245,49 +223,69 @@ func consolidateStoreWithProgress(store string, requested []string, commandOverr
 		if stagedChangesExist(store) {
 			return consolidationResult{}, errors.New("refusing to consolidate while the Git repository has staged changes")
 		}
-		report, command, logDirectory, err := runCodex(store, store, names, commandValue, false, progress)
+		logDirectory, metadata, err := createRunLog(store, names, false)
+		if err != nil {
+			return consolidationResult{}, err
+		}
+		baseline, err := gitRevision(store)
+		if err != nil {
+			return consolidationResult{}, err
+		}
+		report, command, logDirectory, err := runCodex(store, logDirectory, metadata, names, commandValue)
 		if err != nil {
 			return consolidationResult{}, fmt.Errorf("%w; log: %s", err, logDirectory)
 		}
+		diff, err := writeConsolidationDiff(logDirectory, store, baseline)
+		if err != nil {
+			return consolidationResult{}, err
+		}
 		errorsCount, warningsCount := findingCounts(checkStore(store))
-		return consolidationResult{report, command, false, nil, errorsCount, warningsCount, logDirectory}, nil
+		return consolidationResult{report, command, false, &diff, errorsCount, warningsCount, logDirectory}, nil
 	}
-	temporary, err := os.MkdirTemp("", "cathedral-test-run-")
+	logDirectory, metadata, err := createTestRunLog(store, names)
 	if err != nil {
 		return consolidationResult{}, err
 	}
-	defer func() {
-		progressf(progress, "Discarding test-run copy: %s\n", temporary)
-		_ = os.RemoveAll(temporary)
-	}()
-	preview := filepath.Join(temporary, "store")
-	progressf(progress, "Preparing a disposable test-run copy at: %s\n", preview)
+	preview := filepath.Join(logDirectory, "store")
 	if err := copyStoreForPreview(store, preview); err != nil {
+		_ = finishRunLog(logDirectory, metadata, "failed", -1, "")
 		return consolidationResult{}, err
 	}
-	progressf(progress, "Creating a temporary Git baseline for the test run.\n")
 	baseline, err := initializePreviewGit(preview)
 	if err != nil {
+		_ = finishRunLog(logDirectory, metadata, "failed", -1, "")
 		return consolidationResult{}, err
 	}
-	report, command, logDirectory, err := runCodex(preview, store, names, commandValue, true, progress)
+	report, command, logDirectory, err := runCodex(preview, logDirectory, metadata, names, commandValue)
 	if err != nil {
 		return consolidationResult{}, fmt.Errorf("%w; log: %s", err, logDirectory)
 	}
-	diffCommand := exec.Command("git", "-C", preview, "diff", "--no-ext-diff", baseline, "--")
-	diffOutput, diffErr := diffCommand.Output()
-	if diffErr != nil {
-		return consolidationResult{}, fmt.Errorf("could not produce preview diff: %w", diffErr)
-	}
-	diff := string(diffOutput)
-	for index, argument := range command {
-		if argument == preview {
-			command[index] = store
-		}
+	diff, err := writeConsolidationDiff(logDirectory, preview, baseline)
+	if err != nil {
+		return consolidationResult{}, err
 	}
 	errorsCount, warningsCount := findingCounts(checkStore(preview))
-	progressf(progress, "Test run finished; its proposed changes are shown below.\n")
 	return consolidationResult{report, command, true, &diff, errorsCount, warningsCount, logDirectory}, nil
+}
+
+func gitRevision(store string) (string, error) {
+	output, err := exec.Command("git", "-C", store, "rev-parse", "HEAD").Output()
+	if err != nil {
+		return "", fmt.Errorf("could not determine consolidation baseline: %w", err)
+	}
+	return strings.TrimSpace(string(output)), nil
+}
+
+func writeConsolidationDiff(logDirectory, store, baseline string) (string, error) {
+	output, err := exec.Command("git", "-C", store, "diff", "--no-ext-diff", baseline, "--").Output()
+	if err != nil {
+		return "", fmt.Errorf("could not produce consolidation diff: %w", err)
+	}
+	diff := string(output)
+	if err := os.WriteFile(filepath.Join(logDirectory, "consolidation.diff"), []byte(diff), 0o600); err != nil {
+		return "", err
+	}
+	return diff, nil
 }
 
 func copyStoreForPreview(source, destination string) error {

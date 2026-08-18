@@ -260,38 +260,53 @@ func TestConsolidationTestRunLeavesOriginalUntouched(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() { _ = os.RemoveAll(result.Log) })
 	if result.Diff == nil || !strings.Contains(*result.Diff, "Design Principles.md") {
-		t.Fatalf("preview diff missing node: %#v", result.Diff)
+		t.Fatalf("test-run diff missing node: %#v", result.Diff)
 	}
 	current, err := os.ReadFile(filepath.Join(store, "inbox", "2026-08-17-design-chat"))
 	if err != nil || !bytes.Equal(original, current) || pathExists(filepath.Join(store, "archive", "2026-08-17-design-chat")) {
-		t.Error("dry run mutated original store")
+		t.Error("test run mutated original store")
 	}
 }
 
-func TestConsolidationProgressIsCathedralOwned(t *testing.T) {
+func TestConsolidationCLIPrintsOnlyArtifactDirectory(t *testing.T) {
 	store, fake := consolidationFixture(t)
-	var progress bytes.Buffer
-	if _, err := consolidateStoreWithProgress(store, nil, fake, true, &progress); err != nil {
-		t.Fatal(err)
+	var output, errors bytes.Buffer
+	code := run([]string{"--store", store, "consolidate", "--codex-command", fake, "--test-run"}, strings.NewReader(""), &output, &errors)
+	if code != 0 || errors.Len() != 0 {
+		t.Fatalf("test run failed: code=%d output=%q errors=%q", code, output.String(), errors.String())
 	}
-	got := progress.String()
-	for _, want := range []string{
-		"Preparing a disposable test-run copy at:",
-		"Creating a temporary Git baseline for the test run.",
-		"Launching headless Codex in the test-run copy:",
-		"Recording Codex activity in:",
-		"Waiting for Codex to finish…",
-		"Codex finished.",
-		"Test run finished; its proposed changes are shown below.",
-		"Discarding test-run copy:",
-	} {
-		if !strings.Contains(got, want) {
-			t.Errorf("progress is missing %q:\n%s", want, got)
+	directory := strings.TrimSpace(strings.TrimPrefix(output.String(), "Consolidation output: "))
+	t.Cleanup(func() { _ = os.RemoveAll(directory) })
+	if directory == output.String() || !pathExists(filepath.Join(directory, "report.md")) {
+		t.Fatalf("CLI did not print an artifact directory: %q", output.String())
+	}
+	for _, unwanted := range []string{"Created Design Principles", "Reading additional input", "diff --git"} {
+		if strings.Contains(output.String(), unwanted) {
+			t.Errorf("CLI printed transient run content %q: %s", unwanted, output.String())
 		}
 	}
-	if strings.Contains(got, "Reading additional input from standard in") {
-		t.Fatalf("raw Codex stderr leaked into Cathedral progress: %s", got)
+}
+
+func TestConsolidationTestRunRetainsInspectableArtifacts(t *testing.T) {
+	store, fake := consolidationFixture(t)
+	result, err := consolidateStore(store, nil, fake, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(result.Log) })
+	for _, name := range []string{"run.json", "report.md", "events.jsonl", "stderr.log", "consolidation.diff", "store"} {
+		if !pathExists(filepath.Join(result.Log, name)) {
+			t.Errorf("test-run artifact is missing: %s", name)
+		}
+	}
+	if !pathExists(filepath.Join(result.Log, "store", "nodes", "Design Principles.md")) {
+		t.Error("retained test-run store lacks Codex's changes")
+	}
+	stderr, readErr := os.ReadFile(filepath.Join(result.Log, "stderr.log"))
+	if readErr != nil || !strings.Contains(string(stderr), "Reading additional input from standard in") {
+		t.Fatalf("raw Codex stderr was not retained: %q (%v)", stderr, readErr)
 	}
 }
 

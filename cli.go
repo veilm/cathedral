@@ -85,11 +85,11 @@ const consolidateHelp = `usage: cathedral consolidate [OPTIONS] [ITEM...]
 
 Run a headless Codex agent in the store to consolidate every inbox item, or
 only the named items. An ordinary run changes the store and requires a clean
-Git index. A test run performs the same Codex work in a disposable copy.
+Git index. A test run performs the same Codex work in a retained copy.
 
 options:
   --codex-command COMMAND  Codex command prefix for this run
-  --test-run                run Codex in a temporary copy and print the proposed diff
+  --test-run                run Codex in a retained temporary copy and save its artifacts
   -h, --help                print this help
 
 examples:
@@ -359,28 +359,14 @@ func run(arguments []string, stdin io.Reader, stdout, stderr io.Writer) int {
 			return emitError(errors.New("--dry-run has been renamed to --test-run"), format, stdout, stderr)
 		}
 		testRun, items := takeBool(items, "--test-run")
-		result, err := consolidateStoreWithProgress(store, items, codexCommand, testRun, stderr)
+		result, err := consolidateStore(store, items, codexCommand, testRun)
 		if err != nil {
 			return emitError(err, format, stdout, stderr)
 		}
 		if format == "json" {
 			emitJSON(stdout, result)
 		} else {
-			if result.Report == "" {
-				fmt.Fprintln(stdout, "Codex returned no report.")
-			} else {
-				fmt.Fprintln(stdout, result.Report)
-			}
-			fmt.Fprintf(stdout, "\nValidation: %d errors, %d warnings\n", result.ValidationErrors, result.ValidationWarnings)
-			fmt.Fprintf(stdout, "Log: %s\n", result.Log)
-			if result.TestRun {
-				fmt.Fprintln(stdout, "\n# Proposed changes")
-				if result.Diff == nil || *result.Diff == "" {
-					fmt.Fprintln(stdout, "\nNo file changes proposed.")
-				} else {
-					fmt.Fprintf(stdout, "\n%s", *result.Diff)
-				}
-			}
+			fmt.Fprintf(stdout, "Consolidation output: %s\n", result.Log)
 		}
 		if result.ValidationErrors > 0 {
 			return 1

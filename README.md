@@ -132,19 +132,21 @@ export CATHEDRAL_CODEX_COMMAND=cdx
 
 Cathedral parses a custom prefix as shell-style words but does not invoke a shell. It appends `exec` and the required flags itself. A wrapper can override those flags; for example, Delirium's `cdx` currently opts into unrestricted execution.
 
-`--test-run` copies the store to a temporary Git repository, performs a real Codex consolidation there, and prints the resulting unified diff without changing the original store. It still consumes an LLM invocation. Cathedral prints clear lifecycle status while the agent runs; raw Codex stderr and its complete JSONL event stream are retained in the run log rather than mixed into terminal output.
+`--test-run` copies the store to a retained directory under `/tmp/cathedral/test-runs/`, performs a real Codex consolidation there, and leaves the copied `store/` available for inspection without changing the original store. It still consumes an LLM invocation. The command prints only the directory containing the run artifacts.
 
 Cathedral refuses a real consolidation when the containing Git repository already has staged changes, preventing the agent's commit from accidentally including them.
 
 ## Consolidation logs
 
-Every attempted Codex run—successful, failed, or test run—gets a durable local audit directory containing:
+Every attempted Codex run—successful, failed, or test run—gets a durable artifact directory containing:
 
 ```text
 run.json       # status, timestamps, inputs, command, exit code, final report
 events.jsonl   # raw Codex JSONL events and any custom-launcher stdout
 stderr.log     # Codex and launcher stderr
 report.md      # final agent message
+consolidation.diff  # changes from the run baseline
+store/          # retained copied store, for test runs only
 ```
 
 Inspect them with:

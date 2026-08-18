@@ -49,7 +49,16 @@ func createRunLog(store string, items []string, testRun bool) (string, runMetada
 		return "", runMetadata{}, err
 	}
 	id := fmt.Sprintf("%d", time.Now().UnixNano())
-	directory := filepath.Join(root, id)
+	return createRunLogAt(filepath.Join(root, id), id, store, items, testRun)
+}
+
+func createTestRunLog(store string, items []string) (string, runMetadata, error) {
+	id := fmt.Sprintf("%d", time.Now().UnixNano())
+	directory := filepath.Join(os.TempDir(), "cathedral", "test-runs", id)
+	return createRunLogAt(directory, id, store, items, true)
+}
+
+func createRunLogAt(directory, id, store string, items []string, testRun bool) (string, runMetadata, error) {
 	if err := os.MkdirAll(directory, 0o700); err != nil {
 		return "", runMetadata{}, err
 	}
