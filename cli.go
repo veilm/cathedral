@@ -275,6 +275,9 @@ func run(arguments []string, stdin io.Reader, stdout, stderr io.Writer) int {
 			emitJSON(stdout, result)
 		} else {
 			fmt.Fprintf(stdout, "Initialized Cathedral store at %s\nOperator: %s\nCodex command: %s\n", result["store"], operator, codexCommand)
+			if result["initial_commit"] == true {
+				fmt.Fprintln(stdout, "Git: initialized with baseline commit")
+			}
 		}
 		return 0
 	}

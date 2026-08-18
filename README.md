@@ -62,7 +62,7 @@ memory/
     Config.toml
 ```
 
-`init` creates a Git repository unless the destination is already inside one. Use `--no-git` to opt out, though consolidation itself requires Git.
+`init` creates a Git repository with a clean `Initialize Cathedral store` baseline commit unless the destination is already inside an existing repository. Use `--no-git` to opt out, though consolidation itself requires Git. Cathedral uses a commit-local generated identity for this baseline and does not change your Git configuration.
 
 ## Capture and consolidate
 

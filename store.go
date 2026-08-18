@@ -143,8 +143,25 @@ func initializeStore(path, operator, codexCommand string, initializeGit bool) (m
 			return nil, fmt.Errorf("could not initialize Git repository: %s", strings.TrimSpace(string(output)))
 		}
 		gitInitialized = true
+		if err := commitInitialStore(path); err != nil {
+			return nil, err
+		}
 	}
-	return map[string]any{"store": path, "operator": operator, "codex_command": codexCommand, "git_initialized": gitInitialized}, nil
+	return map[string]any{"store": path, "operator": operator, "codex_command": codexCommand, "git_initialized": gitInitialized, "initial_commit": gitInitialized}, nil
+}
+
+func commitInitialStore(path string) error {
+	commands := [][]string{
+		{"add", "-A"},
+		{"-c", "user.email=cathedral@localhost", "-c", "user.name=Cathedral", "commit", "--quiet", "-m", "Initialize Cathedral store"},
+	}
+	for _, arguments := range commands {
+		command := exec.Command("git", append([]string{"-C", path}, arguments...)...)
+		if output, err := command.CombinedOutput(); err != nil {
+			return fmt.Errorf("could not create initial Cathedral commit: %s", strings.TrimSpace(string(output)))
+		}
+	}
+	return nil
 }
 
 func insideGitRepository(path string) bool {

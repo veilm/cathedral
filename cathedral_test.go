@@ -38,6 +38,14 @@ func TestInitializeStore(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(store, ".git")); err != nil {
 		t.Error("Git repository was not initialized")
 	}
+	status, err := exec.Command("git", "-C", store, "status", "--porcelain").Output()
+	if err != nil || len(status) != 0 {
+		t.Errorf("new store is not clean: %q (%v)", status, err)
+	}
+	commit, err := exec.Command("git", "-C", store, "log", "-1", "--pretty=%s").Output()
+	if err != nil || strings.TrimSpace(string(commit)) != "Initialize Cathedral store" {
+		t.Errorf("unexpected initial commit: %q (%v)", commit, err)
+	}
 }
 
 func TestIngestPreservesFilesDirectoriesAndStdin(t *testing.T) {
@@ -240,6 +248,9 @@ func TestConsolidationDryRunLeavesOriginalUntouched(t *testing.T) {
 
 func TestConsolidationRefusesStagedChanges(t *testing.T) {
 	store, fake := consolidationFixture(t)
+	if err := os.WriteFile(filepath.Join(store, "Index.md"), []byte("# Index\n\nA staged edit.\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	if output, err := exec.Command("git", "-C", store, "add", "Index.md").CombinedOutput(); err != nil {
 		t.Fatalf("git add: %s", output)
 	}
