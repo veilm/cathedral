@@ -178,7 +178,8 @@ def as_xml(data, source_url, exported_at):
         f'updated="{local_minute(data.get("updated_at"))}" '
         f'exported="{local_minute_from_unix(exported_at)}">',
     ]
-    for message in active_branch(data):
+    branch = active_branch(data)
+    for index, message in enumerate(branch):
         role = "human" if message.get("sender") == "human" else "model"
         lines.append(f'<message role="{role}" timestamp="{local_minute(message.get("created_at"))}">')
         for attachment in message.get("attachments", []):
@@ -197,7 +198,8 @@ def as_xml(data, source_url, exported_at):
                 lines.append(f'<tool name="{block["name"]}">')
                 lines.append("</tool>")
         lines.append("</message>")
-        lines.append("")
+        if index < len(branch) - 1:
+            lines.append("")
     lines.append("</conversation>")
     return "\n".join(lines) + "\n"
 
