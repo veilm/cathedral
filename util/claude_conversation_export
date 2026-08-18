@@ -14,7 +14,6 @@ import tempfile
 import time
 import unicodedata
 import urllib.parse
-import xml.etree.ElementTree as ET
 
 
 FETCH_JS = r"""
@@ -97,6 +96,10 @@ def local_date(timestamp):
     return parsed.astimezone().strftime("%Y-%m-%d")
 
 
+def local_minute_from_unix(timestamp):
+    return datetime.datetime.fromtimestamp(timestamp, datetime.timezone.utc).astimezone().strftime("%Y-%m-%d %H:%M")
+
+
 def active_branch(data):
     messages = {message["uuid"]: message for message in data.get("chat_messages", [])}
     branch = []
@@ -169,33 +172,33 @@ def as_markdown(data, source_url):
 
 
 def as_xml(data, source_url, exported_at):
-    root = ET.Element("conversation", {
-        "title": data.get("name", ""),
-        "source": source_url,
-        "created": local_minute(data.get("created_at")),
-        "updated": local_minute(data.get("updated_at")),
-        "exported": str(exported_at),
-    })
+    lines = [
+        f'<conversation title="{safe_line(data.get("name", ""))}" source="{source_url}" '
+        f'created="{local_minute(data.get("created_at"))}" '
+        f'updated="{local_minute(data.get("updated_at"))}" '
+        f'exported="{local_minute_from_unix(exported_at)}">',
+    ]
     for message in active_branch(data):
         role = "human" if message.get("sender") == "human" else "model"
-        message_element = ET.SubElement(root, "message", {
-            "role": role,
-            "timestamp": local_minute(message.get("created_at")),
-        })
+        lines.append(f'<message role="{role}" timestamp="{local_minute(message.get("created_at"))}">')
         for attachment in message.get("attachments", []):
-            attachment_element = ET.SubElement(message_element, "attachment", {
-                "name": attachment.get("file_name") or "Pasted text",
-                "type": attachment.get("file_type") or "",
-                "timestamp": local_minute(attachment.get("created_at")),
-            })
-            attachment_element.text = attachment.get("extracted_content") or ""
+            lines.append(
+                f'<attachment name="{attachment.get("file_name") or "Pasted text"}" '
+                f'type="{attachment.get("file_type") or ""}" '
+                f'timestamp="{local_minute(attachment.get("created_at"))}">'
+            )
+            if attachment.get("extracted_content"):
+                lines.append(attachment["extracted_content"].rstrip())
+            lines.append("</attachment>")
         for block in message.get("content", []):
             if block.get("type") == "text" and block.get("text"):
-                ET.SubElement(message_element, "text").text = block["text"]
+                lines.append(block["text"].rstrip())
             elif block.get("type") == "tool_use" and block.get("name"):
-                ET.SubElement(message_element, "tool", {"name": block["name"]})
-    ET.indent(root, space="  ")
-    return ET.tostring(root, encoding="unicode", xml_declaration=True) + "\n"
+                lines.append(f'<tool name="{block["name"]}">')
+                lines.append("</tool>")
+        lines.append("</message>")
+    lines.append("</conversation>")
+    return "\n".join(lines) + "\n"
 
 
 def default_output(url, output_format):

@@ -87,6 +87,10 @@ message timestamps to the minute. JSON preserves the complete raw message graph,
 including alternate branches. Without `--output`, it writes to the platform's
 temporary directory.
 
+XML is deliberately a loose, line-oriented LLM input format: it has no XML
+declaration, indentation, escaping, or inner `<text>` wrapper. Message content
+appears verbatim on its own lines between `<message>` and `</message>`.
+
 With `--store`, the utility defaults to XML and hands the rendered file to
 `cathedral ingest`. The argument may name either a store or its `inbox/`
 directory. The inbox item is named from the latest message on the active branch,
