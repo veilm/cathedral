@@ -197,6 +197,7 @@ def as_xml(data, source_url, exported_at):
                 lines.append(f'<tool name="{block["name"]}">')
                 lines.append("</tool>")
         lines.append("</message>")
+        lines.append("")
     lines.append("</conversation>")
     return "\n".join(lines) + "\n"
 
