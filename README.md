@@ -67,7 +67,7 @@ Ingestion copies files or directories unchanged into a dated inbox item. On name
 
 Consolidation starts a fresh headless Codex agent in the store directory. The agent reads the store's guidelines, source trust configuration, index, related nodes, and requested inbox items; it then rewrites current memory, archives processed inputs, validates the graph, commits the change, and prints its short report.
 
-Cathedral uses the officially supported [`codex exec` non-interactive interface](https://learn.chatgpt.com/docs/non-interactive-mode), with an ephemeral session and `workspace-write` sandbox. Codex progress remains on stderr, while `--output-last-message` isolates its final report from any stdout noise produced by a custom launcher. The command prefix is configurable:
+Cathedral uses the officially supported [`codex exec` non-interactive interface](https://learn.chatgpt.com/docs/non-interactive-mode), with an ephemeral session and `workspace-write` sandbox. It enables `--json` to retain Codex's complete JSONL event stream, while `--output-last-message` isolates the final report from any stdout noise produced by a custom launcher. The command prefix is configurable:
 
 ```console
 # One run
@@ -86,6 +86,43 @@ Cathedral parses a custom prefix as shell-style words but does not invoke a shel
 `--dry-run` copies the store to a temporary Git repository, performs a real Codex consolidation there, and prints the resulting unified diff without changing the original store. It still consumes an LLM invocation.
 
 Cathedral refuses a real consolidation when the containing Git repository already has staged changes, preventing the agent's commit from accidentally including them.
+
+## Consolidation logs
+
+Every attempted Codex run—successful, failed, or dry-run—gets a durable local audit directory containing:
+
+```text
+run.json       # status, timestamps, inputs, command, exit code, final report
+events.jsonl   # raw Codex JSONL events and any custom-launcher stdout
+stderr.log     # Codex and launcher stderr
+report.md      # final agent message
+```
+
+Inspect them with:
+
+```console
+cathedral log list
+cathedral log show                 # latest run, human-readable
+cathedral log show RUN_ID
+cathedral log show RUN_ID --raw    # exact events.jsonl
+cathedral log show RUN_ID --format json
+cathedral log path RUN_ID
+```
+
+The human view displays agent messages, commands and their output, file changes, reasoning events exposed by Codex, errors, and token usage. Raw JSONL remains available when a newer Codex event type is not yet specially formatted.
+
+Logs live under the store repository's Git administrative directory at `.git/cathedral/runs/`. They are intentionally not memory content, never enter recall, do not dirty the store, and are not committed or synchronized by Git. Logs can contain source excerpts and command output; protect them accordingly.
+
+## Using Epitome articles
+
+For Epitome integration, ingest the cleaned article Markdown under `output/markdown/`, not the generated summaries under `summaries/articles/`:
+
+```console
+cathedral ingest /home/light/src/epitome/output/markdown/openai.com-index-gpt-5-6.md \
+  --slug openai-gpt-5-6
+```
+
+The cleaned Markdown contains the article body and provenance front matter without raw HTML. Cathedral archives that complete input byte-for-byte after consolidation; the resulting node remains a selective memory rather than an article summary.
 
 ## Recall
 
@@ -113,6 +150,9 @@ cathedral source edit Alice
 
 cathedral archive list
 cathedral archive show 2026-08-17-research-session
+
+cathedral log list
+cathedral log show
 ```
 
 `check` detects missing store paths, broken local links, orphan nodes, nodes more than two hops from the index, inbox/archive collisions, invalid item names, and index limit violations. Node size, section size, filename style, and uncited claims are editorial warnings rather than hard errors.

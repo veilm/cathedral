@@ -168,9 +168,32 @@ func TestConsolidationCustomCommandAndReportIsolation(t *testing.T) {
 	if result.ValidationErrors != 0 {
 		t.Fatalf("consolidated store has %d errors", result.ValidationErrors)
 	}
-	log, _ := exec.Command("git", "-C", store, "log", "-1", "--pretty=%s").Output()
-	if strings.TrimSpace(string(log)) != "consolidate: test memory" {
-		t.Fatalf("unexpected commit: %s", log)
+	if result.Log == "" || !pathExists(filepath.Join(result.Log, "events.jsonl")) {
+		t.Fatalf("consolidation event log is missing: %q", result.Log)
+	}
+	log, err := loadRunLog(store, "latest")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if log.Metadata.Status != "completed" || len(log.Events) < 3 {
+		t.Fatalf("unexpected run log: %#v", log)
+	}
+	var rendered bytes.Buffer
+	renderRunLog(&rendered, log, false)
+	if !strings.Contains(rendered.String(), "cathedral check") || !strings.Contains(rendered.String(), "Created Design Principles") {
+		t.Fatalf("human log omitted agent activity: %s", rendered.String())
+	}
+	var cliOutput, cliErrors bytes.Buffer
+	if code := run([]string{"log", "show", "--store", store}, strings.NewReader(""), &cliOutput, &cliErrors); code != 0 || !strings.Contains(cliOutput.String(), "cathedral check") {
+		t.Fatalf("log show failed: %s %s", cliOutput.String(), cliErrors.String())
+	}
+	cliOutput.Reset()
+	if code := run([]string{"log", "show", "--raw", "--store", store}, strings.NewReader(""), &cliOutput, &cliErrors); code != 0 || !strings.HasPrefix(cliOutput.String(), "wrapper noise") {
+		t.Fatalf("raw log is not exact JSONL/stdout: %s %s", cliOutput.String(), cliErrors.String())
+	}
+	commit, _ := exec.Command("git", "-C", store, "log", "-1", "--pretty=%s").Output()
+	if strings.TrimSpace(string(commit)) != "consolidate: test memory" {
+		t.Fatalf("unexpected commit: %s", commit)
 	}
 }
 
@@ -198,6 +221,24 @@ func TestConsolidationRefusesStagedChanges(t *testing.T) {
 	_, err := consolidateStore(store, nil, fake, false)
 	if err == nil || !strings.Contains(err.Error(), "staged changes") {
 		t.Fatalf("expected staged changes error, got %v", err)
+	}
+}
+
+func TestFailedConsolidationRetainsAuditLog(t *testing.T) {
+	store := testStore(t)
+	os.WriteFile(filepath.Join(store, "inbox", "2026-08-17-note"), []byte("source"), 0o644)
+	fake := filepath.Join(t.TempDir(), "failing-codex")
+	os.WriteFile(fake, []byte("#!/bin/sh\nprintf '%s\\n' '{\"type\":\"turn.started\"}'\nprintf '%s\\n' 'diagnostic failure' >&2\nexit 7\n"), 0o755)
+	_, err := consolidateStore(store, nil, fake, false)
+	if err == nil || !strings.Contains(err.Error(), "exit status 7") || !strings.Contains(err.Error(), "log:") {
+		t.Fatalf("unexpected failure: %v", err)
+	}
+	log, loadErr := loadRunLog(store, "latest")
+	if loadErr != nil {
+		t.Fatal(loadErr)
+	}
+	if log.Metadata.Status != "failed" || log.Metadata.ExitCode == nil || *log.Metadata.ExitCode != 7 || !strings.Contains(log.Stderr, "diagnostic failure") {
+		t.Fatalf("failed run was not fully recorded: %#v", log)
 	}
 }
 
@@ -249,6 +290,10 @@ git -C "$store" add Index.md nodes inbox archive meta
 git -C "$store" commit --quiet -m 'consolidate: test memory'
 printf '%s\n' 'Created Design Principles; archived design chat.' > "$report"
 printf '%s\n' 'wrapper noise from a custom launcher'
+printf '%s\n' '{"type":"thread.started","thread_id":"test-thread"}'
+printf '%s\n' '{"type":"item.completed","item":{"id":"item-1","type":"agent_message","text":"Created Design Principles"}}'
+printf '%s\n' '{"type":"item.completed","item":{"id":"item-2","type":"command_execution","command":"cathedral check","aggregated_output":"Store is valid.","status":"completed"}}'
+printf '%s\n' '{"type":"turn.completed","usage":{"input_tokens":100,"output_tokens":20}}'
 `
 
 func Example() {

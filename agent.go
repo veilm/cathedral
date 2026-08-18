@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -19,6 +18,7 @@ type consolidationResult struct {
 	Diff               *string  `json:"diff"`
 	ValidationErrors   int      `json:"validation_errors"`
 	ValidationWarnings int      `json:"validation_warnings"`
+	Log                string   `json:"log"`
 }
 
 func shellSplit(value string) ([]string, error) {
@@ -136,47 +136,70 @@ func stagedChangesExist(store string) bool {
 	return false
 }
 
-func runCodex(store string, names []string, commandValue string) (string, []string, error) {
+func runCodex(store, auditStore string, names []string, commandValue string, dryRun bool) (string, []string, string, error) {
 	prefix, err := shellSplit(commandValue)
 	if err != nil {
-		return "", nil, err
+		return "", nil, "", err
+	}
+	logDirectory, metadata, err := createRunLog(auditStore, names, dryRun)
+	if err != nil {
+		return "", nil, "", err
 	}
 	reportFile, err := os.CreateTemp("", "cathedral-report-")
 	if err != nil {
-		return "", nil, err
+		return "", nil, logDirectory, err
 	}
 	reportPath := reportFile.Name()
 	if err := reportFile.Close(); err != nil {
-		return "", nil, err
+		return "", nil, logDirectory, err
 	}
 	defer os.Remove(reportPath)
 	arguments := append(append([]string{}, prefix[1:]...),
 		"exec", "--sandbox", "workspace-write", "--ephemeral", "--cd", store,
-		"--output-last-message", reportPath, taskPrompt(store, names))
-	command := exec.Command(prefix[0], arguments...)
-	var stdout bytes.Buffer
-	command.Stdout = &stdout
-	command.Stderr = os.Stderr
-	if err := command.Run(); err != nil {
-		if exit, ok := err.(*exec.ExitError); ok {
-			return "", nil, fmt.Errorf("Codex consolidation failed with exit status %d", exit.ExitCode())
-		}
-		return "", nil, fmt.Errorf("Codex consolidation failed: %w", err)
-	}
-	report, err := os.ReadFile(reportPath)
-	if err != nil {
-		return "", nil, err
-	}
-	if len(strings.TrimSpace(string(report))) == 0 {
-		report = stdout.Bytes()
-	}
+		"--json", "--output-last-message", reportPath, taskPrompt(store, names))
 	display := append([]string{prefix[0]}, arguments...)
 	for index, argument := range display {
 		if argument == reportPath {
 			display[index] = "<temporary-report>"
 		}
 	}
-	return strings.TrimSpace(string(report)), display, nil
+	metadata.Command = display
+	if err := writeRunMetadata(logDirectory, metadata); err != nil {
+		return "", nil, logDirectory, err
+	}
+	eventsFile, err := os.OpenFile(filepath.Join(logDirectory, "events.jsonl"), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
+	if err != nil {
+		return "", nil, logDirectory, err
+	}
+	defer eventsFile.Close()
+	stderrFile, err := os.OpenFile(filepath.Join(logDirectory, "stderr.log"), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
+	if err != nil {
+		return "", nil, logDirectory, err
+	}
+	defer stderrFile.Close()
+	command := exec.Command(prefix[0], arguments...)
+	command.Stdout = eventsFile
+	command.Stderr = io.MultiWriter(os.Stderr, stderrFile)
+	if err := command.Run(); err != nil {
+		exitCode := -1
+		if exit, ok := err.(*exec.ExitError); ok {
+			exitCode = exit.ExitCode()
+			_ = finishRunLog(logDirectory, metadata, "failed", exitCode, "")
+			return "", nil, logDirectory, fmt.Errorf("Codex consolidation failed with exit status %d", exitCode)
+		}
+		_ = finishRunLog(logDirectory, metadata, "failed", exitCode, "")
+		return "", nil, logDirectory, fmt.Errorf("Codex consolidation failed: %w", err)
+	}
+	report, err := os.ReadFile(reportPath)
+	if err != nil {
+		_ = finishRunLog(logDirectory, metadata, "failed", 0, "")
+		return "", nil, logDirectory, err
+	}
+	reportText := strings.TrimSpace(string(report))
+	if err := finishRunLog(logDirectory, metadata, "completed", 0, reportText); err != nil {
+		return "", nil, logDirectory, err
+	}
+	return reportText, display, logDirectory, nil
 }
 
 func consolidateStore(store string, requested []string, commandOverride string, dryRun bool) (consolidationResult, error) {
@@ -202,12 +225,12 @@ func consolidateStore(store string, requested []string, commandOverride string, 
 		if stagedChangesExist(store) {
 			return consolidationResult{}, errors.New("refusing to consolidate while the Git repository has staged changes")
 		}
-		report, command, err := runCodex(store, names, commandValue)
+		report, command, logDirectory, err := runCodex(store, store, names, commandValue, false)
 		if err != nil {
-			return consolidationResult{}, err
+			return consolidationResult{}, fmt.Errorf("%w; log: %s", err, logDirectory)
 		}
 		errorsCount, warningsCount := findingCounts(checkStore(store))
-		return consolidationResult{report, command, false, nil, errorsCount, warningsCount}, nil
+		return consolidationResult{report, command, false, nil, errorsCount, warningsCount, logDirectory}, nil
 	}
 	temporary, err := os.MkdirTemp("", "cathedral-dry-run-")
 	if err != nil {
@@ -222,9 +245,9 @@ func consolidateStore(store string, requested []string, commandOverride string, 
 	if err != nil {
 		return consolidationResult{}, err
 	}
-	report, command, err := runCodex(preview, names, commandValue)
+	report, command, logDirectory, err := runCodex(preview, store, names, commandValue, true)
 	if err != nil {
-		return consolidationResult{}, err
+		return consolidationResult{}, fmt.Errorf("%w; log: %s", err, logDirectory)
 	}
 	diffCommand := exec.Command("git", "-C", preview, "diff", "--no-ext-diff", baseline, "--")
 	diffOutput, diffErr := diffCommand.Output()
@@ -238,7 +261,7 @@ func consolidateStore(store string, requested []string, commandOverride string, 
 		}
 	}
 	errorsCount, warningsCount := findingCounts(checkStore(preview))
-	return consolidationResult{report, command, true, &diff, errorsCount, warningsCount}, nil
+	return consolidationResult{report, command, true, &diff, errorsCount, warningsCount, logDirectory}, nil
 }
 
 func copyStoreForPreview(source, destination string) error {

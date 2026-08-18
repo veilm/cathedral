@@ -28,6 +28,7 @@ commands:
   node          inspect or deliberately edit content nodes
   source        inspect or edit trust and salience entries
   archive       inspect processed raw material
+  log           inspect Codex consolidation event logs
 
 global options may appear before or after a command:
   --store PATH          store path (default: cwd or CATHEDRAL_STORE)
@@ -159,6 +160,7 @@ func run(arguments []string, stdin io.Reader, stdout, stderr io.Writer) int {
 				fmt.Fprintln(stdout, result.Report)
 			}
 			fmt.Fprintf(stdout, "\nValidation: %d errors, %d warnings\n", result.ValidationErrors, result.ValidationWarnings)
+			fmt.Fprintf(stdout, "Log: %s\n", result.Log)
 			if result.DryRun {
 				fmt.Fprintln(stdout, "\n# Proposed changes")
 				if result.Diff == nil || *result.Diff == "" {
@@ -225,10 +227,81 @@ func run(arguments []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		return sourceCommand(store, args, format, stdout, stderr)
 	case "archive":
 		return archiveCommand(store, args, format, stdout, stderr)
+	case "log":
+		return logCommand(store, args, format, stdout, stderr)
 	default:
 		return emitError(fmt.Errorf("unknown command: %s", command), format, stdout, stderr)
 	}
 	return 0
+}
+
+func logCommand(store string, args []string, format string, stdout, stderr io.Writer) int {
+	if len(args) == 0 {
+		return emitError(errors.New("log requires list, show, or path"), format, stdout, stderr)
+	}
+	switch args[0] {
+	case "list":
+		if len(args) != 1 {
+			return emitError(errors.New("log list accepts no arguments"), format, stdout, stderr)
+		}
+		runs, err := listRunLogs(store)
+		if err != nil {
+			return emitError(err, format, stdout, stderr)
+		}
+		if format == "json" {
+			emitJSON(stdout, runs)
+		} else if len(runs) == 0 {
+			fmt.Fprintln(stdout, "No consolidation logs.")
+		} else {
+			for _, run := range runs {
+				mode := "run"
+				if run.DryRun {
+					mode = "dry-run"
+				}
+				fmt.Fprintf(stdout, "%s\t%s\t%s\t%d\t%s\n", run.ID, run.Status, mode, run.StartedAt, strings.Join(run.Items, ","))
+			}
+		}
+		return 0
+	case "show":
+		raw, remaining := takeBool(args[1:], "--raw")
+		if len(remaining) > 1 {
+			return emitError(errors.New("log show accepts at most one run ID"), format, stdout, stderr)
+		}
+		id := ""
+		if len(remaining) == 1 {
+			id = remaining[0]
+		}
+		log, err := loadRunLog(store, id)
+		if err != nil {
+			return emitError(err, format, stdout, stderr)
+		}
+		if format == "json" {
+			emitJSON(stdout, log)
+		} else {
+			renderRunLog(stdout, log, raw)
+		}
+		return 0
+	case "path":
+		if len(args) > 2 {
+			return emitError(errors.New("log path accepts at most one run ID"), format, stdout, stderr)
+		}
+		id := ""
+		if len(args) == 2 {
+			id = args[1]
+		}
+		path, err := resolveRunDirectory(store, id)
+		if err != nil {
+			return emitError(err, format, stdout, stderr)
+		}
+		if format == "json" {
+			emitJSON(stdout, map[string]string{"path": path})
+		} else {
+			fmt.Fprintln(stdout, path)
+		}
+		return 0
+	default:
+		return emitError(fmt.Errorf("unknown log command: %s", args[0]), format, stdout, stderr)
+	}
 }
 
 func nodeCommand(store string, args []string, format string, stdout, stderr io.Writer) int {
