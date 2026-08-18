@@ -143,6 +143,7 @@ Every attempted Codex run—successful, failed, or test run—gets a durable art
 ```text
 run.json       # status, timestamps, inputs, command, exit code, final report
 events.jsonl   # raw Codex JSONL events and any custom-launcher stdout
+events-summary.txt # concise, human-readable command and message trace
 stderr.log     # Codex and launcher stderr
 report.md      # final agent message
 consolidation.diff  # changes from the run baseline

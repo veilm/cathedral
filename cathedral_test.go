@@ -227,6 +227,10 @@ func TestConsolidationCustomCommandAndReportIsolation(t *testing.T) {
 	if result.Log == "" || !pathExists(filepath.Join(result.Log, "events.jsonl")) {
 		t.Fatalf("consolidation event log is missing: %q", result.Log)
 	}
+	summary, err := os.ReadFile(filepath.Join(result.Log, "events-summary.txt"))
+	if err != nil || !strings.Contains(string(summary), "Codex message:\nCreated Design Principles") || !strings.Contains(string(summary), "Command:\ncathedral check") || strings.Contains(string(summary), "item.completed") {
+		t.Fatalf("event summary is missing or too raw: %q (%v)", summary, err)
+	}
 	log, err := loadRunLog(store, "latest")
 	if err != nil {
 		t.Fatal(err)
@@ -304,7 +308,7 @@ func TestConsolidationTestRunRetainsInspectableArtifacts(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = os.RemoveAll(result.Log) })
-	for _, name := range []string{"run.json", "report.md", "events.jsonl", "stderr.log", "consolidation.diff", "store"} {
+	for _, name := range []string{"run.json", "report.md", "events.jsonl", "events-summary.txt", "stderr.log", "consolidation.diff", "store"} {
 		if !pathExists(filepath.Join(result.Log, name)) {
 			t.Errorf("test-run artifact is missing: %s", name)
 		}
@@ -315,6 +319,14 @@ func TestConsolidationTestRunRetainsInspectableArtifacts(t *testing.T) {
 	stderr, readErr := os.ReadFile(filepath.Join(result.Log, "stderr.log"))
 	if readErr != nil || !strings.Contains(string(stderr), "Reading additional input from standard in") {
 		t.Fatalf("raw Codex stderr was not retained: %q (%v)", stderr, readErr)
+	}
+}
+
+func TestTaskPromptStartsWithPlease(t *testing.T) {
+	store := testStore(t)
+	os.WriteFile(filepath.Join(store, "inbox", "2026-08-17-note"), []byte("source"), 0o644)
+	if prompt := taskPrompt(store, nil); !strings.HasPrefix(prompt, "Please read meta/Consolidation.md") {
+		t.Fatalf("unexpected consolidation prompt: %q", prompt)
 	}
 }
 

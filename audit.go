@@ -211,6 +211,126 @@ func readEvents(path string) ([]any, error) {
 	return result, scanner.Err()
 }
 
+func writeEventsSummary(directory string) error {
+	events, err := readEvents(filepath.Join(directory, "events.jsonl"))
+	if err != nil {
+		return err
+	}
+	var output strings.Builder
+	output.WriteString("Codex event summary\n\n")
+	meaningful := 0
+	for _, value := range events {
+		event, ok := value.(map[string]any)
+		if !ok {
+			text := strings.TrimSpace(fmt.Sprint(value))
+			if text != "" {
+				fmt.Fprintf(&output, "Launcher output:\n%s\n\n", text)
+				meaningful++
+			}
+			continue
+		}
+		eventType, _ := event["type"].(string)
+		if eventType == "turn.completed" {
+			output.WriteString("Codex finished.\n\n")
+			meaningful++
+			continue
+		}
+		if eventType != "item.completed" && eventType != "item.failed" {
+			continue
+		}
+		item, ok := event["item"].(map[string]any)
+		if !ok {
+			continue
+		}
+		itemType, _ := item["type"].(string)
+		if eventType == "item.failed" {
+			fmt.Fprintf(&output, "Failed %s.\n\n", friendlyItemType(itemType))
+			meaningful++
+			continue
+		}
+		switch itemType {
+		case "agent_message":
+			if text := itemString(item, "text"); text != "" {
+				fmt.Fprintf(&output, "Codex message:\n%s\n\n", text)
+				meaningful++
+			}
+		case "command_execution":
+			if command := itemString(item, "command"); command != "" {
+				fmt.Fprintf(&output, "Command:\n%s\n", command)
+				if result := itemString(item, "aggregated_output"); result != "" {
+					fmt.Fprintf(&output, "Output:\n%s\n", result)
+				}
+				output.WriteString("\n")
+				meaningful++
+			}
+		case "file_change":
+			if changes, exists := item["changes"]; exists {
+				fmt.Fprintf(&output, "File changes:\n%s\n\n", summarizeChanges(changes))
+				meaningful++
+			}
+		case "reasoning":
+			// Reasoning is intentionally omitted from the human activity summary.
+		default:
+			if text := itemString(item, "text"); text != "" {
+				fmt.Fprintf(&output, "%s:\n%s\n\n", friendlyItemType(itemType), text)
+				meaningful++
+			}
+		}
+	}
+	if meaningful == 0 {
+		output.WriteString("No completed Codex actions were recorded.\n")
+	}
+	return os.WriteFile(filepath.Join(directory, "events-summary.txt"), []byte(output.String()), 0o600)
+}
+
+func itemString(item map[string]any, key string) string {
+	value, _ := item[key].(string)
+	return strings.TrimSpace(value)
+}
+
+func friendlyItemType(itemType string) string {
+	if itemType == "" {
+		return "Codex activity"
+	}
+	return strings.ReplaceAll(itemType, "_", " ")
+}
+
+func summarizeChanges(changes any) string {
+	values, ok := changes.([]any)
+	if ok {
+		lines := []string{}
+		for _, value := range values {
+			change, ok := value.(map[string]any)
+			if !ok {
+				continue
+			}
+			path := itemString(change, "path")
+			if path == "" {
+				path = itemString(change, "file_path")
+			}
+			kind := itemString(change, "kind")
+			if kind == "" {
+				kind = itemString(change, "status")
+			}
+			if path != "" {
+				if kind != "" {
+					lines = append(lines, "- "+kind+": "+path)
+				} else {
+					lines = append(lines, "- "+path)
+				}
+			}
+		}
+		if len(lines) != 0 {
+			return strings.Join(lines, "\n")
+		}
+	}
+	encoded, err := json.Marshal(changes)
+	if err != nil {
+		return "(unavailable)"
+	}
+	return string(encoded)
+}
+
 func renderRunLog(output io.Writer, log runLog, raw bool) {
 	if raw {
 		directory, _ := resolveRunDirectory(log.Metadata.Store, log.Metadata.ID)
